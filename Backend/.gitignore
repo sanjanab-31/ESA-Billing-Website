@@ -29,3 +29,4 @@ coverage/
 
 # Build files
 dist/
+serviceAccountKey.json
