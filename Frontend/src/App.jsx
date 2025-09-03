@@ -4,6 +4,8 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-d
 import SignIn from "./pages/auth/SiginIn";
 import Dashboard from "./pages/dashboard/Dashboard";
 import { AuthContext } from "./context/AuthContext";
+import ClientManagement from "./pages/clients/ClientManagement";
+import { TrendingUp, AlertCircle, MapPin, Phone, Mail, Trash2 } from "lucide-react";
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useContext(AuthContext);
@@ -24,6 +26,11 @@ export default function App() {
         <Route path="/dashboard" element={
           <ProtectedRoute>
             <Dashboard />
+          </ProtectedRoute>
+        } />
+        <Route path="/clients" element={
+          <ProtectedRoute>
+            <ClientManagement />
           </ProtectedRoute>
         } />
         {/* Add other routes */}
