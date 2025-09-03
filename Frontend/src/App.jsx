@@ -3,7 +3,7 @@ import React, { useContext } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import SignIn from "./pages/auth/SiginIn";   // ✅ fixed typo: SiginIn → SignIn
 import Dashboard from "./pages/dashboard/Dashboard";
-import Invoices from "./pages/invoices/Createinvoice";
+import Invoices from "./pages/invoices/InvoiceManagement";
 import Clients from "./pages/clients/ClientsList";
 import Products from "./pages/products/ProductsList";
 import Reports from "./pages/reports/ClientWise";
