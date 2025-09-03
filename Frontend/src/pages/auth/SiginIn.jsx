@@ -31,7 +31,7 @@ export default function SignIn() {
     <div className="flex min-h-screen items-center justify-center bg-gray-50">
       <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-lg">
         <div className="mb-6 text-center">
-          <img src="/logo.png" alt="ESA Logo" className="mx-auto mb-3 h-12 w-12" />
+          <img src="https://res.cloudinary.com/dnmvriw3e/image/upload/v1756868204/ESA_uggt8u.png" alt="ESA Logo" className="mx-auto mb-3 h-12 w-12" />
           <h1 className="text-2xl font-semibold text-gray-800">Welcome Back</h1>
           <p className="text-sm text-gray-500">Sign in to continue</p>
         </div>
