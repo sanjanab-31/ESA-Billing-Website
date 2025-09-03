@@ -1,7 +1,7 @@
 // frontend/src/pages/auth/SignIn.jsx
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { signInWithEmailAndPassword } from "firebase/auth";
+import { signInWithEmailAndPassword, setPersistence, browserSessionPersistence } from "firebase/auth";
 import { auth } from "../../firebase/firebaseClient";
 
 export default function SignIn() {
@@ -14,8 +14,13 @@ export default function SignIn() {
     e.preventDefault();
     setError("");
     try {
+      // Ensure session-only persistence
+      await setPersistence(auth, browserSessionPersistence);
+
+      // Sign in user
       await signInWithEmailAndPassword(auth, email, password);
-      // AuthContext will pick up the user and axios interceptor will attach token
+
+      // Navigate after successful login
       navigate("/dashboard", { replace: true });
     } catch (err) {
       setError(err.message);
@@ -58,13 +63,17 @@ export default function SignIn() {
 
           {error && <p className="text-sm text-red-500">{error}</p>}
 
-          <button type="submit" className="w-full rounded-xl bg-blue-600 py-3 text-white font-medium shadow-md hover:bg-blue-700">
+          <button
+            type="submit"
+            className="w-full rounded-xl bg-blue-600 py-3 text-white font-medium shadow-md hover:bg-blue-700"
+          >
             Sign In
           </button>
         </form>
 
         <p className="mt-6 text-center text-sm text-gray-500">
-          Don’t have an account? <a href="/signup" className="text-blue-600">Sign Up</a>
+          Don’t have an account?{" "}
+          <a href="/signup" className="text-blue-600">Sign Up</a>
         </p>
       </div>
     </div>
