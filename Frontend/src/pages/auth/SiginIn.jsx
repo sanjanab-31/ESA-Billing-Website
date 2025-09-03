@@ -91,13 +91,6 @@ export default function SignIn() {
             Sign In
           </button>
         </form>
-
-        <p className="mt-6 text-center text-sm text-gray-500">
-          Don’t have an account?{" "}
-          <a href="/signup" className="text-blue-600">
-            Sign Up
-          </a>
-        </p>
       </div>
     </div>
   );
