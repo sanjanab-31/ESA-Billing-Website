@@ -4,13 +4,15 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-d
 import SignIn from "./pages/auth/SiginIn";   // ✅ fixed typo: SiginIn → SignIn
 import Dashboard from "./pages/dashboard/Dashboard";
 import Invoices from "./pages/invoices/InvoiceManagement";
-import Clients from "./pages/clients/ClientsList";
 import Products from "./pages/products/ProductsList";
-import Reports from "./pages/reports/ClientWise";
-import Payments from "./pages/payments/AllPayments";
-import Settings from "./pages/settings/Company";
+import Payments from "./pages/payments/Payment";
 import Header from "./components/Header";
 import { AuthContext } from "./context/AuthContext";
+import Clients from "./pages/clients/ClientManagement";
+import { TrendingUp, AlertCircle, MapPin, Phone, Mail, Trash2 } from "lucide-react";
+import Report from "./pages/reports/RevenueLineChart";
+import Settings from "./pages/settings/SettingsPage"
+
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useContext(AuthContext);
@@ -39,7 +41,7 @@ export default function App() {
                     <Route path="/invoices" element={<Invoices />} />
                     <Route path="/clients" element={<Clients />} />
                     <Route path="/products" element={<Products />} />
-                    <Route path="/reports" element={<Reports />} />
+                    <Route path="/reports" element={<Report />} />
                     <Route path="/payments" element={<Payments />} />
                     <Route path="/settings" element={<Settings />} />
                   </Routes>

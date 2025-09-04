@@ -1,10 +1,8 @@
-// backend/src/routes/invoiceRoutes.js
-const express = require("express");
+const express = require('express');
 const router = express.Router();
+const invoiceController = require('../controllers/invoiceController');
 
-router.get("/", (req, res) => {
-  // req.user.uid is available from Firebase token
-  res.json({ invoices: [], user: req.user });
-});
+// Placeholder route
+router.get('/', invoiceController.getInvoices);
 
 module.exports = router;
