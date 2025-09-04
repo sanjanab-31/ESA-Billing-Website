@@ -1,4 +1,4 @@
-# Node modules
+# Node.js dependencies
 node_modules/
 
 # Logs
@@ -7,26 +7,20 @@ logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
 
 # Environment variables
 .env
+.env.local
+.env.*.local
 
-# OS files
-.DS_Store
-Thumbs.db
-
-# Editor folders
-.vscode/
-.idea/
-
-# Runtime data
-pids
-*.pid
-*.seed
-
-# Coverage reports
+# Cache / temp
+.cache/
+tmp/
+dist/
+build/
 coverage/
 
-# Build files
-dist/
-serviceAccountKey.json
+# System files
+.DS_Store
+Thumbs.db
