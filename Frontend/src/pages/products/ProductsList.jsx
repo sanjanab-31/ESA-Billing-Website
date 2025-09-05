@@ -13,7 +13,7 @@ const initialProducts = [
 // --- Reusable Modal Wrapper for the Overlay Effect ---
 const ModalWrapper = ({ children, onClose }) => (
     <div 
-        className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4"
+        className="fixed inset-0 bg-black bg-opacity-50 modal-backdrop flex justify-center items-center z-50 p-4"
         onClick={onClose}
     >
         <div 
@@ -56,13 +56,10 @@ const ProductFormModal = ({ onClose, onSave, productToEdit }) => {
         <ModalWrapper onClose={onClose}>
             <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600" title="Close"><X size={18} /></button>
             <div className="p-6">
-                {/* FONT CHANGE: Modal title */}
                 <h2 className="text-lg font-bold text-gray-900 mb-4">{modalTitle}</h2>
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
-                        {/* FONT CHANGE: Label text size */}
                         <label htmlFor="productName" className="block text-sm text-gray-700 mb-1">Product Name *</label>
-                        {/* FONT CHANGE: Input text size */}
                         <input id="productName" type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Enter product name" className="w-full px-3 py-2 bg-gray-100 border-0 rounded-lg text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500" required />
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -76,7 +73,6 @@ const ProductFormModal = ({ onClose, onSave, productToEdit }) => {
                         </div>
                     </div>
                     <div className="flex gap-4 pt-2">
-                        {/* FONT CHANGE: Button text size and weight */}
                         <button type="button" onClick={onClose} className="flex-1 px-4 py-2 bg-white border border-gray-200 text-gray-900 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">Cancel</button>
                         <button type="submit" className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">{submitButtonText}</button>
                     </div>
@@ -93,7 +89,6 @@ const ProductViewModal = ({ product, onClose }) => {
         <ModalWrapper onClose={onClose}>
             <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600" title="Close"><X size={18} /></button>
             <div className="p-6">
-                {/* FONT CHANGE: Modal title */}
                 <h2 className="text-lg font-bold text-gray-900 mb-4">Product Details</h2>
                 <div className="space-y-3 text-sm">
                     <div className="flex justify-between border-b pb-2"><span className="text-gray-600">S.No:</span> <span className="font-medium text-gray-800">{product.displayId}</span></div>
@@ -103,7 +98,6 @@ const ProductViewModal = ({ product, onClose }) => {
                     <div className="flex justify-between"><span className="text-gray-600">Total Revenue:</span> <span className="font-medium text-gray-800">{product.revenue}</span></div>
                 </div>
                  <div className="flex justify-end pt-6">
-                    {/* FONT CHANGE: Button text size */}
                     <button type="button" onClick={onClose} className="px-6 py-2 text-sm font-medium text-white bg-gray-500 rounded-lg hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400">Close</button>
                 </div>
             </div>
@@ -112,15 +106,15 @@ const ProductViewModal = ({ product, onClose }) => {
 };
 
 // --- Delete Confirmation Modal ---
-const DeleteConfirmationModal = ({ onClose, onConfirm }) => {
+const DeleteConfirmationModal = ({ onClose, onConfirm, productName }) => {
     return (
         <ModalWrapper onClose={onClose}>
             <div className="p-6 text-center">
-                 {/* FONT CHANGE: Modal title */}
                 <h2 className="text-lg font-bold text-gray-900 mb-2">Confirm Deletion</h2>
-                <p className="text-sm text-gray-600 mb-6">Are you sure you want to delete this product? This action cannot be undone.</p>
+                <p className="text-sm text-gray-600 mb-6">
+                    Are you sure you want to delete <strong>{productName}</strong>? This action cannot be undone.
+                </p>
                 <div className="flex justify-center gap-4">
-                    {/* FONT CHANGE: Button text size and weight */}
                     <button type="button" onClick={onClose} className="flex-1 px-4 py-2 bg-white border border-gray-200 text-gray-900 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">Cancel</button>
                     <button type="button" onClick={onConfirm} className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition-colors">Delete</button>
                 </div>
@@ -141,7 +135,7 @@ const ProductRow = ({ product, serialNumber, onView, onEdit, onDelete }) => (
             <div className="flex items-center gap-1">
                 <button onClick={() => onView(product)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors" title="View Details"><Eye size={16} className="text-gray-700" /></button>
                 <button onClick={() => onEdit(product)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors" title="Edit Product"><Edit size={16} className="text-gray-700" /></button>
-                <button onClick={() => onDelete(product.id)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors" title="Delete Product"><Trash2 size={16} className="text-gray-700" /></button>
+                <button onClick={() => onDelete(product)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors" title="Delete Product"><Trash2 size={16} className="text-gray-700" /></button>
             </div>
         </td>
     </tr>
@@ -179,8 +173,8 @@ export default function App() {
     closeModal();
   };
 
-  const handleDeleteProduct = (productId) => {
-    setModal({ isOpen: true, type: 'delete', data: { id: productId } });
+  const handleDeleteProduct = (product) => {
+    setModal({ isOpen: true, type: 'delete', data: product });
   };
   
   const confirmDelete = () => {
@@ -192,24 +186,26 @@ export default function App() {
 
   return (
     <>
-      {/* PADDING CHANGE: Updated main container to match other pages */}
       <div className="min-h-screen bg-white font-sans">
         <div className="max-w-7xl mx-auto px-8 pb-8 pt-32">
           <header className="flex flex-col lg:flex-row justify-between items-start lg:items-center">
               <div>
-                  {/* FONT CHANGE: Page title */}
                   <h1 className="text-2xl font-bold text-gray-900">Product Management</h1>
                   <p className="text-sm text-gray-500 mt-1">View all your products in one place</p>
               </div>
               <div className="flex items-center gap-4 w-full lg:w-auto mt-4 lg:mt-0">
+                  {/* --- SEARCH BAR: Start of Changes --- */}
                   <div className="relative flex-1 lg:flex-none">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <Search size={16} className="text-gray-400" />
-                      </div>
-                      {/* FONT & STYLE CHANGE: Search input */}
-                      <input type="text" placeholder="Search by HSN or Name..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full lg:w-80 pl-9 pr-3 py-2 bg-white border border-gray-300 rounded-lg text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <input
+                        type="text"
+                        placeholder="Search by HSN or Name..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full lg:w-80 bg-gray-100 rounded-lg pl-9 pr-4 py-2 text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
                   </div>
-                  {/* FONT CHANGE: Button text size and weight */}
+                  {/* --- SEARCH BAR: End of Changes --- */}
                   <button onClick={() => setModal({ isOpen: true, type: 'add', data: null })} className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">
                       <Plus size={16} />
                       Add Product
@@ -220,7 +216,6 @@ export default function App() {
           <main className="mt-8">
             <div className="bg-white border border-gray-200 rounded-xl overflow-x-auto">
                 <table className="w-full min-w-[900px]">
-                    {/* FONT & STYLE CHANGE: Table Header */}
                     <thead className="bg-gray-50 text-xs font-semibold uppercase tracking-wider text-gray-500 border-b border-gray-200">
                         <tr>
                             <th className="px-4 py-3 text-left w-24">S.No</th>
@@ -266,7 +261,13 @@ export default function App() {
                     productToEdit={modal.type === 'edit' ? modal.data : null}
                 />
             )}
-            {modal.type === 'delete' && <DeleteConfirmationModal onClose={closeModal} onConfirm={confirmDelete} />}
+            {modal.type === 'delete' && (
+              <DeleteConfirmationModal 
+                onClose={closeModal} 
+                onConfirm={confirmDelete} 
+                productName={modal.data?.name} 
+              />
+            )}
         </>
       )}
     </>

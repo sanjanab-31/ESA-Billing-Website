@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, Eye, Edit, MoreHorizontal, X, FileText, TrendingUp, AlertCircle, MapPin, Phone, Mail, Trash2 } from 'lucide-react';
+// CHANGED: Imported the 'Search' icon
+import { Plus, Eye, Edit, MoreHorizontal, X, FileText, TrendingUp, AlertCircle, MapPin, Phone, Mail, Trash2, Search } from 'lucide-react';
 
 const ClientManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -10,6 +11,10 @@ const ClientManagement = () => {
   const [dropdownOpen, setDropdownOpen] = useState(null);
   const dropdownRef = useRef(null);
   
+  // CHANGED: Added state for the delete confirmation modal
+  const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
+  const [clientToDelete, setClientToDelete] = useState(null);
+
   const [clients, setClients] = useState([
     {
       id: 1,
@@ -170,10 +175,27 @@ const ClientManagement = () => {
       setEditFormData({ name: '', gstin: '', phone: '', email: '', address: '' });
     }
   };
-
-  const handleDeleteClient = (clientId) => {
-    setClients(prev => prev.filter(client => client.id !== clientId));
+  
+  // CHANGED: This function now opens the confirmation modal
+  const handleDeleteClient = (client) => {
+    setClientToDelete(client);
+    setShowDeleteConfirmModal(true);
     setDropdownOpen(null);
+  };
+
+  // CHANGED: New function to perform the actual deletion
+  const confirmDelete = () => {
+    if (clientToDelete) {
+      setClients(prev => prev.filter(client => client.id !== clientToDelete.id));
+      setShowDeleteConfirmModal(false);
+      setClientToDelete(null);
+    }
+  };
+
+  // CHANGED: New function to cancel the deletion
+  const cancelDelete = () => {
+    setShowDeleteConfirmModal(false);
+    setClientToDelete(null);
   };
 
   const handleCancelEdit = () => {
@@ -200,11 +222,8 @@ const ClientManagement = () => {
   }, []);
 
   return (
-    // CHANGED: Set background to white and removed outer padding
     <div className="min-h-screen bg-white font-sans">
-      {/* CHANGED: Added a single container to manage padding and width */}
       <div className="max-w-7xl mx-auto px-8 pb-8 pt-32">
-        {/* Header Section */}
         <header className="flex flex-col lg:flex-row justify-between items-start lg:items-center">
           <div className="flex-1">
             <h1 className="text-2xl font-bold text-gray-900">
@@ -215,15 +234,18 @@ const ClientManagement = () => {
             </p>
           </div>
           <div className="flex items-center gap-4 w-full lg:w-auto mt-4 lg:mt-0">
+            {/* --- SEARCH BAR: Start of Changes --- */}
             <div className="relative flex-1 lg:flex-none">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
                 type="text"
                 placeholder="Search clients..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full lg:w-80 px-3 py-2 bg-gray-100 border-0 rounded-lg text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full lg:w-80 bg-gray-100 rounded-lg pl-9 pr-4 py-2 text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
+            {/* --- SEARCH BAR: End of Changes --- */}
             <button 
               onClick={() => setShowAddModal(true)}
               className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors" 
@@ -234,9 +256,7 @@ const ClientManagement = () => {
           </div>
         </header>
 
-        {/* Main Content */}
         <main className="mt-8">
-          {/* Table Container */}
           <div className="bg-white border border-gray-200 rounded-xl overflow-x-auto">
             <table className="w-full min-w-[1100px]">
               <thead className="bg-gray-50 text-xs font-semibold uppercase tracking-wider text-gray-500 border-b border-gray-200">
@@ -276,7 +296,8 @@ const ClientManagement = () => {
                           </button>
                           {dropdownOpen === client.id && (
                             <div className="absolute right-0 mt-1 w-36 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
-                              <button onClick={() => handleDeleteClient(client.id)} className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 rounded-lg">
+                              {/* CHANGED: onClick now calls handleDeleteClient with the full client object */}
+                              <button onClick={() => handleDeleteClient(client)} className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 rounded-lg">
                                 <Trash2 size={14} />
                                 Delete Client
                               </button>
@@ -299,11 +320,42 @@ const ClientManagement = () => {
         </main>
       </div>
 
-      {/* --- MODALS (No layout changes needed for modals) --- */}
+      {/* --- MODALS --- */}
+      
+      {/* ADDED: Delete Confirmation Modal */}
+      {showDeleteConfirmModal && clientToDelete && (
+        <div className="fixed inset-0 black bg-opacity-50 modal-backdrop flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-sm mx-auto p-6">
+            <div className="text-center">
+              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100">
+                <AlertCircle className="h-6 w-6 text-red-600" />
+              </div>
+              <h3 className="text-lg leading-6 font-medium text-gray-900 mt-4">Delete Client</h3>
+              <div className="mt-2 px-4 text-sm text-gray-500">
+                <p>Are you sure you want to delete <strong>{clientToDelete.name}</strong>? This action cannot be undone.</p>
+              </div>
+            </div>
+            <div className="mt-6 flex gap-4">
+              <button 
+                onClick={cancelDelete} 
+                className="flex-1 px-4 py-2 bg-white border border-gray-300 text-gray-900 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={confirmDelete} 
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Add Client Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 black bg-opacity-50 modal-backdrop flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-auto relative">
             <button onClick={handleCancel} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600" title="Close"><X size={18} /></button>
             <div className="p-6">
@@ -345,7 +397,7 @@ const ClientManagement = () => {
 
       {/* Edit Client Modal */}
       {showEditModal && selectedClient && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 black bg-opacity-50 modal-backdrop flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-auto relative">
             <button onClick={handleCancelEdit} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600" title="Close"><X size={18} /></button>
             <div className="p-6">
@@ -387,7 +439,7 @@ const ClientManagement = () => {
 
       {/* Client Details Modal */}
       {showDetailsModal && selectedClient && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 black bg-opacity-50 modal-backdrop flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-auto relative overflow-hidden my-8">
             <div className="bg-blue-50 px-4 py-4 flex items-center gap-3 relative">
               <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
