@@ -612,24 +612,106 @@ const SystemSettings = () => {
 };
 
 const SecuritySettings = () => {
+    const { user, signOut } = useContext(AuthContext);
     const [security, setSecurity] = useState({
         twoFactor: false,
         loginAlerts: true,
         sessionTimeout: true,
     });
+    const [isLoading, setIsLoading] = useState(false);
+    const [message, setMessage] = useState({ text: '', type: '' });
     
-    const handleLogout = () => {
-        console.log("User logging out...");
-        alert("Logged out successfully! (Placeholder)");
+    // Load saved security settings from user's profile or database
+    useEffect(() => {
+        if (user) {
+            // Load saved settings from user profile or database
+            // For now, we'll use default values
+            setSecurity({
+                twoFactor: user.twoFactorEnabled || false,
+                loginAlerts: user.loginAlertsEnabled !== false, // Default to true if not set
+                sessionTimeout: user.sessionTimeoutEnabled !== false, // Default to true if not set
+            });
+        }
+    }, [user]);
+
+    const handleLogout = async () => {
+        try {
+            await signOut();
+            // The AuthContext will handle the redirection
+        } catch (error) {
+            console.error('Error during logout:', error);
+            setMessage({
+                text: 'Failed to log out. Please try again.',
+                type: 'error'
+            });
+        }
     };
 
-    const SecurityItem = ({ title, description, enabled, onToggle, button }) => (
+    const handleTwoFactorToggle = async () => {
+        try {
+            setIsLoading(true);
+            // In a real app, you would call an API to enable/disable 2FA
+            // For now, we'll just toggle the local state
+            const newTwoFactorState = !security.twoFactor;
+            setSecurity(prev => ({ ...prev, twoFactor: newTwoFactorState }));
+            
+            setMessage({
+                text: newTwoFactorState 
+                    ? 'Two-factor authentication has been enabled.' 
+                    : 'Two-factor authentication has been disabled.',
+                type: 'success'
+            });
+        } catch (error) {
+            console.error('Error updating two-factor authentication:', error);
+            setMessage({
+                text: 'Failed to update two-factor authentication. Please try again.',
+                type: 'error'
+            });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleSettingToggle = async (setting) => {
+        try {
+            setIsLoading(true);
+            const newValue = !security[setting];
+            setSecurity(prev => ({ ...prev, [setting]: newValue }));
+            
+            // In a real app, you would save this to the database
+            // await updateUserSettings({ [setting]: newValue });
+            
+            setMessage({
+                text: `${setting.split(/(?=[A-Z])/).join(' ').replace(/^./, str => str.toUpperCase())} has been ${newValue ? 'enabled' : 'disabled'}.`,
+                type: 'success'
+            });
+        } catch (error) {
+            console.error(`Error updating ${setting}:`, error);
+            setMessage({
+                text: `Failed to update ${setting}. Please try again.`,
+                type: 'error'
+            });
+            // Revert on error
+            setSecurity(prev => ({ ...prev, [setting]: !prev[setting] }));
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const SecurityItem = ({ title, description, enabled, onToggle, button, disabled = false }) => (
         <div className="p-4 border border-gray-200 rounded-lg flex items-center justify-between">
             <div>
                  <h4 className="font-medium text-gray-900 text-sm">{title}</h4>
                  <p className="text-xs text-gray-500">{description}</p>
             </div>
-            {button ? button : <ToggleSwitch enabled={enabled} setEnabled={onToggle} />}
+            {button ? button : (
+                <div className={disabled ? 'opacity-50 cursor-not-allowed' : ''}>
+                    <ToggleSwitch 
+                        enabled={enabled} 
+                        setEnabled={disabled ? () => {} : onToggle} 
+                    />
+                </div>
+            )}
         </div>
     );
 
@@ -652,8 +734,18 @@ const SecuritySettings = () => {
                         title="Two-Factor Authentication" 
                         description="Add an extra layer of security to your account" 
                         button={
-                            <button className="px-4 py-1.5 border border-gray-300 rounded-md text-sm font-medium hover:bg-gray-50">
-                                {security.twoFactor ? 'Disable 2FA' : 'Enable 2FA'}
+                            <button 
+                                onClick={handleTwoFactorToggle}
+                                disabled={isLoading}
+                                className={`px-4 py-1.5 border ${security.twoFactor ? 'border-red-300 hover:bg-red-50' : 'border-blue-300 hover:bg-blue-50'} rounded-md text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
+                            >
+                                {isLoading && security.twoFactor === !security.twoFactor ? (
+                                    'Updating...'
+                                ) : security.twoFactor ? (
+                                    'Disable 2FA'
+                                ) : (
+                                    'Enable 2FA'
+                                )}
                             </button>
                         }
                     />
@@ -661,13 +753,15 @@ const SecuritySettings = () => {
                         title="Login Alerts" 
                         description="Get notified of new login attempts" 
                         enabled={security.loginAlerts} 
-                        onToggle={() => setSecurity(p => ({...p, loginAlerts: !p.loginAlerts}))}
+                        onToggle={() => handleSettingToggle('loginAlerts')}
+                        disabled={isLoading}
                     />
                     <SecurityItem 
                         title="Session Timeout" 
                         description="Auto-logout after 30 minutes of inactivity" 
                         enabled={security.sessionTimeout} 
-                        onToggle={() => setSecurity(p => ({...p, sessionTimeout: !p.sessionTimeout}))}
+                        onToggle={() => handleSettingToggle('sessionTimeout')}
+                        disabled={isLoading}
                     />
                 </div>
                  <div className="border-t border-gray-200 pt-6">
