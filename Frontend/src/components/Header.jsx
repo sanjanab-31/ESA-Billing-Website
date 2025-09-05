@@ -1,9 +1,10 @@
-import { useEffect, useState, useRef } from "react";
+import { useContext, useEffect, useState, useRef } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { onAuthStateChanged, signOut } from "firebase/auth";
+import { signOut as firebaseSignOut } from "firebase/auth";
 import { auth } from "../firebase/firebaseClient";
+import { AuthContext } from "../context/AuthContext";
 // IMPROVEMENT: Import icons for the mobile menu
-import { Bars3Icon, XMarkIcon } from "@heroicons/react/24/outline";
+import { Bars3Icon, XMarkIcon, UserCircleIcon, Cog6ToothIcon, ArrowRightStartOnRectangleIcon } from "@heroicons/react/24/outline";
 
 // IMPROVEMENT: Moved navItems array outside the component
 // This prevents it from being recreated on every render.
@@ -18,21 +19,13 @@ const navItems = [
 ];
 
 export default function Header() {
-  const [user, setUser] = useState(null);
+  const { user, signOut } = useContext(AuthContext);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   // IMPROVEMENT: State for mobile navigation
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const navigate = useNavigate();
   const dropdownRef = useRef(null);
-
-  // Effect to listen for auth state changes
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-    });
-    return () => unsubscribe();
-  }, []);
 
   // Effect to handle clicks outside the user dropdown
   useEffect(() => {
@@ -46,7 +39,7 @@ export default function Header() {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [dropdownRef]);
-  
+
   // IMPROVEMENT: Effect to close modals on 'Escape' key press for accessibility
   useEffect(() => {
     const handleKeyDown = (event) => {
@@ -59,17 +52,16 @@ export default function Header() {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-
   const handleLogout = async () => {
     try {
-      await signOut(auth);
+      await signOut();
       setIsDropdownOpen(false); // Close dropdown on logout
       navigate("/login");
     } catch (error) {
       console.error("Failed to log out", error);
     }
   };
-  
+
   // A helper function to generate NavLink styles
   const getNavLinkClass = ({ isActive }) =>
     `px-4 py-2 rounded-lg text-sm font-medium ${
@@ -112,38 +104,74 @@ export default function Header() {
               aria-haspopup="true"
               aria-expanded={isDropdownOpen}
             >
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-white font-semibold">
-                {user.displayName
-                  ? user.displayName.charAt(0).toUpperCase()
-                  : user.email.charAt(0).toUpperCase()}
-              </div>
-              <div className="hidden text-right lg:block">
-                <p className="text-sm font-medium text-gray-700">
-                  {user.displayName || "Admin User"}
-                </p>
-                <p className="text-xs text-gray-500">{user.email}</p>
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 text-white font-semibold text-lg">
+                  {user.displayName
+                    ? user.displayName.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2)
+                    : user.email?.charAt(0).toUpperCase() || 'U'}
+                </div>
+                <div className="hidden text-left lg:block max-w-[180px]">
+                  <p className="text-sm font-medium text-gray-900 truncate">
+                    {user.displayName || user.email?.split('@')[0] || 'User'}
+                  </p>
+                  <p className="text-xs text-gray-500 truncate">{user.email}</p>
+                </div>
               </div>
             </button>
 
             {/* Dropdown Menu */}
             {isDropdownOpen && (
-              <div className="absolute right-0 mt-2 w-48 rounded-md border border-gray-200 bg-white py-1 shadow-lg z-20">
+              <div className="absolute right-0 mt-2 w-64 rounded-lg bg-white shadow-xl z-50 overflow-hidden border border-gray-100">
+                <div className="p-3 border-b border-gray-100">
+                  <div className="flex items-center gap-3">
+                    <div className="h-11 w-11 rounded-full bg-blue-600 flex items-center justify-center text-white font-semibold text-lg">
+                      {user.displayName
+                        ? user.displayName.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2)
+                        : user.email?.charAt(0).toUpperCase() || 'U'}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">
+                        {user.displayName || user.email?.split('@')[0] || 'User'}
+                      </p>
+                      <p className="text-xs text-gray-500 truncate">{user.email}</p>
+                    </div>
+                  </div>
+                </div>
+                
                 <NavLink
                   to="/settings"
                   className={({ isActive }) =>
-                    `block px-4 py-2 text-sm ${
-                      isActive ? "bg-blue-50 text-blue-600" : "text-gray-700"
-                    } hover:bg-gray-100`
+                    `flex items-center gap-2 px-4 py-3 text-sm transition-colors ${
+                      isActive ? 'bg-blue-50 text-blue-600' : 'text-gray-700 hover:bg-gray-50'
+                    }`
                   }
                   onClick={() => setIsDropdownOpen(false)}
                 >
-                  Your Profile
+                  <UserCircleIcon className="h-5 w-5" />
+                  <span>Your Profile</span>
                 </NavLink>
+                
+                <NavLink
+                  to="/settings"
+                  className={({ isActive }) =>
+                    `flex items-center gap-2 px-4 py-3 text-sm transition-colors ${
+                      isActive ? 'bg-blue-50 text-blue-600' : 'text-gray-700 hover:bg-gray-50'
+                    }`
+                  }
+                  onClick={() => setIsDropdownOpen(false)}
+                >
+                  <Cog6ToothIcon className="h-5 w-5" />
+                  <span>Settings</span>
+                </NavLink>
+                
+                <div className="border-t border-gray-100 my-1"></div>
+                
                 <button
                   onClick={handleLogout}
-                  className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+                  className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm text-red-600 hover:bg-red-50 transition-colors"
                 >
-                  Logout
+                  <ArrowRightStartOnRectangleIcon className="h-5 w-5" />
+                  <span>Sign out</span>
                 </button>
               </div>
             )}
@@ -152,19 +180,19 @@ export default function Header() {
 
         {/* IMPROVEMENT: Hamburger Menu Button */}
         <div className="flex items-center md:hidden">
-            <button 
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="inline-flex items-center justify-center p-2 rounded-md text-gray-700 hover:text-blue-600 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
-              aria-controls="mobile-menu"
-              aria-expanded={isMobileMenuOpen}
-            >
-              <span className="sr-only">Open main menu</span>
-              {isMobileMenuOpen ? (
-                <XMarkIcon className="block h-6 w-6" aria-hidden="true" />
-              ) : (
-                <Bars3Icon className="block h-6 w-6" aria-hidden="true" />
-              )}
-            </button>
+          <button 
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            className="inline-flex items-center justify-center p-2 rounded-md text-gray-700 hover:text-blue-600 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
+            aria-controls="mobile-menu"
+            aria-expanded={isMobileMenuOpen}
+          >
+            <span className="sr-only">Open main menu</span>
+            {isMobileMenuOpen ? (
+              <XMarkIcon className="block h-6 w-6" aria-hidden="true" />
+            ) : (
+              <Bars3Icon className="block h-6 w-6" aria-hidden="true" />
+            )}
+          </button>
         </div>
       </div>
       

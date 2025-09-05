@@ -1,5 +1,6 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useContext } from 'react';
 import { Building, Upload, Save, User, Lock, Eye, EyeOff, Bell, Mail, MessageSquare, Monitor, FileText, TrendingUp, AlertTriangle, UserCheck, SlidersHorizontal, ShieldCheck, ShieldAlert, LogOut } from 'lucide-react';
+import { AuthContext } from '../../context/AuthContext';
 
 // A reusable toggle switch component
 const ToggleSwitch = ({ enabled, setEnabled }) => (
@@ -159,6 +160,7 @@ const CompanySettings = () => {
 };
 
 const ProfileSettings = () => {
+    const { user, updateUserEmail, updateUserPassword, updateUserProfile } = useContext(AuthContext);
     const [profileInfo, setProfileInfo] = useState({
         fullName: '',
         email: '',
@@ -167,11 +169,21 @@ const ProfileSettings = () => {
     });
     const [password, setPassword] = useState({ current: '', new: '', confirm: ''});
     const [showPassword, setShowPassword] = useState(false);
+    const [isEditing, setIsEditing] = useState(false);
+    const [isUpdating, setIsUpdating] = useState(false);
+    const [message, setMessage] = useState({ text: '', type: '' });
 
     useEffect(() => {
-        setProfileInfo(prev => ({...prev, fullName: 'Admin User', email: 'admin@company.com'}));
-    }, []);
-
+        if (user) {
+            setProfileInfo(prev => ({
+                ...prev,
+                fullName: user.displayName || 'Admin User',
+                email: user.email || '',
+                phone: user.phoneNumber || '+91 98765 43210',
+                role: user.role || 'Administrator'
+            }));
+        }
+    }, [user]);
 
     const handleProfileChange = (e) => {
         setProfileInfo({ ...profileInfo, [e.target.name]: e.target.value });
@@ -181,96 +193,304 @@ const ProfileSettings = () => {
         setPassword({ ...password, [e.target.name]: e.target.value });
     };
 
-    const handlePasswordUpdate = () => {
+    const toggleEdit = () => {
+        setIsEditing(!isEditing);
+        setMessage({ text: '', type: '' });
+    };
+
+    const handleSaveProfile = async () => {
+        if (!profileInfo.email) {
+            setMessage({ text: 'Email cannot be empty', type: 'error' });
+            return;
+        }
+        
+        setIsUpdating(true);
+        setMessage({ text: 'Updating profile...', type: 'info' });
+        
+        try {
+            // Update display name if it has changed
+            if (profileInfo.fullName !== user.displayName) {
+                const nameResult = await updateUserProfile(profileInfo.fullName);
+                if (!nameResult.success) {
+                    throw new Error(nameResult.error || 'Failed to update name');
+                }
+            }
+            
+            // Only update email if it has changed
+            if (profileInfo.email !== user.email) {
+                const emailResult = await updateUserEmail(profileInfo.email, password.current);
+                if (!emailResult.success) {
+                    throw new Error(emailResult.error || 'Failed to update email');
+                }
+            }
+            
+            setMessage({ text: 'Profile updated successfully!', type: 'success' });
+            setIsEditing(false);
+            setPassword(prev => ({ ...prev, current: '' }));
+            
+            // Clear the message after 3 seconds
+            setTimeout(() => {
+                setMessage({ text: '', type: '' });
+            }, 3000);
+            
+        } catch (error) {
+            console.error('Error updating profile:', error);
+            setMessage({ 
+                text: error.message || 'Failed to update profile. Please check your current password and try again.', 
+                type: 'error' 
+            });
+        } finally {
+            setIsUpdating(false);
+        }
+    };
+
+    const handlePasswordUpdate = async () => {
         if (password.new !== password.confirm) {
-            alert("New password and confirm password do not match.");
+            setMessage({ text: 'New password and confirm password do not match.', type: 'error' });
             return;
         }
         if (password.new.length < 6) {
-            alert("Password should be at least 6 characters long.");
+            setMessage({ text: 'Password should be at least 6 characters long.', type: 'error' });
             return;
         }
-        console.log("Attempting to change password...");
-        alert("Password updated successfully! (Placeholder)");
-        setPassword({ current: '', new: '', confirm: '' });
+        
+        setIsUpdating(true);
+        setMessage({ text: 'Updating password...', type: 'info' });
+        
+        try {
+            const result = await updateUserPassword(password.current, password.new);
+            if (!result.success) {
+                throw new Error(result.error || 'Failed to update password');
+            }
+            
+            setMessage({ text: 'Password updated successfully!', type: 'success' });
+            setPassword({ current: '', new: '', confirm: '' });
+        } catch (error) {
+            console.error('Error updating password:', error);
+            setMessage({ 
+                text: error.message || 'Failed to update password. Please check your current password and try again.', 
+                type: 'error' 
+            });
+        } finally {
+            setIsUpdating(false);
+        }
     };
 
     return (
         <div className="space-y-6">
+            {/* Message Display */}
+            {message.text && (
+                <div className={`p-4 rounded-md ${
+                    message.type === 'error' ? 'bg-red-50 text-red-700' : 
+                    message.type === 'success' ? 'bg-green-50 text-green-700' :
+                    'bg-blue-50 text-blue-700'
+                }`}>
+                    {message.text}
+                </div>
+            )}
+
             {/* User Profile Section */}
             <div className="p-6 border border-gray-200 rounded-xl">
-                 <div className="flex items-center gap-3 mb-6">
-                    <User size={20} className="text-gray-700" />
-                    <h2 className="text-lg font-bold text-gray-900">User Profile</h2>
+                <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-3">
+                        <User size={20} className="text-gray-700" />
+                        <h2 className="text-lg font-bold text-gray-900">User Profile</h2>
+                    </div>
+                    {!isEditing ? (
+                        <button 
+                            onClick={toggleEdit}
+                            className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                        >
+                            Edit Profile
+                        </button>
+                    ) : (
+                        <div className="flex gap-2">
+                            <button 
+                                onClick={toggleEdit}
+                                className="px-3 py-1 text-sm text-gray-700 hover:bg-gray-100 rounded-md"
+                                disabled={isUpdating}
+                            >
+                                Cancel
+                            </button>
+                            <button 
+                                onClick={handleSaveProfile}
+                                disabled={isUpdating}
+                                className="flex items-center gap-2 px-3 py-1 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+                            >
+                                {isUpdating ? 'Saving...' : 'Save Changes'}
+                            </button>
+                        </div>
+                    )}
                 </div>
+                
                 <div className="space-y-4">
-                     <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-4">
                         <div className="w-20 h-20 bg-blue-600 rounded-full flex items-center justify-center text-white text-3xl font-bold">
                             {profileInfo.fullName.split(' ').map(n => n[0]).join('')}
                         </div>
                         <div className="space-y-1">
-                             <button className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-md text-sm font-medium hover:bg-gray-50">
+                            <button 
+                                className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-md text-sm font-medium hover:bg-gray-50 disabled:opacity-50"
+                                disabled={isUpdating}
+                            >
                                 <Upload size={16} />
                                 Change Photo
                             </button>
                             <p className="text-xs text-gray-500">JPG, PNG or GIF. Max size 2MB.</p>
                         </div>
                     </div>
+                    
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label className="text-sm text-gray-800 mb-1 block">Full Name</label>
-                            <input type="text" name="fullName" value={profileInfo.fullName} onChange={handleProfileChange} className="w-full bg-gray-100 border-0 rounded-md text-sm p-2.5"/>
+                            <input 
+                                type="text" 
+                                name="fullName" 
+                                value={profileInfo.fullName} 
+                                onChange={handleProfileChange} 
+                                className="w-full bg-gray-100 border-0 rounded-md text-sm p-2.5 disabled:bg-gray-200 disabled:text-gray-500"
+                                disabled={!isEditing || isUpdating}
+                            />
                         </div>
-                         <div>
+                        <div>
                             <label className="text-sm text-gray-800 mb-1 block">Email Address</label>
-                            <input type="email" name="email" value={profileInfo.email} readOnly className="w-full bg-gray-200 border-0 rounded-md text-sm p-2.5 text-gray-500"/>
+                            {isEditing ? (
+                                <>
+                                    <input 
+                                        type="email" 
+                                        name="email" 
+                                        value={profileInfo.email} 
+                                        onChange={handleProfileChange} 
+                                        className="w-full bg-gray-100 border-0 rounded-md text-sm p-2.5 disabled:bg-gray-200 disabled:text-gray-500"
+                                        disabled={isUpdating}
+                                    />
+                                    <div className="mt-2">
+                                        <label className="text-sm text-gray-800 mb-1 block">Confirm Current Password</label>
+                                        <input 
+                                            type={showPassword ? 'text' : 'password'} 
+                                            name="current" 
+                                            value={password.current} 
+                                            onChange={handlePasswordChange} 
+                                            placeholder="Required to update email"
+                                            className="w-full bg-gray-100 border-0 rounded-md text-sm p-2.5"
+                                            disabled={isUpdating}
+                                        />
+                                    </div>
+                                </>
+                            ) : (
+                                <input 
+                                    type="email" 
+                                    value={profileInfo.email} 
+                                    readOnly 
+                                    className="w-full bg-gray-100 border-0 rounded-md text-sm p-2.5 text-gray-700"
+                                />
+                            )}
                         </div>
                     </div>
-                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label className="text-sm text-gray-800 mb-1 block">Phone Number</label>
-                            <input type="text" name="phone" value={profileInfo.phone} onChange={handleProfileChange} className="w-full bg-gray-100 border-0 rounded-md text-sm p-2.5"/>
+                            <input 
+                                type="text" 
+                                name="phone" 
+                                value={profileInfo.phone} 
+                                onChange={handleProfileChange} 
+                                className="w-full bg-gray-100 border-0 rounded-md text-sm p-2.5 disabled:bg-gray-200 disabled:text-gray-500"
+                                disabled={!isEditing || isUpdating}
+                            />
                         </div>
-                         <div>
+                        <div>
                             <label className="text-sm text-gray-800 mb-1 block">Role</label>
-                            <input type="text" name="role" value={profileInfo.role} readOnly className="w-full bg-gray-200 border-0 rounded-md text-sm p-2.5 text-gray-500"/>
+                            <input 
+                                type="text" 
+                                value={profileInfo.role} 
+                                readOnly 
+                                className="w-full bg-gray-100 border-0 rounded-md text-sm p-2.5 text-gray-500"
+                            />
                         </div>
-                    </div>
-                    <div className="pt-2">
-                        <button className="flex items-center gap-2 px-5 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700">
-                            <Save size={16} />
-                            Update Profile
-                        </button>
                     </div>
                 </div>
             </div>
+            
             {/* Change Password Section */}
             <div className="p-6 border border-gray-200 rounded-xl">
-                 <h2 className="text-lg font-bold text-gray-900 mb-6">Change Password</h2>
-                 <div className="space-y-4 max-w-lg">
-                     <div>
+                <h2 className="text-lg font-bold text-gray-900 mb-6">Change Password</h2>
+                <div className="space-y-4 max-w-lg">
+                    <div>
                         <label className="text-sm text-gray-800 mb-1 block">Current Password</label>
                         <div className="relative">
-                            <input type={showPassword ? 'text' : 'password'} name="current" value={password.current} onChange={handlePasswordChange} className="w-full bg-gray-100 border-0 rounded-md text-sm p-2.5"/>
-                            <button onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">
+                            <input 
+                                type={showPassword ? 'text' : 'password'} 
+                                name="current" 
+                                value={password.current} 
+                                onChange={handlePasswordChange} 
+                                className="w-full bg-gray-100 border-0 rounded-md text-sm p-2.5 pr-10"
+                                disabled={isUpdating}
+                                placeholder="Enter your current password"
+                            />
+                            <button 
+                                onClick={() => setShowPassword(!showPassword)} 
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
+                                type="button"
+                                disabled={isUpdating}
+                            >
                                 {showPassword ? <EyeOff size={18}/> : <Eye size={18}/>}
                             </button>
                         </div>
                     </div>
+                    
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label className="text-sm text-gray-800 mb-1 block">New Password</label>
-                            <input type="password" name="new" value={password.new} onChange={handlePasswordChange} className="w-full bg-gray-100 border-0 rounded-md text-sm p-2.5"/>
+                            <input 
+                                type={showPassword ? 'text' : 'password'} 
+                                name="new" 
+                                value={password.new} 
+                                onChange={handlePasswordChange} 
+                                className="w-full bg-gray-100 border-0 rounded-md text-sm p-2.5"
+                                disabled={isUpdating}
+                                placeholder="At least 6 characters"
+                            />
                         </div>
-                         <div>
+                        <div>
                             <label className="text-sm text-gray-800 mb-1 block">Confirm Password</label>
-                            <input type="password" name="confirm" value={password.confirm} onChange={handlePasswordChange} className="w-full bg-gray-100 border-0 rounded-md text-sm p-2.5"/>
+                            <input 
+                                type={showPassword ? 'text' : 'password'} 
+                                name="confirm" 
+                                value={password.confirm} 
+                                onChange={handlePasswordChange} 
+                                className="w-full bg-gray-100 border-0 rounded-md text-sm p-2.5"
+                                disabled={isUpdating}
+                                placeholder="Retype new password"
+                            />
                         </div>
                     </div>
+                    
                     <div className="pt-2">
-                        <button onClick={handlePasswordUpdate} className="flex items-center gap-2 px-5 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700">
-                            <Lock size={16} />
-                            Change Password
+                        <button 
+                            onClick={handlePasswordUpdate} 
+                            disabled={isUpdating || !password.current || !password.new || !password.confirm}
+                            className={`flex items-center gap-2 px-5 py-2 text-white rounded-md text-sm font-medium ${
+                                isUpdating || !password.current || !password.new || !password.confirm 
+                                    ? 'bg-blue-400 cursor-not-allowed' 
+                                    : 'bg-blue-600 hover:bg-blue-700'
+                            }`}
+                        >
+                            {isUpdating ? (
+                                <>
+                                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    Updating...
+                                </>
+                            ) : (
+                                <>
+                                    <Lock size={16} />
+                                    Change Password
+                                </>
+                            )}
                         </button>
                     </div>
                 </div>
