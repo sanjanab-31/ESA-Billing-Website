@@ -4,38 +4,41 @@ import { Search, Plus, FileText, IndianRupee, Users, Clock, ShoppingBag, ArrowUp
 // Main Dashboard Component
 const Dashboard = () => {
   return (
-    <div className="bg-slate-50 min-h-screen text-slate-800 p-8 font-sans">
-      <Header />
-      {/* CHANGED: Main layout restructured for specific alignment */}
-      <main className="mt-8 flex flex-col gap-8">
-        {/* Top Row: Stats Grid and Revenue Chart */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Stats Grid container (takes 2/3 width) */}
-          <div className="lg:col-span-2">
-            <StatsGrid />
+    <div className="bg-white min-h-screen text-slate-800 font-sans">
+      {/* PADDING/LAYOUT CHANGE: Using max-w-7xl for consistency with other pages */}
+      <div className="max-w-7xl mx-auto p-8">
+        <Header />
+        <main className="mt-8 flex flex-col gap-8">
+          {/* Top Row: Stats Grid and Revenue Chart */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Stats Grid container (takes 2/3 width) */}
+            <div className="lg:col-span-2">
+              <StatsGrid />
+            </div>
+            {/* Revenue Insights container (takes 1/3 width) */}
+            <div className="lg:col-span-1">
+              <RevenueInsights />
+            </div>
           </div>
-          {/* Revenue Insights container (takes 1/3 width) */}
-          <div className="lg:col-span-1">
-            <RevenueInsights />
-          </div>
-        </div>
 
-        {/* Bottom Row: Recent Activity and Invoice Status */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <RecentActivity />
-          <InvoiceStatus />
-        </div>
-      </main>
+          {/* Bottom Row: Recent Activity and Invoice Status */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <RecentActivity />
+            <InvoiceStatus />
+          </div>
+        </main>
+      </div>
     </div>
   );
 };
+
 
 // Header Section
 const Header = () => (
   <header className="flex flex-col md:flex-row justify-between items-start md:items-center">
     <div>
-      <h1 className="text-3xl font-black text-gray-800">Welcome back, Admin!</h1>
-      <p className="text-slate-500 mt-1">Here's what's happening with your business today.</p>
+      <h1 className="text-2xl font-bold text-gray-800">Welcome back, Admin!</h1>
+      <p className="text-sm text-slate-500 mt-1">Here's what's happening with your business today.</p>
     </div>
     <div className="flex items-center gap-2 mt-4 md:mt-0">
       <div className="relative">
@@ -46,7 +49,8 @@ const Header = () => (
           className="bg-slate-100 rounded-lg pl-9 pr-4 py-2 text-sm w-48 focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
       </div>
-      <button className="bg-blue-600 text-white flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors">
+      {/* FONT CHANGE: Adjusted font-semibold to font-medium for consistency */}
+      <button className="bg-blue-600 text-white flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">
         <Plus className="w-4 h-4" />
         Create Invoice
       </button>
@@ -121,14 +125,14 @@ const StatCard = ({ title, value, valueLabel, secondaryValue, secondaryValueLabe
     <div className="mt-4">
       <div className="flex items-baseline gap-8">
         <div>
-          <p className="text-2xl font-black text-gray-800">{value}</p>
+          <p className="text-2xl font-bold text-gray-800">{value}</p>
           {valueLabel && <p className={`text-xs ${valueLabel.includes('Paid') ? 'text-green-500' : 'text-slate-500'} font-semibold`}>{valueLabel}</p>}
         </div>
         {secondaryValue && (
             <div>
-             <p className={`text-2xl font-black ${isSecondaryValueRed ? 'text-red-500' : 'text-gray-800'}`}>{secondaryValue}</p>
-             {secondaryValueLabel && <p className="text-xs text-slate-500 font-semibold">{secondaryValueLabel}</p>}
-            </div>
+               <p className={`text-2xl font-bold ${isSecondaryValueRed ? 'text-red-500' : 'text-gray-800'}`}>{secondaryValue}</p>
+               {secondaryValueLabel && <p className="text-xs text-slate-500 font-semibold">{secondaryValueLabel}</p>}
+             </div>
         )}
       </div>
       {change && (
@@ -170,7 +174,7 @@ const RevenueInsights = () => (
                 <text x="292" y="170" textAnchor="middle" className="text-xs fill-slate-400">May</text>
                 <text x="350" y="170" textAnchor="middle" className="text-xs fill-slate-400">Jun</text>
                 
-                {/* Data Line and Points (approximating image) */}
+                {/* Data Line and Points */}
                 <polyline points="60,85 118,75 176,60 234,80 292,25 350,45" className="fill-none stroke-blue-600" strokeWidth="2" />
                 <circle cx="60" cy="85" r="3" className="fill-blue-600" />
                 <circle cx="118"cy="75" r="3" className="fill-blue-600" />
@@ -244,9 +248,9 @@ const InvoiceStatus = () => {
                  </svg>
             </div>
              <div className="flex justify-center gap-4 text-sm text-slate-600">
-               <div className="flex items-center gap-2"><Circle className="w-3 h-3 text-green-500 fill-green-500"/> Paid ({paid})</div>
-               <div className="flex items-center gap-2"><Circle className="w-3 h-3 text-red-500 fill-red-500"/> Unpaid ({unpaid})</div>
-               <div className="flex items-center gap-2"><Circle className="w-3 h-3 text-amber-500 fill-amber-500"/> Draft ({draft})</div>
+                <div className="flex items-center gap-2"><Circle className="w-3 h-3 text-green-500 fill-green-500"/> Paid ({paid})</div>
+                <div className="flex items-center gap-2"><Circle className="w-3 h-3 text-red-500 fill-red-500"/> Unpaid ({unpaid})</div>
+                <div className="flex items-center gap-2"><Circle className="w-3 h-3 text-amber-500 fill-amber-500"/> Draft ({draft})</div>
              </div>
         </div>
     );

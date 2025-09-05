@@ -71,7 +71,7 @@ const ClientManagement = () => {
       avgInvoice: '₹46,875',
       paymentRate: '100%',
       revenueData: [
-         { month: 'Oct', value: 80000, label: '₹80,000' },
+        { month: 'Oct', value: 80000, label: '₹80,000' },
         { month: 'Nov', value: 95000, label: '₹95,000' },
         { month: 'Dec', value: 110000, label: '₹1,10,000' },
         { month: 'Jan', value: 90000, label: '₹90,000' }
@@ -80,19 +80,11 @@ const ClientManagement = () => {
   ]);
 
   const [formData, setFormData] = useState({
-    name: '',
-    gstin: '',
-    phone: '',
-    email: '',
-    address: ''
+    name: '', gstin: '', phone: '', email: '', address: ''
   });
 
   const [editFormData, setEditFormData] = useState({
-    name: '',
-    gstin: '',
-    phone: '',
-    email: '',
-    address: ''
+    name: '', gstin: '', phone: '', email: '', address: ''
   });
 
   const filteredClients = clients.filter(client =>
@@ -104,18 +96,12 @@ const ClientManagement = () => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
 
   const handleEditInputChange = (e) => {
     const { name, value } = e.target;
-    setEditFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    setEditFormData(prev => ({ ...prev, [name]: value }));
   };
 
   const handleAddClient = () => {
@@ -139,25 +125,13 @@ const ClientManagement = () => {
       };
       
       setClients(prev => [...prev, newClient]);
-      setFormData({
-        name: '',
-        gstin: '',
-        phone: '',
-        email: '',
-        address: ''
-      });
+      setFormData({ name: '', gstin: '', phone: '', email: '', address: '' });
       setShowAddModal(false);
     }
   };
 
   const handleCancel = () => {
-    setFormData({
-      name: '',
-      gstin: '',
-      phone: '',
-      email: '',
-      address: ''
-    });
+    setFormData({ name: '', gstin: '', phone: '', email: '', address: '' });
     setShowAddModal(false);
   };
 
@@ -193,13 +167,7 @@ const ClientManagement = () => {
       ));
       setShowEditModal(false);
       setSelectedClient(null);
-      setEditFormData({
-        name: '',
-        gstin: '',
-        phone: '',
-        email: '',
-        address: ''
-      });
+      setEditFormData({ name: '', gstin: '', phone: '', email: '', address: '' });
     }
   };
 
@@ -211,13 +179,7 @@ const ClientManagement = () => {
   const handleCancelEdit = () => {
     setShowEditModal(false);
     setSelectedClient(null);
-    setEditFormData({
-      name: '',
-      gstin: '',
-      phone: '',
-      email: '',
-      address: ''
-    });
+    setEditFormData({ name: '', gstin: '', phone: '', email: '', address: '' });
   };
 
   const toggleDropdown = (clientId) => {
@@ -238,136 +200,143 @@ const ClientManagement = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6 lg:p-16 relative font-sans">
-      <div className="max-w-7xl mx-auto">
+    // CHANGED: Set background to white and removed outer padding
+    <div className="min-h-screen bg-white font-sans">
+      {/* CHANGED: Added a single container to manage padding and width */}
+      <div className="max-w-7xl mx-auto p-8">
         {/* Header Section */}
-        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8 gap-6">
+        <header className="flex flex-col lg:flex-row justify-between items-start lg:items-center">
           <div className="flex-1">
-            <h1 className="text-2xl font-black text-gray-900 mb-2">
+            <h1 className="text-2xl font-bold text-gray-900">
               Client Management
             </h1>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-gray-500 mt-1">
               Manage your client relationships and track business performance
             </p>
           </div>
-          <div className="flex items-center gap-4 w-full lg:w-auto">
+          <div className="flex items-center gap-4 w-full lg:w-auto mt-4 lg:mt-0">
             <div className="relative flex-1 lg:flex-none">
               <input
                 type="text"
-                placeholder="Search clients by name, GSTIN, or email..."
+                placeholder="Search clients..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full lg:w-80 px-3 py-2 bg-gray-100 border-0 rounded-lg text-xs placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full lg:w-80 px-3 py-2 bg-gray-100 border-0 rounded-lg text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
             <button 
               onClick={() => setShowAddModal(true)}
-              className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-xs font-normal hover:bg-blue-700 transition-colors" 
+              className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors" 
             >
-              <Plus size={14} />
+              <Plus size={16} />
               Add Client
             </button>
           </div>
-        </div>
+        </header>
 
-        {/* Table Container */}
-        <div className="bg-white border border-gray-200 rounded-xl overflow-x-auto">
-          <table className="w-full min-w-[1100px]">
-            <thead className="bg-gray-100 text-xs font-normal text-gray-900 border-b border-gray-200">
-              <tr>
-                <th className="px-4 py-3 text-left w-80">CLIENT NAME</th>
-                <th className="px-4 py-3 text-left w-36">GST NUMBER</th>
-                <th className="px-4 py-3 text-left w-36">PHONE NUMBER</th>
-                <th className="px-4 py-3 text-center w-28">TOTAL INVOICES</th>
-                <th className="px-4 py-3 text-left w-28">TOTAL REVENUE</th>
-                <th className="px-4 py-3 text-left w-28">OUTSTANDING</th>
-                <th className="px-4 py-3 text-left w-32">ACTIONS</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {filteredClients.map((client) => (
-                <tr key={client.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-4 py-4 w-80">
-                    <div className="text-xs font-normal text-gray-900 mb-1">{client.name}</div>
-                    <div className="text-xs text-gray-500">{client.email}</div>
-                  </td>
-                  <td className="px-4 py-4 w-36 font-mono text-xs text-gray-900">{client.gstin}</td>
-                  <td className="px-4 py-4 w-36 text-xs text-gray-900">{client.phone}</td>
-                  <td className="px-4 py-4 w-28 text-center text-xs text-gray-900">{client.totalInvoices}</td>
-                  <td className="px-4 py-4 w-28 text-xs text-gray-900">{client.totalRevenue}</td>
-                  <td className={`px-4 py-4 w-28 text-xs font-medium ${client.outstanding === '₹0' ? 'text-gray-500' : 'text-red-500'}`}>{client.outstanding}</td>
-                  <td className="px-4 py-4 w-32">
-                    <div className="flex items-center gap-1">
-                      <button onClick={() => handleViewClient(client)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors" title="View Details">
-                        <Eye size={14} className="text-gray-900" />
-                      </button>
-                      <button onClick={() => handleEditClient(client)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors" title="Edit Client">
-                        <Edit size={14} className="text-gray-900" />
-                      </button>
-                      <div className="relative" ref={dropdownOpen === client.id ? dropdownRef : null}>
-                        <button onClick={() => toggleDropdown(client.id)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors" title="More Actions">
-                          <MoreHorizontal size={14} className="text-gray-900" />
-                        </button>
-                        {dropdownOpen === client.id && (
-                          <div className="absolute right-0 mt-1 w-36 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
-                            <button onClick={() => handleDeleteClient(client.id)} className="w-full px-3 py-2 text-left text-xs text-red-600 hover:bg-red-50 flex items-center gap-2 rounded-lg">
-                              <Trash2 size={12} />
-                              Delete Client
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </td>
+        {/* Main Content */}
+        <main className="mt-8">
+          {/* Table Container */}
+          <div className="bg-white border border-gray-200 rounded-xl overflow-x-auto">
+            <table className="w-full min-w-[1100px]">
+              <thead className="bg-gray-50 text-xs font-semibold uppercase tracking-wider text-gray-500 border-b border-gray-200">
+                <tr>
+                  <th className="px-4 py-3 text-left w-80">Client Name</th>
+                  <th className="px-4 py-3 text-left w-36">GST Number</th>
+                  <th className="px-4 py-3 text-left w-36">Phone Number</th>
+                  <th className="px-4 py-3 text-center w-28">Total Invoices</th>
+                  <th className="px-4 py-3 text-left w-28">Total Revenue</th>
+                  <th className="px-4 py-3 text-left w-28">Outstanding</th>
+                  <th className="px-4 py-3 text-left w-32">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {filteredClients.length === 0 && (
-          <div className="text-center py-12">
-            <p className="text-gray-500 text-sm">No clients found matching your search criteria.</p>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {filteredClients.map((client) => (
+                  <tr key={client.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-4 py-4 w-80">
+                      <div className="text-sm font-medium text-gray-900 mb-1">{client.name}</div>
+                      <div className="text-xs text-gray-500">{client.email}</div>
+                    </td>
+                    <td className="px-4 py-4 w-36 font-mono text-sm text-gray-700">{client.gstin}</td>
+                    <td className="px-4 py-4 w-36 text-sm text-gray-700">{client.phone}</td>
+                    <td className="px-4 py-4 w-28 text-center text-sm text-gray-700">{client.totalInvoices}</td>
+                    <td className="px-4 py-4 w-28 text-sm text-gray-700">{client.totalRevenue}</td>
+                    <td className={`px-4 py-4 w-28 text-sm font-medium ${client.outstanding === '₹0' ? 'text-gray-500' : 'text-red-500'}`}>{client.outstanding}</td>
+                    <td className="px-4 py-4 w-32">
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => handleViewClient(client)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors" title="View Details">
+                          <Eye size={16} className="text-gray-700" />
+                        </button>
+                        <button onClick={() => handleEditClient(client)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors" title="Edit Client">
+                          <Edit size={16} className="text-gray-700" />
+                        </button>
+                        <div className="relative" ref={dropdownOpen === client.id ? dropdownRef : null}>
+                          <button onClick={() => toggleDropdown(client.id)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors" title="More Actions">
+                            <MoreHorizontal size={16} className="text-gray-700" />
+                          </button>
+                          {dropdownOpen === client.id && (
+                            <div className="absolute right-0 mt-1 w-36 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
+                              <button onClick={() => handleDeleteClient(client.id)} className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 rounded-lg">
+                                <Trash2 size={14} />
+                                Delete Client
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        )}
+
+          {filteredClients.length === 0 && (
+            <div className="text-center py-12">
+              <p className="text-gray-500 text-sm">No clients found matching your search criteria.</p>
+            </div>
+          )}
+        </main>
       </div>
+
+      {/* --- MODALS (No layout changes needed for modals) --- */}
 
       {/* Add Client Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 flex items-center justify-center z-50 p-4 pointer-events-none">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-auto relative pointer-events-auto">
-            <button onClick={handleCancel} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600" title="Close"><X size={16} /></button>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-auto relative">
+            <button onClick={handleCancel} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600" title="Close"><X size={18} /></button>
             <div className="p-6">
-              <h2 className="text-base font-black text-gray-900 mb-4">Add New Client</h2>
+              <h2 className="text-lg font-bold text-gray-900 mb-4">Add New Client</h2>
               <div className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs text-gray-900 mb-1">Client Name *</label>
-                    <input type="text" name="name" value={formData.name} onChange={handleInputChange} placeholder="Enter Client name" className="w-full px-3 py-2 bg-gray-100 border-0 rounded-lg text-xs placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    <label className="block text-sm text-gray-700 mb-1">Client Name *</label>
+                    <input type="text" name="name" value={formData.name} onChange={handleInputChange} placeholder="Enter Client name" className="w-full px-3 py-2 bg-gray-100 border-0 rounded-lg text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500" />
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-900 mb-1">GSTIN *</label>
-                    <input type="text" name="gstin" value={formData.gstin} onChange={handleInputChange} placeholder="e.g., 27ABCDE1234F1Z5" className="w-full px-3 py-2 bg-gray-100 border-0 rounded-lg text-xs placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    <label className="block text-sm text-gray-700 mb-1">GSTIN *</label>
+                    <input type="text" name="gstin" value={formData.gstin} onChange={handleInputChange} placeholder="e.g., 27ABCDE1234F1Z5" className="w-full px-3 py-2 bg-gray-100 border-0 rounded-lg text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500" />
                   </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs text-gray-900 mb-1">Contact</label>
-                    <input type="text" name="phone" value={formData.phone} onChange={handleInputChange} placeholder="+91 900XX 58XXX" className="w-full px-3 py-2 bg-gray-100 border-0 rounded-lg text-xs placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    <label className="block text-sm text-gray-700 mb-1">Contact</label>
+                    <input type="text" name="phone" value={formData.phone} onChange={handleInputChange} placeholder="+91 900XX 58XXX" className="w-full px-3 py-2 bg-gray-100 border-0 rounded-lg text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500" />
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-900 mb-1">E-mail</label>
-                    <input type="email" name="email" value={formData.email} onChange={handleInputChange} placeholder="contact@example.com" className="w-full px-3 py-2 bg-gray-100 border-0 rounded-lg text-xs placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    <label className="block text-sm text-gray-700 mb-1">E-mail</label>
+                    <input type="email" name="email" value={formData.email} onChange={handleInputChange} placeholder="contact@example.com" className="w-full px-3 py-2 bg-gray-100 border-0 rounded-lg text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500" />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-900 mb-1">Address *</label>
-                  <textarea name="address" value={formData.address} onChange={handleInputChange} placeholder="Enter full address" rows={3} className="w-full px-3 py-2 bg-gray-100 border-0 rounded-lg text-xs placeholder-gray-500 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  <label className="block text-sm text-gray-700 mb-1">Address *</label>
+                  <textarea name="address" value={formData.address} onChange={handleInputChange} placeholder="Enter full address" rows={3} className="w-full px-3 py-2 bg-gray-100 border-0 rounded-lg text-sm placeholder-gray-500 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500" />
                 </div>
               </div>
               <div className="flex gap-4 mt-6">
-                <button onClick={handleCancel} className="flex-1 px-4 py-2 bg-white border border-gray-200 text-gray-900 rounded-lg text-xs hover:bg-gray-50 transition-colors">Cancel</button>
-                <button onClick={handleAddClient} className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg text-xs hover:bg-blue-700 transition-colors">Add Client</button>
+                <button onClick={handleCancel} className="flex-1 px-4 py-2 bg-white border border-gray-200 text-gray-900 rounded-lg text-sm hover:bg-gray-50 transition-colors">Cancel</button>
+                <button onClick={handleAddClient} className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition-colors">Add Client</button>
               </div>
             </div>
           </div>
@@ -376,40 +345,40 @@ const ClientManagement = () => {
 
       {/* Edit Client Modal */}
       {showEditModal && selectedClient && (
-         <div className="fixed inset-0 flex items-center justify-center z-50 p-4 pointer-events-none">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-auto relative pointer-events-auto">
-            <button onClick={handleCancelEdit} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600" title="Close"><X size={16} /></button>
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-auto relative">
+            <button onClick={handleCancelEdit} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600" title="Close"><X size={18} /></button>
             <div className="p-6">
-              <h2 className="text-base font-black text-gray-900 mb-4">Edit Client</h2>
-               <div className="space-y-4">
+              <h2 className="text-lg font-bold text-gray-900 mb-4">Edit Client</h2>
+                <div className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs text-gray-900 mb-1">Client Name *</label>
-                    <input type="text" name="name" value={editFormData.name} onChange={handleEditInputChange} className="w-full px-3 py-2 bg-gray-100 border-0 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    <label className="block text-sm text-gray-700 mb-1">Client Name *</label>
+                    <input type="text" name="name" value={editFormData.name} onChange={handleEditInputChange} className="w-full px-3 py-2 bg-gray-100 border-0 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-900 mb-1">GSTIN *</label>
-                    <input type="text" name="gstin" value={editFormData.gstin} onChange={handleEditInputChange} className="w-full px-3 py-2 bg-gray-100 border-0 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    <label className="block text-sm text-gray-700 mb-1">GSTIN *</label>
+                    <input type="text" name="gstin" value={editFormData.gstin} onChange={handleEditInputChange} className="w-full px-3 py-2 bg-gray-100 border-0 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                   </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs text-gray-900 mb-1">Contact</label>
-                    <input type="text" name="phone" value={editFormData.phone} onChange={handleEditInputChange} className="w-full px-3 py-2 bg-gray-100 border-0 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    <label className="block text-sm text-gray-700 mb-1">Contact</label>
+                    <input type="text" name="phone" value={editFormData.phone} onChange={handleEditInputChange} className="w-full px-3 py-2 bg-gray-100 border-0 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-900 mb-1">E-mail</label>
-                    <input type="email" name="email" value={editFormData.email} onChange={handleEditInputChange} className="w-full px-3 py-2 bg-gray-100 border-0 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    <label className="block text-sm text-gray-700 mb-1">E-mail</label>
+                    <input type="email" name="email" value={editFormData.email} onChange={handleEditInputChange} className="w-full px-3 py-2 bg-gray-100 border-0 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-900 mb-1">Address *</label>
-                  <textarea name="address" value={editFormData.address} onChange={handleEditInputChange} rows={3} className="w-full px-3 py-2 bg-gray-100 border-0 rounded-lg text-xs resize-none focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  <label className="block text-sm text-gray-700 mb-1">Address *</label>
+                  <textarea name="address" value={editFormData.address} onChange={handleEditInputChange} rows={3} className="w-full px-3 py-2 bg-gray-100 border-0 rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500" />
                 </div>
               </div>
               <div className="flex gap-4 mt-6">
-                <button onClick={handleCancelEdit} className="flex-1 px-4 py-2 bg-white border border-gray-200 text-gray-900 rounded-lg text-xs hover:bg-gray-50 transition-colors">Cancel</button>
-                <button onClick={handleUpdateClient} className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg text-xs hover:bg-blue-700 transition-colors">Update Client</button>
+                <button onClick={handleCancelEdit} className="flex-1 px-4 py-2 bg-white border border-gray-200 text-gray-900 rounded-lg text-sm hover:bg-gray-50 transition-colors">Cancel</button>
+                <button onClick={handleUpdateClient} className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition-colors">Update Client</button>
               </div>
             </div>
           </div>
@@ -418,13 +387,13 @@ const ClientManagement = () => {
 
       {/* Client Details Modal */}
       {showDetailsModal && selectedClient && (
-        <div className="fixed inset-0 flex items-center justify-center z-50 p-4 pointer-events-none">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-auto relative overflow-hidden my-8 pointer-events-auto">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-auto relative overflow-hidden my-8">
             <div className="bg-blue-50 px-4 py-4 flex items-center gap-3 relative">
               <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
                 <FileText size={16} className="text-white" />
               </div>
-              <h2 className="text-base font-bold text-gray-900">{selectedClient.name}</h2>
+              <h2 className="text-lg font-bold text-gray-900">{selectedClient.name}</h2>
               <button onClick={handleCloseDetails} className="absolute top-3 right-3 w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center justify-center transition-colors" title="Close">
                 <X size={16} className="text-gray-600" />
               </button>
@@ -504,4 +473,3 @@ const ClientManagement = () => {
 };
 
 export default ClientManagement;
-
