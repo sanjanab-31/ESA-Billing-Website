@@ -203,7 +203,7 @@ const ClientManagement = () => {
     // CHANGED: Set background to white and removed outer padding
     <div className="min-h-screen bg-white font-sans">
       {/* CHANGED: Added a single container to manage padding and width */}
-      <div className="max-w-7xl mx-auto p-8">
+      <div className="max-w-7xl mx-auto px-8 pb-8 pt-32">
         {/* Header Section */}
         <header className="flex flex-col lg:flex-row justify-between items-start lg:items-center">
           <div className="flex-1">

@@ -194,7 +194,7 @@ export default function App() {
     <>
       {/* PADDING CHANGE: Updated main container to match other pages */}
       <div className="min-h-screen bg-white font-sans">
-        <div className="max-w-7xl mx-auto p-8">
+        <div className="max-w-7xl mx-auto px-8 pb-8 pt-32">
           <header className="flex flex-col lg:flex-row justify-between items-start lg:items-center">
               <div>
                   {/* FONT CHANGE: Page title */}

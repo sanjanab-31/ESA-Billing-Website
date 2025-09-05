@@ -6,7 +6,7 @@ const Dashboard = () => {
   return (
     <div className="bg-white min-h-screen text-slate-800 font-sans">
       {/* PADDING/LAYOUT CHANGE: Using max-w-7xl for consistency with other pages */}
-      <div className="max-w-7xl mx-auto p-8">
+      <div className="max-w-7xl mx-auto px-8 pb-8 pt-32">
         <Header />
         <main className="mt-8 flex flex-col gap-8">
           {/* Top Row: Stats Grid and Revenue Chart */}

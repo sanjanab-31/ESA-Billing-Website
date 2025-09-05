@@ -488,7 +488,7 @@ const SettingsPage = () => {
     return (
         // LAYOUT CHANGE: Applying consistent page structure
         <div className="min-h-screen bg-white font-sans">
-            <div className="max-w-7xl mx-auto p-8">
+            <div className="max-w-7xl mx-auto px-8 pb-8 pt-32">
                 <header>
                     <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
                     <p className="text-sm text-gray-500 mt-1">Manage your application preferences and configurations</p>

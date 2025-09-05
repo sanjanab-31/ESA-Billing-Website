@@ -128,7 +128,7 @@ const InvoicePreview = ({ invoice, invoiceData, calculations, setShowPreview }) 
 };
 
 
-// MOVED OUTSIDE: CreateInvoiceComponent
+// MOVED OUTSIDE: CreateInvoiceComponent (No changes needed here)
 const CreateInvoiceComponent = ({
   editingInvoice,
   invoiceData,
@@ -146,7 +146,7 @@ const CreateInvoiceComponent = ({
   removeItem,
 }) => (
   <div className="min-h-screen bg-white">
-    <div className="max-w-7xl mx-auto p-8">
+    <div className="max-w-7xl mx-auto px-8 pb-8 pt-32">
       {/* Header */}
       <div className="flex justify-between items-center">
         <div className="flex items-center">
@@ -157,7 +157,6 @@ const CreateInvoiceComponent = ({
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
-            {/* FONT CHANGE: Adjusted to text-2xl for consistency */}
             <h1 className="text-2xl font-bold text-gray-900">
               {editingInvoice ? 'Edit Invoice' : 'Create Invoice'}
             </h1>
@@ -203,11 +202,9 @@ const CreateInvoiceComponent = ({
         <div className="col-span-2 space-y-8">
           {/* Invoice Details */}
           <div className="bg-white rounded-xl border border-gray-200 p-6">
-            {/* FONT CHANGE: Adjusted to text-lg for consistency */}
             <h3 className="text-lg font-bold text-gray-900 mb-4">Invoice Details</h3>
             <div className="grid grid-cols-3 gap-4">
               <div>
-                {/* FONT CHANGE: Adjusted to text-sm for consistency */}
                 <label className="block text-sm text-gray-700 mb-1">Invoice Number</label>
                 <input
                   type="text"
@@ -333,27 +330,27 @@ const CreateInvoiceComponent = ({
             <div className="bg-white rounded-xl border border-gray-200 p-6">
                 <h3 className="text-lg font-bold text-gray-900 mb-4">Tax Calculation</h3>
                 <div className="grid grid-cols-3 gap-4 mb-4">
-                  <div>
-                      <label className="block text-sm text-gray-700 mb-1">CGST (%)</label>
-                      <input type="number" value={invoiceData.cgst} onChange={(e) => setInvoiceData(prev => ({ ...prev, cgst: parseFloat(e.target.value) || 0 }))} className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg" min="0" max="100"/>
-                  </div>
-                  <div>
-                      <label className="block text-sm text-gray-700 mb-1">SGST (%)</label>
-                      <input type="number" value={invoiceData.sgst} onChange={(e) => setInvoiceData(prev => ({ ...prev, sgst: parseFloat(e.target.value) || 0 }))} className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg" min="0" max="100"/>
-                  </div>
-                  <div>
-                      <label className="block text-sm text-gray-700 mb-1">IGST (%)</label>
-                      <input type="number" value={invoiceData.igst} onChange={(e) => setInvoiceData(prev => ({ ...prev, igst: parseFloat(e.target.value) || 0 }))} className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg" min="0" max="100"/>
-                  </div>
+                    <div>
+                        <label className="block text-sm text-gray-700 mb-1">CGST (%)</label>
+                        <input type="number" value={invoiceData.cgst} onChange={(e) => setInvoiceData(prev => ({ ...prev, cgst: parseFloat(e.target.value) || 0 }))} className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg" min="0" max="100"/>
+                    </div>
+                    <div>
+                        <label className="block text-sm text-gray-700 mb-1">SGST (%)</label>
+                        <input type="number" value={invoiceData.sgst} onChange={(e) => setInvoiceData(prev => ({ ...prev, sgst: parseFloat(e.target.value) || 0 }))} className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg" min="0" max="100"/>
+                    </div>
+                    <div>
+                        <label className="block text-sm text-gray-700 mb-1">IGST (%)</label>
+                        <input type="number" value={invoiceData.igst} onChange={(e) => setInvoiceData(prev => ({ ...prev, igst: parseFloat(e.target.value) || 0 }))} className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg" min="0" max="100"/>
+                    </div>
                 </div>
                 <div className="border-t pt-4 bg-gray-50 rounded-lg p-4">
-                  <div className="space-y-2">
-                      <div className="flex justify-between text-sm"><span className="text-gray-600">Subtotal:</span><span className="font-medium">₹{calculations.subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span></div>
-                      {invoiceData.cgst > 0 && (<div className="flex justify-between text-sm"><span className="text-gray-600">CGST ({invoiceData.cgst}%):</span><span>₹{calculations.cgstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span></div>)}
-                      {invoiceData.sgst > 0 && (<div className="flex justify-between text-sm"><span className="text-gray-600">SGST ({invoiceData.sgst}%):</span><span>₹{calculations.sgstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span></div>)}
-                      {invoiceData.igst > 0 && (<div className="flex justify-between text-sm"><span className="text-gray-600">IGST ({invoiceData.igst}%):</span><span>₹{calculations.igstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span></div>)}
-                      <div className="border-t pt-2 flex justify-between font-bold text-base"><span>Total Amount:</span><span>₹{calculations.total.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span></div>
-                  </div>
+                    <div className="space-y-2">
+                        <div className="flex justify-between text-sm"><span className="text-gray-600">Subtotal:</span><span className="font-medium">₹{calculations.subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span></div>
+                        {invoiceData.cgst > 0 && (<div className="flex justify-between text-sm"><span className="text-gray-600">CGST ({invoiceData.cgst}%):</span><span>₹{calculations.cgstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span></div>)}
+                        {invoiceData.sgst > 0 && (<div className="flex justify-between text-sm"><span className="text-gray-600">SGST ({invoiceData.sgst}%):</span><span>₹{calculations.sgstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span></div>)}
+                        {invoiceData.igst > 0 && (<div className="flex justify-between text-sm"><span className="text-gray-600">IGST ({invoiceData.igst}%):</span><span>₹{calculations.igstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span></div>)}
+                        <div className="border-t pt-2 flex justify-between font-bold text-base"><span>Total Amount:</span><span>₹{calculations.total.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span></div>
+                    </div>
                 </div>
             </div>
           <div className="bg-white rounded-xl border border-gray-200 p-6">
@@ -376,7 +373,7 @@ const CreateInvoiceComponent = ({
 );
 
 
-// MOVED OUTSIDE: InvoiceManagementComponent
+// MOVED OUTSIDE: InvoiceManagementComponent (✅ UPDATED)
 const InvoiceManagementComponent = ({
   activeTab,
   searchTerm,
@@ -393,12 +390,12 @@ const InvoiceManagementComponent = ({
 
   return (
     <div className="min-h-screen bg-white">
-      <div className="max-w-7xl mx-auto p-8">
+      {/* THIS IS THE UPDATED LINE 👇 */}
+      <div className="max-w-7xl mx-auto px-8 pb-8 pt-32">
         {/* Header */}
         <header>
           <div className="flex justify-between items-center">
             <div>
-              {/* FONT CHANGE: Adjusted to text-2xl for consistency */}
               <h1 className="text-2xl font-bold text-gray-900">Invoice Management</h1>
               <p className="text-sm text-gray-600 mt-1">Manage all your invoices in one place</p>
             </div>
