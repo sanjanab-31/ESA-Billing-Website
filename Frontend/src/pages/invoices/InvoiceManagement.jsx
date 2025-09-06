@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Search, Plus, Eye, Edit, Download, X, Save, FileText, ArrowLeft, Trash2 } from 'lucide-react';
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
+import { Search, Plus, Eye, Edit, Download, X, Save, FileText, ArrowLeft, Trash2, Printer } from 'lucide-react';
+
 // CHANGE: Added backdrop blur for a better visual effect
 const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, message }) => {
   if (!isOpen) return null;
@@ -30,7 +29,6 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, message }) => {
   );
 };
 
-
 const ClientAutocomplete = ({ clients, selectedClient, onSelect }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [suggestions, setSuggestions] = useState([]);
@@ -57,7 +55,6 @@ const ClientAutocomplete = ({ clients, selectedClient, onSelect }) => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [wrapperRef]);
-
 
   const handleInputChange = (e) => {
     const value = e.target.value;
@@ -108,7 +105,7 @@ const ClientAutocomplete = ({ clients, selectedClient, onSelect }) => {
   );
 };
 
-// MOVED OUTSIDE: InvoicePreview component (✅ UPDATED with a more robust PDF generation method)
+// IMPROVED: Better PDF generation and print functionality without navigating away
 const InvoicePreview = ({ invoice, invoiceData, calculations, setShowPreview }) => {
   const previewRef = useRef();
   const previewData = invoice || invoiceData;
@@ -120,79 +117,379 @@ const InvoicePreview = ({ invoice, invoiceData, calculations, setShowPreview }) 
     igstAmount: (invoice.items.reduce((sum, item) => sum + item.amount, 0) * (invoice.igst || 0)) / 100,
     total: invoice.amount || 0
   } : calculations;
-  
-  // Handle PDF download
-  const handleDownloadPdf = async () => {
-    try {
-      const contentToCapture = previewRef.current;
-      if (!contentToCapture) {
-        console.error("Preview content not found.");
-        return;
-      }
 
-      // Hide buttons before capturing
-      const buttons = contentToCapture.querySelectorAll('.no-print');
-      buttons.forEach(btn => btn.style.display = 'none');
-
-      const canvas = await html2canvas(contentToCapture, { 
-        scale: 2, 
-        useCORS: true,
-        logging: true,
-        letterRendering: true
-      });
-
-      // Show buttons again after capturing
-      buttons.forEach(btn => btn.style.display = '');
-
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4'
-      });
-
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
-      const imgWidth = canvas.width;
-      const imgHeight = canvas.height;
-      const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight) * 0.95; // 95% of page size
-      const imgX = (pdfWidth - imgWidth * ratio) / 2;
-      const imgY = 10; // 10mm from top
-
-      pdf.addImage(imgData, 'PNG', imgX, imgY, imgWidth * ratio, imgHeight * ratio);
-      pdf.save(`invoice-${previewData.invoiceNumber || 'draft'}.pdf`);
-    } catch (err) {
-      console.error("PDF generation failed:", err);
-      alert('Failed to generate PDF. Please try again.');
-    }
+  // NEW: Generate PDF using browser's print to PDF
+  const handleDownloadPdf = () => {
+    // Create a hidden iframe for printing
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = 'none';
+    
+    document.body.appendChild(iframe);
+    
+    const invoiceHTML = generatePrintableHTML();
+    
+    iframe.contentDocument.write(invoiceHTML);
+    iframe.contentDocument.close();
+    
+    // Wait for content to load, then trigger print dialog
+    iframe.onload = () => {
+      const printWindow = iframe.contentWindow;
+      printWindow.focus();
+      
+      // Use browser's print to PDF functionality
+      printWindow.print();
+      
+      // Remove iframe after printing
+      setTimeout(() => {
+        document.body.removeChild(iframe);
+      }, 100);
+    };
   };
 
-  // Handle print
+  // NEW: Print functionality without opening a new window
   const handlePrint = () => {
-    const printWindow = window.open('', '_blank');
-    printWindow.document.write(`
-      <html>
+    // Create a hidden iframe for printing
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = 'none';
+    
+    document.body.appendChild(iframe);
+    
+    const invoiceHTML = generatePrintableHTML();
+    
+    iframe.contentDocument.write(invoiceHTML);
+    iframe.contentDocument.close();
+    
+    // Wait for content to load, then trigger print dialog
+    iframe.onload = () => {
+      const printWindow = iframe.contentWindow;
+      printWindow.focus();
+      printWindow.print();
+      
+      // Remove iframe after printing
+      setTimeout(() => {
+        document.body.removeChild(iframe);
+      }, 100);
+    };
+  };
+
+  // NEW: Generate clean HTML for printing/PDF with all details
+  const generatePrintableHTML = () => {
+    const bankDetailsMap = {
+      'State Bank Of India': 'A/C No: 42455711572\nIFSC Code: SBIN0015017\nBranch: Malumichampatti',
+      'HDFC Bank': 'A/C No: 98765432109\nIFSC: HDFC0005678\nBranch: Corporate Branch, Delhi',
+      'ICICI Bank': 'A/C No: 56789012345\nIFSC: ICIC0009012\nBranch: Business Branch, Bangalore',
+      'Axis Bank': 'A/C No: 34567890123\nIFSC: UTIB0003456\nBranch: Commercial Branch, Chennai'
+    };
+
+    return `
+      <!DOCTYPE html>
+      <html lang="en">
         <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
           <title>Invoice ${previewData.invoiceNumber || ''}</title>
           <style>
             @media print {
-              @page { margin: 0; }
-              body { margin: 1.6cm; }
-              .no-print { display: none !important; }
+              @page { 
+                margin: 0.5in; 
+                size: A4;
+              }
+              body { 
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+              }
             }
-            body { font-family: Arial, sans-serif; }
-            .print-container { max-width: 800px; margin: 0 auto; }
+            
+            * {
+              margin: 0;
+              padding: 0;
+              box-sizing: border-box;
+            }
+            
+            body {
+              font-family: 'Arial', sans-serif;
+              line-height: 1.4;
+              color: #333;
+              background: white;
+            }
+            
+            .invoice-container {
+              max-width: 800px;
+              margin: 0 auto;
+              padding: 20px;
+              background: white;
+            }
+            
+            .company-header {
+              display: flex;
+              justify-content: space-between;
+              align-items: flex-start;
+              margin-bottom: 20px;
+              border-bottom: 2px solid #000;
+              padding-bottom: 10px;
+            }
+            
+            .company-info {
+              flex: 2;
+            }
+            
+            .company-contact {
+              flex: 1;
+              text-align: right;
+            }
+            
+            .company-name {
+              font-size: 24px;
+              font-weight: bold;
+              margin-bottom: 5px;
+            }
+            
+            .company-tagline {
+              font-size: 14px;
+              margin-bottom: 5px;
+            }
+            
+            .company-address {
+              font-size: 14px;
+              margin-bottom: 5px;
+            }
+            
+            .invoice-header {
+              display: flex;
+              justify-content: space-between;
+              margin-bottom: 20px;
+            }
+            
+            .invoice-title {
+              font-size: 28px;
+              font-weight: bold;
+            }
+            
+            .invoice-details {
+              text-align: right;
+              font-size: 14px;
+            }
+            
+            .client-info {
+              margin-bottom: 20px;
+            }
+            
+            .client-info table {
+              width: 100%;
+              border-collapse: collapse;
+            }
+            
+            .client-info td {
+              padding: 5px;
+              vertical-align: top;
+            }
+            
+            .items-table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-bottom: 20px;
+            }
+            
+            .items-table th, .items-table td {
+              border: 1px solid #000;
+              padding: 8px;
+              text-align: center;
+            }
+            
+            .items-table th {
+              background-color: #f0f0f0;
+            }
+            
+            .totals-section {
+              display: flex;
+              justify-content: space-between;
+              margin-bottom: 20px;
+            }
+            
+            .bank-details {
+              flex: 1;
+              padding: 10px;
+              border: 1px solid #000;
+            }
+            
+            .calculations {
+              flex: 1;
+              padding: 10px;
+            }
+            
+            .calculation-row {
+              display: flex;
+              justify-content: space-between;
+              margin-bottom: 5px;
+            }
+            
+            .declaration {
+              margin-top: 20px;
+              padding: 10px;
+              border-top: 1px solid #000;
+              font-size: 14px;
+            }
+            
+            .footer {
+              margin-top: 30px;
+              text-align: center;
+              font-size: 12px;
+              border-top: 1px solid #000;
+              padding-top: 10px;
+            }
+            
+            .signature {
+              margin-top: 50px;
+              text-align: right;
+              font-weight: bold;
+            }
           </style>
         </head>
         <body>
-          <div class="print-container">${previewRef.current.innerHTML}</div>
-          <script>
-            window.onload = function() { window.print(); window.onafterprint = function() { window.close(); } }
-          </script>
+          <div class="invoice-container">
+            <!-- Company Header -->
+            <div class="company-header">
+              <div class="company-info">
+                <div class="company-name">ESA ENGINEERING WORKS</div>
+                <div class="company-tagline">All Kinds of Lathe and Milling Works</div>
+                <div class="company-tagline">Specialist in : Press Tools, Die Casting Tools, Precision Components</div>
+                <div class="company-address">1/100, Chettipalayam Road, E.B. Compound, Malumichampatti, CBE - 641 050.</div>
+                <div class="company-address">E-Mail : esaengineeringworks@gmail.com | GSTIN : 33AMWPB2116Q1ZS</div>
+              </div>
+              <div class="company-contact">
+                <div>☎ 98432 94464</div>
+                <div>☎ 96984 87096</div>
+              </div>
+            </div>
+
+            <!-- Invoice Header -->
+            <div class="invoice-header">
+              <div class="invoice-title">INVOICE</div>
+              <div class="invoice-details">
+                <div>NO: ${previewData.invoiceNumber || '001/2025-2026'}</div>
+                <div>DATE: ${previewData.invoiceDate || '06-09-2025'}</div>
+              </div>
+            </div>
+
+            <!-- Client Information -->
+            <div class="client-info">
+              <table>
+                <tr>
+                  <td style="width: 50px;">To,</td>
+                  <td>M/s. ${previewData.client ? previewData.client.name : ''}</td>
+                  <td style="text-align: right;">J.O. No: ${previewData.joNumber || ''}</td>
+                </tr>
+                <tr>
+                  <td></td>
+                  <td>${previewData.client ? previewData.client.address : ''}</td>
+                  <td style="text-align: right;">D.C. No: ${previewData.dcNumber || ''}</td>
+                </tr>
+                <tr>
+                  <td></td>
+                  <td>GSTIN: ${previewData.client ? previewData.client.gst : ''}</td>
+                  <td style="text-align: right;">D.C. Date: ${previewData.dcDate || ''}</td>
+                </tr>
+              </table>
+            </div>
+
+            <!-- Items Table -->
+            <table class="items-table">
+              <thead>
+                <tr>
+                  <th style="width: 40px;">S.No.</th>
+                  <th>PARTICULARS</th>
+                  <th style="width: 80px;">HSN CODE</th>
+                  <th style="width: 60px;">QTY.</th>
+                  <th style="width: 100px;">RATE</th>
+                  <th style="width: 120px;">AMOUNT</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${previewData.items.map((item, index) => `
+                  <tr>
+                    <td>${index + 1}</td>
+                    <td>${item.description}</td>
+                    <td>${item.hsnCode}</td>
+                    <td>${item.quantity}</td>
+                    <td>${item.rate.toLocaleString('en-IN')}</td>
+                    <td>${item.amount.toLocaleString('en-IN')}</td>
+                  </tr>
+                `).join('')}
+                ${Array(Math.max(0, 15 - previewData.items.length)).fill('<tr><td>&nbsp;</td><td></td><td></td><td></td><td></td><td></td></tr>').join('')}
+              </tbody>
+            </table>
+
+            <!-- Totals and Bank Details -->
+            <div class="totals-section">
+              <div class="bank-details">
+                <strong>Bank Details :</strong><br>
+                <strong>Bank Name : ${previewData.bankDetails || 'State Bank Of India'}</strong><br>
+                <pre>${bankDetailsMap[previewData.bankDetails] || 'A/C No: 42455711572\nIFSC Code: SBIN0015017\nBranch: Malumichampatti'}</pre>
+              </div>
+              <div class="calculations">
+                <div class="calculation-row">
+                  <span>SUB TOTAL</span>
+                  <span>₹${previewCalcs.subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                </div>
+                ${previewData.cgst > 0 ? `
+                <div class="calculation-row">
+                  <span>CGST ${previewData.cgst}%</span>
+                  <span>₹${previewCalcs.cgstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                </div>
+                ` : ''}
+                ${previewData.sgst > 0 ? `
+                <div class="calculation-row">
+                  <span>SGST ${previewData.sgst}%</span>
+                  <span>₹${previewCalcs.sgstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                </div>
+                ` : ''}
+                ${previewData.igst > 0 ? `
+                <div class="calculation-row">
+                  <span>IGST ${previewData.igst}%</span>
+                  <span>₹${previewCalcs.igstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                </div>
+                ` : ''}
+                <div class="calculation-row">
+                  <span>ROUND OFF</span>
+                  <span>₹0.00</span>
+                </div>
+                <div class="calculation-row" style="font-weight: bold; border-top: 1px solid #000; padding-top: 5px;">
+                  <span>NET TOTAL</span>
+                  <span>₹${previewCalcs.total.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Declaration -->
+            <div class="declaration">
+              <p><strong>Declaration</strong></p>
+              <p>${previewData.declaration || 'We declare that this invoice shows the actual price of the goods Described and that all Particulars are true and correct.'}</p>
+            </div>
+
+            <!-- Signature -->
+            <div class="signature">
+              <div>For ESA Engineering Works</div>
+              <div style="margin-top: 40px;">Authorized Signatory</div>
+            </div>
+
+            <!-- Footer -->
+            <div class="footer">
+              <p>This is a Computer generated bill</p>
+            </div>
+          </div>
         </body>
       </html>
-    `);
-    printWindow.document.close();
+    `;
   };
 
   return (
@@ -203,23 +500,21 @@ const InvoicePreview = ({ invoice, invoiceData, calculations, setShowPreview }) 
           <div className="flex items-center space-x-2">
             <button
               onClick={handlePrint}
-              className="no-print flex items-center px-3 py-1.5 text-sm text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 mr-2"
+              className="flex items-center px-3 py-1.5 text-sm text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
             >
-              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-              </svg>
+              <Printer className="w-4 h-4 mr-2" />
               Print
             </button>
             <button
               onClick={handleDownloadPdf}
-              className="no-print flex items-center px-3 py-1.5 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700"
+              className="flex items-center px-3 py-1.5 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700"
             >
               <Download className="w-4 h-4 mr-2" />
               Download PDF
             </button>
             <button 
               onClick={() => setShowPreview(false)} 
-              className="no-print p-2 text-gray-500 hover:bg-gray-100 rounded-full"
+              className="p-2 text-gray-500 hover:bg-gray-100 rounded-full"
               aria-label="Close"
             >
               <X className="w-5 h-5" />
@@ -228,111 +523,165 @@ const InvoicePreview = ({ invoice, invoiceData, calculations, setShowPreview }) 
         </div>
         
         <div className="overflow-y-auto">
-            {/* The ref is now only on the content itself */}
-            <div ref={previewRef} className="p-8 space-y-8 text-sm text-gray-800 bg-white">
-                {/* Invoice Header */}
-                <div className="border-b pb-4">
-                    <div className="flex justify-between items-start">
-                        <div>
-                        <h1 className="text-3xl font-bold text-blue-600">INVOICE</h1>
-                        <p className="text-gray-600 mt-1">#{previewData.invoiceNumber}</p>
-                        </div>
-                        <div className="text-right text-sm">
-                        <p className="font-semibold">Invoice Date: {previewData.invoiceDate}</p>
-                        <p className="text-gray-600">Due Date: {previewData.dueDate}</p>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Client Details */}
-                {previewData.client && (
-                    <div className="grid grid-cols-2 gap-8">
-                    <div>
-                        <h3 className="text-xs uppercase font-semibold text-gray-500 mb-2">Bill To:</h3>
-                        <div className="text-gray-700">
-                            <p className="font-bold text-base">{previewData.client.name}</p>
-                            <p>{previewData.client.address}</p>
-                            <p>GST: {previewData.client.gst}</p>
-                        </div>
-                    </div>
-                    <div>
-                        <h3 className="text-xs uppercase font-semibold text-gray-500 mb-2">Invoice Details:</h3>
-                        <div className="text-gray-700">
-                            {previewData.joNumber && <p>J.O Number: {previewData.joNumber}</p>}
-                            {previewData.dcNumber && <p>D.C Number: {previewData.dcNumber}</p>}
-                            {previewData.dcDate && <p>D.C Date: {previewData.dcDate}</p>}
-                        </div>
-                    </div>
-                    </div>
-                )}
-
-                {/* Items Table */}
+          <div ref={previewRef} className="p-8 space-y-8 text-sm text-gray-800 bg-white">
+            {/* Company Header */}
+            <div className="border-b-2 border-black pb-4">
+              <div className="flex justify-between items-start">
                 <div>
-                    <div className="border rounded-lg overflow-hidden">
-                    <table className="w-full">
-                        <thead className="bg-gray-50 text-xs uppercase font-semibold text-gray-500">
-                        <tr>
-                            <th className="px-4 py-3 text-left">#</th>
-                            <th className="px-4 py-3 text-left">Description</th>
-                            <th className="px-4 py-3 text-left">HSN</th>
-                            <th className="px-4 py-3 text-center">Qty</th>
-                            <th className="px-4 py-3 text-right">Rate (₹)</th>
-                            <th className="px-4 py-3 text-right">Amount (₹)</th>
-                        </tr>
-                        </thead>
-                        <tbody className="divide-y text-sm">
-                        {previewData.items.map((item, index) => (
-                            <tr key={item.id}>
-                            <td className="px-4 py-3">{index + 1}</td>
-                            <td className="px-4 py-3">{item.description}</td>
-                            <td className="px-4 py-3">{item.hsnCode}</td>
-                            <td className="px-4 py-3 text-center">{item.quantity}</td>
-                            <td className="px-4 py-3 text-right">{item.rate.toLocaleString()}</td>
-                            <td className="px-4 py-3 text-right font-medium text-gray-900">{item.amount.toLocaleString()}</td>
-                            </tr>
-                        ))}
-                        </tbody>
-                    </table>
-                    </div>
+                  <h1 className="text-2xl font-bold">ESA ENGINEERING WORKS</h1>
+                  <p className="text-sm">All Kinds of Lathe and Milling Works</p>
+                  <p className="text-sm">Specialist in : Press Tools, Die Casting Tools, Precision Components</p>
+                  <p className="text-sm">1/100, Chettipalayam Road, E.B. Compound, Malumichampatti, CBE - 641 050.</p>
+                  <p className="text-sm">E-Mail : esaengineeringworks@gmail.com | GSTIN : 33AMWPB2116Q1ZS</p>
                 </div>
-
-                {/* Totals */}
-                <div className="flex justify-end">
-                    <div className="w-full max-w-xs space-y-2 text-sm">
-                    <div className="flex justify-between">
-                        <span className="text-gray-600">Subtotal:</span>
-                        <span>₹{previewCalcs.subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                    </div>
-                    {previewData.cgst > 0 && (
-                        <div className="flex justify-between">
-                        <span className="text-gray-600">CGST ({previewData.cgst}%):</span>
-                        <span>₹{previewCalcs.cgstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                        </div>
-                    )}
-                    {previewData.sgst > 0 && (
-                        <div className="flex justify-between">
-                        <span className="text-gray-600">SGST ({previewData.sgst}%):</span>
-                        <span>₹{previewCalcs.sgstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                        </div>
-                    )}
-                    {previewData.igst > 0 && (
-                        <div className="flex justify-between">
-                        <span className="text-gray-600">IGST ({previewData.igst}%):</span>
-                        <span>₹{previewCalcs.igstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                        </div>
-                    )}
-                    <div className="border-t pt-2 mt-2 flex justify-between font-bold text-base">
-                        <span>Total Amount:</span>
-                        <span>₹{previewCalcs.total.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                    </div>
-                    </div>
+                <div className="text-right">
+                  <p className="text-sm">☎ 98432 94464</p>
+                  <p className="text-sm">☎ 96984 87096</p>
                 </div>
+              </div>
             </div>
+
+            {/* Invoice Header */}
+            <div className="flex justify-between items-center">
+              <h1 className="text-2xl font-bold">INVOICE</h1>
+              <div className="text-right text-sm">
+                <p>NO: {previewData.invoiceNumber || '001/2025-2026'}</p>
+                <p>DATE: {previewData.invoiceDate || '06-09-2025'}</p>
+              </div>
+            </div>
+
+            {/* Client Details */}
+            <div className="grid grid-cols-3 gap-4 text-sm">
+              <div className="col-span-2">
+                <p><strong>To,</strong> M/s. {previewData.client ? previewData.client.name : ''}</p>
+                <p className="ml-5">{previewData.client ? previewData.client.address : ''}</p>
+                <p className="ml-5">GSTIN: {previewData.client ? previewData.client.gst : ''}</p>
+              </div>
+              <div className="text-right">
+                <p>J.O. No: {previewData.joNumber || ''}</p>
+                <p>D.C. No: {previewData.dcNumber || ''}</p>
+                <p>D.C. Date: {previewData.dcDate || ''}</p>
+              </div>
+            </div>
+
+            {/* Items Table */}
+            <div>
+              <table className="w-full border border-black">
+                <thead className="bg-gray-100">
+                  <tr>
+                    <th className="border border-black p-2 text-center">S.No.</th>
+                    <th className="border border-black p-2 text-center">PARTICULARS</th>
+                    <th className="border border-black p-2 text-center">HSN CODE</th>
+                    <th className="border border-black p-2 text-center">QTY.</th>
+                    <th className="border border-black p-2 text-center">RATE</th>
+                    <th className="border border-black p-2 text-center">AMOUNT</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {previewData.items.map((item, index) => (
+                    <tr key={item.id}>
+                      <td className="border border-black p-2 text-center">{index + 1}</td>
+                      <td className="border border-black p-2">{item.description}</td>
+                      <td className="border border-black p-2 text-center">{item.hsnCode}</td>
+                      <td className="border border-black p-2 text-center">{item.quantity}</td>
+                      <td className="border border-black p-2 text-right">{item.rate.toLocaleString()}</td>
+                      <td className="border border-black p-2 text-right">{item.amount.toLocaleString()}</td>
+                    </tr>
+                  ))}
+                  {Array(Math.max(0, 15 - previewData.items.length)).fill(0).map((_, index) => (
+                    <tr key={`empty-${index}`}>
+                      <td className="border border-black p-2">&nbsp;</td>
+                      <td className="border border-black p-2"></td>
+                      <td className="border border-black p-2"></td>
+                      <td className="border border-black p-2"></td>
+                      <td className="border border-black p-2"></td>
+                      <td className="border border-black p-2"></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Totals and Bank Details */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="border border-black p-4">
+                <p className="font-bold">Bank Details :</p>
+                <p className="font-bold">Bank Name : {previewData.bankDetails || 'State Bank Of India'}</p>
+                <pre className="text-sm whitespace-pre-line mt-2">
+                  {previewData.bankDetails === 'State Bank Of India' && (
+                    <>A/C No: 42455711572\nIFSC Code: SBIN0015017\nBranch: Malumichampatti</>
+                  )}
+                  {previewData.bankDetails === 'HDFC Bank' && (
+                    <>A/C No: 98765432109\nIFSC: HDFC0005678\nBranch: Corporate Branch, Delhi</>
+                  )}
+                  {previewData.bankDetails === 'ICICI Bank' && (
+                    <>A/C No: 56789012345\nIFSC: ICIC0009012\nBranch: Business Branch, Bangalore</>
+                  )}
+                  {previewData.bankDetails === 'Axis Bank' && (
+                    <>A/C No: 34567890123\nIFSC: UTIB0003456\nBranch: Commercial Branch, Chennai</>
+                  )}
+                </pre>
+              </div>
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span>SUB TOTAL</span>
+                  <span>₹{previewCalcs.subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                </div>
+                {previewData.cgst > 0 && (
+                  <div className="flex justify-between">
+                    <span>CGST {previewData.cgst}%</span>
+                    <span>₹{previewCalcs.cgstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                  </div>
+                )}
+                {previewData.sgst > 0 && (
+                  <div className="flex justify-between">
+                    <span>SGST {previewData.sgst}%</span>
+                    <span>₹{previewCalcs.sgstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                  </div>
+                )}
+                {previewData.igst > 0 && (
+                  <div className="flex justify-between">
+                    <span>IGST {previewData.igst}%</span>
+                    <span>₹{previewCalcs.igstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                  </div>
+                )}
+                <div className="flex justify-between">
+                  <span>ROUND OFF</span>
+                  <span>₹0.00</span>
+                </div>
+                <div className="flex justify-between border-t border-black pt-2 font-bold">
+                  <span>NET TOTAL</span>
+                  <span>₹{previewCalcs.total.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Declaration */}
+            <div className="border-t border-black pt-4">
+              <p className="font-bold">Declaration</p>
+              <p className="text-sm">{previewData.declaration}</p>
+            </div>
+
+            {/* Signature */}
+            <div className="text-right mt-8">
+              <p>For ESA Engineering Works</p>
+              <p className="mt-16 font-bold">Authorized Signatory</p>
+            </div>
+
+            {/* Footer */}
+            <div className="border-t border-black pt-4 text-center text-xs">
+              <p>This is a Computer generated bill</p>
+            </div>
+          </div>
         </div>
       </div>
     </div>
   );
 };
+
+// Rest of the components remain the same as in the previous response...
+// Only the InvoicePreview component has been modified to match the new design
+
 const CreateInvoiceComponent = ({
   editingInvoice, invoiceData, clients, calculations, setCurrentPage,
   saveDraft, setShowPreview, updateInvoice, saveInvoice, setInvoiceData,
@@ -499,7 +848,6 @@ const CreateInvoiceComponent = ({
   </div>
 );
 
-
 const InvoiceManagementComponent = ({
   activeTab, searchTerm, filteredInvoices, setActiveTab, setSearchTerm,
   handleCreateInvoice, getStatusColor, handleViewInvoice, handleEditInvoice,
@@ -527,7 +875,6 @@ const InvoiceManagementComponent = ({
                 </button>
               ))}
             </div>
-            {/* --- SEARCH BAR: Start of Changes --- */}
             <div className="flex items-center gap-4 w-full lg:w-auto mt-4 lg:mt-0">
               <div className="relative flex-1 lg:flex-none">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -592,7 +939,6 @@ const InvoiceManagementComponent = ({
     </div>
   );
 };
-
 
 const InvoiceManagementSystem = () => {
   // Check for 'action=create' in the URL query parameters
@@ -812,4 +1158,4 @@ const InvoiceManagementSystem = () => {
   );
 };
 
-export default InvoiceManagementSystem;
+export default InvoiceManagementSystem
