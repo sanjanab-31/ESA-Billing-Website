@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Search, Plus, Eye, Edit, Download, X, Save, FileText, ArrowLeft, Trash2, Printer } from 'lucide-react';
 
-// CHANGE: Added backdrop blur for a better visual effect
 const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, message }) => {
   if (!isOpen) return null;
 
@@ -105,389 +104,220 @@ const ClientAutocomplete = ({ clients, selectedClient, onSelect }) => {
   );
 };
 
-// IMPROVED: Better PDF generation and print functionality without navigating away
+// CHANGE: Entire InvoicePreview component is replaced to match the uploaded image template.
 const InvoicePreview = ({ invoice, invoiceData, calculations, setShowPreview }) => {
-  const previewRef = useRef();
   const previewData = invoice || invoiceData;
-  
   const previewCalcs = invoice ? {
     subtotal: invoice.items.reduce((sum, item) => sum + item.amount, 0),
     cgstAmount: (invoice.items.reduce((sum, item) => sum + item.amount, 0) * (invoice.cgst || 0)) / 100,
     sgstAmount: (invoice.items.reduce((sum, item) => sum + item.amount, 0) * (invoice.sgst || 0)) / 100,
     igstAmount: (invoice.items.reduce((sum, item) => sum + item.amount, 0) * (invoice.igst || 0)) / 100,
-    total: invoice.amount || 0
+    roundOffAmount: invoice.isRoundOff ? Math.round(invoice.amount) - invoice.amount : 0,
+    total: invoice.isRoundOff ? Math.round(invoice.amount) : invoice.amount
   } : calculations;
 
-  // NEW: Generate PDF using browser's print to PDF
+    // NEW: Function to convert number to words (Indian Rupees)
+    const convertToWords = (num) => {
+        if (num === 0) return 'Zero';
+        const a = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+        const b = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+        
+        const inWords = (n) => {
+            let str = '';
+            if (n > 99) {
+                str += a[Math.floor(n / 100)] + ' Hundred ';
+                n %= 100;
+            }
+            if (n > 19) {
+                str += b[Math.floor(n / 10)] + ' ' + a[n % 10];
+            } else {
+                str += a[n];
+            }
+            return str.trim();
+        };
+
+        let number = Math.floor(num);
+        const fraction = Math.round((num - number) * 100);
+        let words = '';
+
+        if (number > 9999999) {
+            words += inWords(Math.floor(number / 10000000)) + ' Crore ';
+            number %= 10000000;
+        }
+        if (number > 99999) {
+            words += inWords(Math.floor(number / 100000)) + ' Lakh ';
+            number %= 100000;
+        }
+        if (number > 999) {
+            words += inWords(Math.floor(number / 1000)) + ' Thousand ';
+            number %= 1000;
+        }
+        if (number > 0) {
+            words += inWords(number);
+        }
+
+        if (fraction > 0) {
+            words += ' and ' + inWords(fraction) + ' Paise';
+        }
+
+        return 'Indian Rupees ' + words.trim() + ' Only';
+    };
+
+    const amountInWords = convertToWords(previewCalcs.total);
+
   const handleDownloadPdf = () => {
-    // Create a hidden iframe for printing
     const iframe = document.createElement('iframe');
-    iframe.style.position = 'fixed';
-    iframe.style.right = '0';
-    iframe.style.bottom = '0';
-    iframe.style.width = '0';
-    iframe.style.height = '0';
-    iframe.style.border = 'none';
-    
+    iframe.style.display = 'none';
     document.body.appendChild(iframe);
-    
     const invoiceHTML = generatePrintableHTML();
-    
     iframe.contentDocument.write(invoiceHTML);
     iframe.contentDocument.close();
-    
-    // Wait for content to load, then trigger print dialog
     iframe.onload = () => {
-      const printWindow = iframe.contentWindow;
-      printWindow.focus();
-      
-      // Use browser's print to PDF functionality
-      printWindow.print();
-      
-      // Remove iframe after printing
-      setTimeout(() => {
-        document.body.removeChild(iframe);
-      }, 100);
+      iframe.contentWindow.print();
+      setTimeout(() => document.body.removeChild(iframe), 100);
     };
   };
 
-  // NEW: Print functionality without opening a new window
-  const handlePrint = () => {
-    // Create a hidden iframe for printing
-    const iframe = document.createElement('iframe');
-    iframe.style.position = 'fixed';
-    iframe.style.right = '0';
-    iframe.style.bottom = '0';
-    iframe.style.width = '0';
-    iframe.style.height = '0';
-    iframe.style.border = 'none';
-    
-    document.body.appendChild(iframe);
-    
-    const invoiceHTML = generatePrintableHTML();
-    
-    iframe.contentDocument.write(invoiceHTML);
-    iframe.contentDocument.close();
-    
-    // Wait for content to load, then trigger print dialog
-    iframe.onload = () => {
-      const printWindow = iframe.contentWindow;
-      printWindow.focus();
-      printWindow.print();
-      
-      // Remove iframe after printing
-      setTimeout(() => {
-        document.body.removeChild(iframe);
-      }, 100);
-    };
-  };
+  const handlePrint = () => handleDownloadPdf(); // They do the same thing
 
-  // NEW: Generate clean HTML for printing/PDF with all details
   const generatePrintableHTML = () => {
-    const bankDetailsMap = {
-      'State Bank Of India': 'A/C No: 42455711572\nIFSC Code: SBIN0015017\nBranch: Malumichampatti',
-      'HDFC Bank': 'A/C No: 98765432109\nIFSC: HDFC0005678\nBranch: Corporate Branch, Delhi',
-      'ICICI Bank': 'A/C No: 56789012345\nIFSC: ICIC0009012\nBranch: Business Branch, Bangalore',
-      'Axis Bank': 'A/C No: 34567890123\nIFSC: UTIB0003456\nBranch: Commercial Branch, Chennai'
-    };
-
+    const bankDetails = `Bank Name : ${previewData.bankDetails || 'State Bank Of India'}<br>
+                         A/C No &nbsp;&nbsp;&nbsp;&nbsp;: 42455711572<br>
+                         IFSC Code : SBIN0015017<br>
+                         Branch &nbsp;&nbsp;&nbsp;&nbsp;: Malumichampatti`;
     return `
       <!DOCTYPE html>
-      <html lang="en">
-        <head>
-          <meta charset="UTF-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Invoice ${previewData.invoiceNumber || ''}</title>
-          <style>
-            @media print {
-              @page { 
-                margin: 0.5in; 
-                size: A4;
-              }
-              body { 
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
-              }
-            }
-            
-            * {
-              margin: 0;
-              padding: 0;
-              box-sizing: border-box;
-            }
-            
-            body {
-              font-family: 'Arial', sans-serif;
-              line-height: 1.4;
-              color: #333;
-              background: white;
-            }
-            
-            .invoice-container {
-              max-width: 800px;
-              margin: 0 auto;
-              padding: 20px;
-              background: white;
-            }
-            
-            .company-header {
-              display: flex;
-              justify-content: space-between;
-              align-items: flex-start;
-              margin-bottom: 20px;
-              border-bottom: 2px solid #000;
-              padding-bottom: 10px;
-            }
-            
-            .company-info {
-              flex: 2;
-            }
-            
-            .company-contact {
-              flex: 1;
-              text-align: right;
-            }
-            
-            .company-name {
-              font-size: 24px;
-              font-weight: bold;
-              margin-bottom: 5px;
-            }
-            
-            .company-tagline {
-              font-size: 14px;
-              margin-bottom: 5px;
-            }
-            
-            .company-address {
-              font-size: 14px;
-              margin-bottom: 5px;
-            }
-            
-            .invoice-header {
-              display: flex;
-              justify-content: space-between;
-              margin-bottom: 20px;
-            }
-            
-            .invoice-title {
-              font-size: 28px;
-              font-weight: bold;
-            }
-            
-            .invoice-details {
-              text-align: right;
-              font-size: 14px;
-            }
-            
-            .client-info {
-              margin-bottom: 20px;
-            }
-            
-            .client-info table {
-              width: 100%;
-              border-collapse: collapse;
-            }
-            
-            .client-info td {
-              padding: 5px;
-              vertical-align: top;
-            }
-            
-            .items-table {
-              width: 100%;
-              border-collapse: collapse;
-              margin-bottom: 20px;
-            }
-            
-            .items-table th, .items-table td {
-              border: 1px solid #000;
-              padding: 8px;
-              text-align: center;
-            }
-            
-            .items-table th {
-              background-color: #f0f0f0;
-            }
-            
-            .totals-section {
-              display: flex;
-              justify-content: space-between;
-              margin-bottom: 20px;
-            }
-            
-            .bank-details {
-              flex: 1;
-              padding: 10px;
-              border: 1px solid #000;
-            }
-            
-            .calculations {
-              flex: 1;
-              padding: 10px;
-            }
-            
-            .calculation-row {
-              display: flex;
-              justify-content: space-between;
-              margin-bottom: 5px;
-            }
-            
-            .declaration {
-              margin-top: 20px;
-              padding: 10px;
-              border-top: 1px solid #000;
-              font-size: 14px;
-            }
-            
-            .footer {
-              margin-top: 30px;
-              text-align: center;
-              font-size: 12px;
-              border-top: 1px solid #000;
-              padding-top: 10px;
-            }
-            
-            .signature {
-              margin-top: 50px;
-              text-align: right;
-              font-weight: bold;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="invoice-container">
-            <!-- Company Header -->
-            <div class="company-header">
-              <div class="company-info">
-                <div class="company-name">ESA ENGINEERING WORKS</div>
-                <div class="company-tagline">All Kinds of Lathe and Milling Works</div>
-                <div class="company-tagline">Specialist in : Press Tools, Die Casting Tools, Precision Components</div>
-                <div class="company-address">1/100, Chettipalayam Road, E.B. Compound, Malumichampatti, CBE - 641 050.</div>
-                <div class="company-address">E-Mail : esaengineeringworks@gmail.com | GSTIN : 33AMWPB2116Q1ZS</div>
-              </div>
-              <div class="company-contact">
+      <html>
+      <head>
+        <title>Invoice ${previewData.invoiceNumber}</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #fff; font-size: 14px; }
+          .container { border: 2px solid black; padding: 15px; width: 100%; max-width: 800px; margin: auto; }
+          table { width: 100%; border-collapse: collapse; }
+          td, th { padding: 5px; }
+          .header { text-align: center; }
+          .header .logo { float: left; }
+          .header .contact { float: right; }
+          .header .company-name { font-size: 24px; font-weight: bold; margin: 0; }
+          .bordered-table, .bordered-table th, .bordered-table td { border: 1px solid black; }
+          .text-right { text-align: right; }
+          .text-center { text-align: center; }
+          .font-bold { font-weight: bold; }
+          .clear { clear: both; }
+          .items-table { min-height: 300px; }
+          .items-table td { vertical-align: top; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <div class="logo">
+                <p class="font-bold">ESA</p>
+            </div>
+            <div class="contact">
                 <div>☎ 98432 94464</div>
                 <div>☎ 96984 87096</div>
-              </div>
             </div>
-
-            <!-- Invoice Header -->
-            <div class="invoice-header">
-              <div class="invoice-title">INVOICE</div>
-              <div class="invoice-details">
-                <div>NO: ${previewData.invoiceNumber || '001/2025-2026'}</div>
-                <div>DATE: ${previewData.invoiceDate || '06-09-2025'}</div>
-              </div>
-            </div>
-
-            <!-- Client Information -->
-            <div class="client-info">
-              <table>
-                <tr>
-                  <td style="width: 50px;">To,</td>
-                  <td>M/s. ${previewData.client ? previewData.client.name : ''}</td>
-                  <td style="text-align: right;">J.O. No: ${previewData.joNumber || ''}</td>
-                </tr>
-                <tr>
-                  <td></td>
-                  <td>${previewData.client ? previewData.client.address : ''}</td>
-                  <td style="text-align: right;">D.C. No: ${previewData.dcNumber || ''}</td>
-                </tr>
-                <tr>
-                  <td></td>
-                  <td>GSTIN: ${previewData.client ? previewData.client.gst : ''}</td>
-                  <td style="text-align: right;">D.C. Date: ${previewData.dcDate || ''}</td>
-                </tr>
-              </table>
-            </div>
-
-            <!-- Items Table -->
-            <table class="items-table">
-              <thead>
-                <tr>
-                  <th style="width: 40px;">S.No.</th>
-                  <th>PARTICULARS</th>
-                  <th style="width: 80px;">HSN CODE</th>
-                  <th style="width: 60px;">QTY.</th>
-                  <th style="width: 100px;">RATE</th>
-                  <th style="width: 120px;">AMOUNT</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${previewData.items.map((item, index) => `
-                  <tr>
-                    <td>${index + 1}</td>
-                    <td>${item.description}</td>
-                    <td>${item.hsnCode}</td>
-                    <td>${item.quantity}</td>
-                    <td>${item.rate.toLocaleString('en-IN')}</td>
-                    <td>${item.amount.toLocaleString('en-IN')}</td>
-                  </tr>
-                `).join('')}
-                ${Array(Math.max(0, 15 - previewData.items.length)).fill('<tr><td>&nbsp;</td><td></td><td></td><td></td><td></td><td></td></tr>').join('')}
-              </tbody>
-            </table>
-
-            <!-- Totals and Bank Details -->
-            <div class="totals-section">
-              <div class="bank-details">
-                <strong>Bank Details :</strong><br>
-                <strong>Bank Name : ${previewData.bankDetails || 'State Bank Of India'}</strong><br>
-                <pre>${bankDetailsMap[previewData.bankDetails] || 'A/C No: 42455711572\nIFSC Code: SBIN0015017\nBranch: Malumichampatti'}</pre>
-              </div>
-              <div class="calculations">
-                <div class="calculation-row">
-                  <span>SUB TOTAL</span>
-                  <span>₹${previewCalcs.subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                </div>
-                ${previewData.cgst > 0 ? `
-                <div class="calculation-row">
-                  <span>CGST ${previewData.cgst}%</span>
-                  <span>₹${previewCalcs.cgstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                </div>
-                ` : ''}
-                ${previewData.sgst > 0 ? `
-                <div class="calculation-row">
-                  <span>SGST ${previewData.sgst}%</span>
-                  <span>₹${previewCalcs.sgstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                </div>
-                ` : ''}
-                ${previewData.igst > 0 ? `
-                <div class="calculation-row">
-                  <span>IGST ${previewData.igst}%</span>
-                  <span>₹${previewCalcs.igstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                </div>
-                ` : ''}
-                <div class="calculation-row">
-                  <span>ROUND OFF</span>
-                  <span>₹0.00</span>
-                </div>
-                <div class="calculation-row" style="font-weight: bold; border-top: 1px solid #000; padding-top: 5px;">
-                  <span>NET TOTAL</span>
-                  <span>₹${previewCalcs.total.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Declaration -->
-            <div class="declaration">
-              <p><strong>Declaration</strong></p>
-              <p>${previewData.declaration || 'We declare that this invoice shows the actual price of the goods Described and that all Particulars are true and correct.'}</p>
-            </div>
-
-            <!-- Signature -->
-            <div class="signature">
-              <div>For ESA Engineering Works</div>
-              <div style="margin-top: 40px;">Authorized Signatory</div>
-            </div>
-
-            <!-- Footer -->
-            <div class="footer">
-              <p>This is a Computer generated bill</p>
-            </div>
+            <p class="company-name">ESA ENGINEERING WORKS</p>
+            <p>All Kinds of Lathe and Milling Works</p>
+            <p>Specialist in : Press Tools, Die Casting Tools, Precision Components</p>
+            <p>1/100, Chettipalayam Road, E.B. Compound, Malumichampatti, CBE - 641 050.</p>
+            <p>E-Mail : esaengineeringworks@gmail.com | GSTIN : 33AMWPB2116Q1ZS</p>
           </div>
-        </body>
+          <div class="clear"></div>
+          <h2 class="text-center font-bold" style="background-color: #ccc; margin: 10px -15px; padding: 5px;">INVOICE</h2>
+          <table style="margin-bottom: 10px;">
+            <tr>
+              <td style="width: 70%; vertical-align: top;">
+                <table class="bordered-table">
+                  <tr><td>To, M/s. ${previewData.client?.name || ''}</td></tr>
+                  <tr><td style="height: 60px;">${previewData.client?.address || ''}</td></tr>
+                  <tr><td>GSTIN : ${previewData.client?.gst || ''}</td></tr>
+                </table>
+              </td>
+              <td style="width: 30%; vertical-align: top;">
+                <table class="bordered-table">
+                  <tr><td>NO : ${previewData.invoiceNumber}</td><td>DATE : ${previewData.invoiceDate}</td></tr>
+                  <tr><td colspan="2">P.O. No : ${previewData.poNumber}</td></tr>
+                  <tr><td colspan="2">P.O. Date : ${previewData.poDate}</td></tr>
+                  <tr><td colspan="2">D.C. No : ${previewData.dcNumber}</td></tr>
+                  <tr><td colspan="2">D.C. Date : ${previewData.dcDate}</td></tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+          <table class="bordered-table items-table">
+            <thead>
+              <tr>
+                <th style="width: 5%;">S.No.</th>
+                <th style="width: 45%;">PARTICULARS</th>
+                <th style="width: 15%;">HSN CODE</th>
+                <th style="width: 10%;">QTY.</th>
+                <th style="width: 10%;">RATE</th>
+                <th style="width: 15%;">AMOUNT</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${previewData.items.map((item, index) => `
+                <tr>
+                  <td class="text-center">${index + 1}</td>
+                  <td>${item.description}</td>
+                  <td class="text-center">${item.hsnCode}</td>
+                  <td class="text-center">${item.quantity}</td>
+                  <td class="text-right">${item.rate.toLocaleString('en-IN')}</td>
+                  <td class="text-right">${item.amount.toLocaleString('en-IN')}</td>
+                </tr>
+              `).join('')}
+              ${Array(12 - previewData.items.length).fill('<tr><td>&nbsp;</td><td></td><td></td><td></td><td></td><td></td></tr>').join('')}
+            </tbody>
+          </table>
+          ${previewData.invoiceNotes ? `<div style="padding: 5px 0; font-style: italic;"><strong>Notes:</strong> ${previewData.invoiceNotes}</div>` : ''}
+          <table class="bordered-table">
+            <tr>
+              <td style="width: 60%;" rowspan="3">
+                <div class="font-bold">Bank Details :</div>
+                <div>${bankDetails}</div>
+              </td>
+              <td style="padding-left: 10px;">SUB TOTAL</td>
+              <td class="text-right">${previewCalcs.subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+            </tr>
+            <tr>
+              <td style="padding-left: 10px;">CGST ${previewData.cgst}%</td>
+              <td class="text-right">${previewCalcs.cgstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+            </tr>
+            <tr>
+              <td style="padding-left: 10px;">SGST ${previewData.sgst}%</td>
+              <td class="text-right">${previewCalcs.sgstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+            </tr>
+            <tr>
+              <td rowspan="3">
+                <span class="font-bold">Rupees :</span> ${amountInWords}
+              </td>
+              <td style="padding-left: 10px;">IGST ${previewData.igst}%</td>
+              <td class="text-right">${previewCalcs.igstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+            </tr>
+            <tr>
+              <td style="padding-left: 10px;">ROUND OFF</td>
+              <td class="text-right">${(previewCalcs.roundOffAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+            </tr>
+            <tr class="font-bold">
+              <td style="padding-left: 10px;">NET TOTAL</td>
+              <td class="text-right">₹${previewCalcs.total.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+            </tr>
+            <tr>
+              <td style="height: 80px; vertical-align: top;">
+                <div class="font-bold">Declaration</div>
+                <div>${previewData.declaration}</div>
+              </td>
+              <td colspan="2" class="text-right" style="vertical-align: bottom;">
+                <div>For ESA Engineering Works</div>
+                <div style="margin-top: 40px;">Authorized Signatory</div>
+              </td>
+            </tr>
+          </table>
+          <div class="text-center font-bold" style="background-color: #ccc; margin: 10px -15px -15px -15px; padding: 5px;">This is a Computer generated bill</div>
+        </div>
+      </body>
       </html>
     `;
   };
@@ -495,183 +325,111 @@ const InvoicePreview = ({ invoice, invoiceData, calculations, setShowPreview }) 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-2xl max-w-4xl w-full flex flex-col max-h-[90vh]">
-        <div className="p-4 border-b flex justify-between items-center sticky top-0 bg-white z-10">
+        <div className="p-4 border-b flex justify-between items-center bg-gray-50 rounded-t-lg">
           <h2 className="text-lg font-bold text-gray-900">Invoice Preview</h2>
           <div className="flex items-center space-x-2">
-            <button
-              onClick={handlePrint}
-              className="flex items-center px-3 py-1.5 text-sm text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
-            >
-              <Printer className="w-4 h-4 mr-2" />
-              Print
-            </button>
-            <button
-              onClick={handleDownloadPdf}
-              className="flex items-center px-3 py-1.5 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700"
-            >
-              <Download className="w-4 h-4 mr-2" />
-              Download PDF
-            </button>
-            <button 
-              onClick={() => setShowPreview(false)} 
-              className="p-2 text-gray-500 hover:bg-gray-100 rounded-full"
-              aria-label="Close"
-            >
-              <X className="w-5 h-5" />
-            </button>
+            <button onClick={handlePrint} className="flex items-center px-3 py-1.5 text-sm text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300"><Printer className="w-4 h-4 mr-2" />Print</button>
+            <button onClick={handleDownloadPdf} className="flex items-center px-3 py-1.5 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700"><Download className="w-4 h-4 mr-2" />Download PDF</button>
+            <button onClick={() => setShowPreview(false)} className="p-2 text-gray-500 hover:bg-gray-200 rounded-full"><X className="w-5 h-5" /></button>
           </div>
         </div>
-        
-        <div className="overflow-y-auto">
-          <div ref={previewRef} className="p-8 space-y-8 text-sm text-gray-800 bg-white">
-            {/* Company Header */}
-            <div className="border-b-2 border-black pb-4">
-              <div className="flex justify-between items-start">
-                <div>
-                  <h1 className="text-2xl font-bold">ESA ENGINEERING WORKS</h1>
-                  <p className="text-sm">All Kinds of Lathe and Milling Works</p>
-                  <p className="text-sm">Specialist in : Press Tools, Die Casting Tools, Precision Components</p>
-                  <p className="text-sm">1/100, Chettipalayam Road, E.B. Compound, Malumichampatti, CBE - 641 050.</p>
-                  <p className="text-sm">E-Mail : esaengineeringworks@gmail.com | GSTIN : 33AMWPB2116Q1ZS</p>
+        <div className="overflow-y-auto bg-gray-100 p-8">
+          <div className="bg-white shadow-lg p-8 mx-auto" style={{ maxWidth: '800px' }}>
+            {/* Live Preview JSX */}
+            <div className="text-center">
+                <div className="flex justify-between items-start">
+                    <img src="https://i.imgur.com/your-logo.png" alt="ESA Logo" className="h-16" /> {/* Placeholder for logo */}
+                    <div className="text-right text-sm">
+                        <p>☎ 98432 94464</p>
+                        <p>☎ 96984 87096</p>
+                    </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-sm">☎ 98432 94464</p>
-                  <p className="text-sm">☎ 96984 87096</p>
+                <p className="text-2xl font-bold mt-2">ESA ENGINEERING WORKS</p>
+                <p className="text-sm">All Kinds of Lathe and Milling Works</p>
+                <p className="text-sm">Specialist in : Press Tools, Die Casting Tools, Precision Components</p>
+                <p className="text-sm">1/100, Chettipalayam Road, E.B. Compound, Malumichampatti, CBE - 641 050.</p>
+                <p className="text-sm">E-Mail : esaengineeringworks@gmail.com | GSTIN : 33AMWPB2116Q1ZS</p>
+            </div>
+            <div className="text-center font-bold bg-gray-200 my-2 p-1 text-xl">INVOICE</div>
+            <div className="flex justify-between gap-4 mb-2 text-sm">
+                <div className="w-2/3">
+                    <table className="w-full border border-black">
+                        <tbody>
+                            <tr><td className="p-1 border border-black">To, M/s. {previewData.client?.name}</td></tr>
+                            <tr><td className="p-1 border border-black h-20 align-top">{previewData.client?.address}</td></tr>
+                            <tr><td className="p-1 border border-black">GSTIN : {previewData.client?.gst}</td></tr>
+                        </tbody>
+                    </table>
                 </div>
-              </div>
+                <div className="w-1/3">
+                    <table className="w-full border border-black">
+                        <tbody>
+                            <tr><td className="p-1 border-b border-black">NO : {previewData.invoiceNumber}</td><td className="p-1 border-b border-l border-black">DATE : {previewData.invoiceDate}</td></tr>
+                            <tr><td className="p-1 border-b border-black" colSpan="2">P.O. No : {previewData.poNumber}</td></tr>
+                             <tr><td className="p-1 border-b border-black" colSpan="2">P.O. Date : {previewData.poDate}</td></tr>
+                            <tr><td className="p-1 border-b border-black" colSpan="2">D.C. No : {previewData.dcNumber}</td></tr>
+                            <tr><td className="p-1" colSpan="2">D.C. Date : {previewData.dcDate}</td></tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
-
-            {/* Invoice Header */}
-            <div className="flex justify-between items-center">
-              <h1 className="text-2xl font-bold">INVOICE</h1>
-              <div className="text-right text-sm">
-                <p>NO: {previewData.invoiceNumber || '001/2025-2026'}</p>
-                <p>DATE: {previewData.invoiceDate || '06-09-2025'}</p>
-              </div>
-            </div>
-
-            {/* Client Details */}
-            <div className="grid grid-cols-3 gap-4 text-sm">
-              <div className="col-span-2">
-                <p><strong>To,</strong> M/s. {previewData.client ? previewData.client.name : ''}</p>
-                <p className="ml-5">{previewData.client ? previewData.client.address : ''}</p>
-                <p className="ml-5">GSTIN: {previewData.client ? previewData.client.gst : ''}</p>
-              </div>
-              <div className="text-right">
-                <p>J.O. No: {previewData.joNumber || ''}</p>
-                <p>D.C. No: {previewData.dcNumber || ''}</p>
-                <p>D.C. Date: {previewData.dcDate || ''}</p>
-              </div>
-            </div>
-
-            {/* Items Table */}
-            <div>
-              <table className="w-full border border-black">
+            <table className="w-full border-t border-l border-r border-black text-sm">
                 <thead className="bg-gray-100">
-                  <tr>
-                    <th className="border border-black p-2 text-center">S.No.</th>
-                    <th className="border border-black p-2 text-center">PARTICULARS</th>
-                    <th className="border border-black p-2 text-center">HSN CODE</th>
-                    <th className="border border-black p-2 text-center">QTY.</th>
-                    <th className="border border-black p-2 text-center">RATE</th>
-                    <th className="border border-black p-2 text-center">AMOUNT</th>
-                  </tr>
+                    <tr>
+                        <th className="p-1 border-b border-r border-black w-[5%]">S.No.</th>
+                        <th className="p-1 border-b border-r border-black w-[45%]">PARTICULARS</th>
+                        <th className="p-1 border-b border-r border-black w-[15%]">HSN CODE</th>
+                        <th className="p-1 border-b border-r border-black w-[10%]">QTY.</th>
+                        <th className="p-1 border-b border-r border-black w-[10%]">RATE</th>
+                        <th className="p-1 border-b border-black w-[15%]">AMOUNT</th>
+                    </tr>
                 </thead>
                 <tbody>
-                  {previewData.items.map((item, index) => (
-                    <tr key={item.id}>
-                      <td className="border border-black p-2 text-center">{index + 1}</td>
-                      <td className="border border-black p-2">{item.description}</td>
-                      <td className="border border-black p-2 text-center">{item.hsnCode}</td>
-                      <td className="border border-black p-2 text-center">{item.quantity}</td>
-                      <td className="border border-black p-2 text-right">{item.rate.toLocaleString()}</td>
-                      <td className="border border-black p-2 text-right">{item.amount.toLocaleString()}</td>
-                    </tr>
-                  ))}
-                  {Array(Math.max(0, 15 - previewData.items.length)).fill(0).map((_, index) => (
-                    <tr key={`empty-${index}`}>
-                      <td className="border border-black p-2">&nbsp;</td>
-                      <td className="border border-black p-2"></td>
-                      <td className="border border-black p-2"></td>
-                      <td className="border border-black p-2"></td>
-                      <td className="border border-black p-2"></td>
-                      <td className="border border-black p-2"></td>
-                    </tr>
-                  ))}
+                    {previewData.items.map((item, index) => (
+                        <tr key={index}><td className="p-1 border-b border-r border-black text-center">{index + 1}</td><td className="p-1 border-b border-r border-black">{item.description}</td><td className="p-1 border-b border-r border-black text-center">{item.hsnCode}</td><td className="p-1 border-b border-r border-black text-center">{item.quantity}</td><td className="p-1 border-b border-r border-black text-right">{item.rate.toLocaleString('en-IN')}</td><td className="p-1 border-b border-black text-right">{item.amount.toLocaleString('en-IN')}</td></tr>
+                    ))}
+                    {Array(Math.max(0, 12 - previewData.items.length)).fill(0).map((_, index) => (
+                         <tr key={`empty-${index}`}><td className="p-1 border-b border-r border-black h-6">&nbsp;</td><td className="p-1 border-b border-r border-black"></td><td className="p-1 border-b border-r border-black"></td><td className="p-1 border-b border-r border-black"></td><td className="p-1 border-b border-r border-black"></td><td className="p-1 border-b border-black"></td></tr>
+                    ))}
                 </tbody>
-              </table>
-            </div>
-
-            {/* Totals and Bank Details */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="border border-black p-4">
-                <p className="font-bold">Bank Details :</p>
-                <p className="font-bold">Bank Name : {previewData.bankDetails || 'State Bank Of India'}</p>
-                <pre className="text-sm whitespace-pre-line mt-2">
-                  {previewData.bankDetails === 'State Bank Of India' && (
-                    <>A/C No: 42455711572\nIFSC Code: SBIN0015017\nBranch: Malumichampatti</>
-                  )}
-                  {previewData.bankDetails === 'HDFC Bank' && (
-                    <>A/C No: 98765432109\nIFSC: HDFC0005678\nBranch: Corporate Branch, Delhi</>
-                  )}
-                  {previewData.bankDetails === 'ICICI Bank' && (
-                    <>A/C No: 56789012345\nIFSC: ICIC0009012\nBranch: Business Branch, Bangalore</>
-                  )}
-                  {previewData.bankDetails === 'Axis Bank' && (
-                    <>A/C No: 34567890123\nIFSC: UTIB0003456\nBranch: Commercial Branch, Chennai</>
-                  )}
-                </pre>
-              </div>
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span>SUB TOTAL</span>
-                  <span>₹{previewCalcs.subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                </div>
-                {previewData.cgst > 0 && (
-                  <div className="flex justify-between">
-                    <span>CGST {previewData.cgst}%</span>
-                    <span>₹{previewCalcs.cgstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                  </div>
-                )}
-                {previewData.sgst > 0 && (
-                  <div className="flex justify-between">
-                    <span>SGST {previewData.sgst}%</span>
-                    <span>₹{previewCalcs.sgstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                  </div>
-                )}
-                {previewData.igst > 0 && (
-                  <div className="flex justify-between">
-                    <span>IGST {previewData.igst}%</span>
-                    <span>₹{previewCalcs.igstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                  </div>
-                )}
-                <div className="flex justify-between">
-                  <span>ROUND OFF</span>
-                  <span>₹0.00</span>
-                </div>
-                <div className="flex justify-between border-t border-black pt-2 font-bold">
-                  <span>NET TOTAL</span>
-                  <span>₹{previewCalcs.total.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Declaration */}
-            <div className="border-t border-black pt-4">
-              <p className="font-bold">Declaration</p>
-              <p className="text-sm">{previewData.declaration}</p>
-            </div>
-
-            {/* Signature */}
-            <div className="text-right mt-8">
-              <p>For ESA Engineering Works</p>
-              <p className="mt-16 font-bold">Authorized Signatory</p>
-            </div>
-
-            {/* Footer */}
-            <div className="border-t border-black pt-4 text-center text-xs">
-              <p>This is a Computer generated bill</p>
-            </div>
+            </table>
+            {previewData.invoiceNotes && <div className="p-1 italic border-l border-r border-b border-black"><strong>Notes:</strong> {previewData.invoiceNotes}</div>}
+             <table className="w-full border border-black mt-[-1px] text-sm">
+                <tbody>
+                    <tr>
+                        <td className="w-[60%] border-r border-black p-1 align-top" rowSpan="3">
+                            <p className="font-bold">Bank Details:</p>
+                            <p>Bank Name: {previewData.bankDetails || 'State Bank Of India'}</p>
+                            <p>A/C No: 42455711572</p>
+                            <p>IFSC Code: SBIN0015017</p>
+                            <p>Branch: Malumichampatti</p>
+                        </td>
+                        <td className="border-b border-black p-1">SUB TOTAL</td>
+                        <td className="border-b border-black p-1 text-right">{previewCalcs.subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                    </tr>
+                    <tr><td className="border-b border-black p-1">CGST {previewData.cgst}%</td><td className="border-b border-black p-1 text-right">{previewCalcs.cgstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td></tr>
+                    <tr><td className="border-b border-black p-1">SGST {previewData.sgst}%</td><td className="border-b border-black p-1 text-right">{previewCalcs.sgstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td></tr>
+                    <tr>
+                        <td className="border-r border-black p-1 align-top" rowSpan="3">
+                            <span className="font-bold">Rupees:</span> {amountInWords}
+                        </td>
+                        <td className="border-b border-black p-1">IGST {previewData.igst}%</td><td className="border-b border-black p-1 text-right">{previewCalcs.igstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                    </tr>
+                    <tr><td className="border-b border-black p-1">ROUND OFF</td><td className="border-b border-black p-1 text-right">{(previewCalcs.roundOffAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td></tr>
+                    <tr className="font-bold"><td className="p-1">NET TOTAL</td><td className="p-1 text-right">₹{previewCalcs.total.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td></tr>
+                    <tr>
+                        <td className="border-r border-black p-1 h-24 align-top">
+                            <p className="font-bold">Declaration</p>
+                            <p>{previewData.declaration}</p>
+                        </td>
+                        <td colSpan="2" className="p-1 align-bottom text-right">
+                            <p>For ESA Engineering Works</p>
+                            <p className="mt-12">Authorized Signatory</p>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+            <div className="text-center font-bold bg-gray-200 mt-2 p-1">This is a Computer generated bill</div>
           </div>
         </div>
       </div>
@@ -679,8 +437,6 @@ const InvoicePreview = ({ invoice, invoiceData, calculations, setShowPreview }) 
   );
 };
 
-// Rest of the components remain the same as in the previous response...
-// Only the InvoicePreview component has been modified to match the new design
 
 const CreateInvoiceComponent = ({
   editingInvoice, invoiceData, clients, calculations, setCurrentPage,
@@ -691,30 +447,17 @@ const CreateInvoiceComponent = ({
     <div className="max-w-7xl mx-auto px-8 pb-8 pt-32">
       <div className="flex justify-between items-center">
         <div className="flex items-center">
-          <button onClick={() => setCurrentPage('management')} className="mr-4 p-2 hover:bg-gray-100 rounded-lg">
-            <ArrowLeft className="w-5 h-5" />
-          </button>
+          <button onClick={() => setCurrentPage('management')} className="mr-4 p-2 hover:bg-gray-100 rounded-lg"><ArrowLeft className="w-5 h-5" /></button>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">
-              {editingInvoice ? 'Edit Invoice' : 'Create Invoice'}
-            </h1>
-            <p className="text-sm text-gray-600 mt-1">
-              {editingInvoice ? 'Update details for an existing invoice' : 'Create a new invoice for your client'}
-            </p>
+            <h1 className="text-2xl font-bold text-gray-900">{editingInvoice ? 'Edit Invoice' : 'Create Invoice'}</h1>
+            <p className="text-sm text-gray-600 mt-1">{editingInvoice ? 'Update details for an existing invoice' : 'Create a new invoice for your client'}</p>
           </div>
         </div>
         <div className="flex items-center space-x-3 text-sm font-medium">
           <button onClick={() => setCurrentPage('management')} className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">Cancel</button>
-          <button onClick={saveDraft} className="flex items-center px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
-            <Save className="w-4 h-4 mr-2" />Save Draft
-          </button>
-          <button onClick={() => setShowPreview(true)} className="flex items-center px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700">
-            <Eye className="w-4 h-4 mr-2" />Preview
-          </button>
-          <button onClick={editingInvoice ? updateInvoice : saveInvoice} className="flex items-center px-4 py-2 text-white bg-green-600 rounded-lg hover:bg-green-700">
-            <FileText className="w-4 h-4 mr-2" />
-            {editingInvoice ? 'Update Invoice' : 'Save Invoice'}
-          </button>
+          <button onClick={saveDraft} className="flex items-center px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"><Save className="w-4 h-4 mr-2" />Save Draft</button>
+          <button onClick={() => setShowPreview(true)} className="flex items-center px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700"><Eye className="w-4 h-4 mr-2" />Preview</button>
+          <button onClick={editingInvoice ? updateInvoice : saveInvoice} className="flex items-center px-4 py-2 text-white bg-green-600 rounded-lg hover:bg-green-700"><FileText className="w-4 h-4 mr-2" />{editingInvoice ? 'Update Invoice' : 'Save Invoice'}</button>
         </div>
       </div>
       <main className="mt-8 grid grid-cols-3 gap-8">
@@ -722,32 +465,16 @@ const CreateInvoiceComponent = ({
           <div className="bg-white rounded-xl border border-gray-200 p-6">
             <h3 className="text-lg font-bold text-gray-900 mb-4">Invoice Details</h3>
             <div className="grid grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm text-gray-700 mb-1">Invoice Number <span className="text-red-500">*</span></label>
-                <input type="text" value={invoiceData.invoiceNumber} onChange={(e) => setInvoiceData(prev => ({ ...prev, invoiceNumber: e.target.value }))} className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg" />
-              </div>
-              <div>
-                <label className="block text-sm text-gray-700 mb-1">Invoice Date <span className="text-red-500">*</span></label>
-                <input type="date" value={invoiceData.invoiceDate} onChange={(e) => setInvoiceData(prev => ({ ...prev, invoiceDate: e.target.value }))} className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg" />
-              </div>
-              <div>
-                <label className="block text-sm text-gray-700 mb-1">Due Date</label>
-                <input type="date" value={invoiceData.dueDate} onChange={(e) => setInvoiceData(prev => ({ ...prev, dueDate: e.target.value }))} className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg" />
-              </div>
+              <div><label className="block text-sm text-gray-700 mb-1">Invoice Number <span className="text-red-500">*</span></label><input type="text" value={invoiceData.invoiceNumber} onChange={(e) => setInvoiceData(prev => ({ ...prev, invoiceNumber: e.target.value }))} className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg" /></div>
+              <div><label className="block text-sm text-gray-700 mb-1">Invoice Date <span className="text-red-500">*</span></label><input type="date" value={invoiceData.invoiceDate} onChange={(e) => setInvoiceData(prev => ({ ...prev, invoiceDate: e.target.value }))} className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg" /></div>
+              <div><label className="block text-sm text-gray-700 mb-1">Due Date</label><input type="date" value={invoiceData.dueDate} onChange={(e) => setInvoiceData(prev => ({ ...prev, dueDate: e.target.value }))} className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg" /></div>
             </div>
-            <div className="grid grid-cols-3 gap-4 mt-4">
-              <div>
-                <label className="block text-sm text-gray-700 mb-1">J.O Number <span className="text-red-500">*</span></label>
-                <input type="text" value={invoiceData.joNumber} onChange={(e) => setInvoiceData(prev => ({ ...prev, joNumber: e.target.value }))} className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg" />
-              </div>
-              <div>
-                <label className="block text-sm text-gray-700 mb-1">D.C Number <span className="text-red-500">*</span></label>
-                <input type="text" value={invoiceData.dcNumber} onChange={(e) => setInvoiceData(prev => ({ ...prev, dcNumber: e.target.value }))} className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg" />
-              </div>
-              <div>
-                <label className="block text-sm text-gray-700 mb-1">D.C Date <span className="text-red-500">*</span></label>
-                <input type="date" value={invoiceData.dcDate} onChange={(e) => setInvoiceData(prev => ({ ...prev, dcDate: e.target.value }))} className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg" />
-              </div>
+            <div className="grid grid-cols-4 gap-4 mt-4">
+              <div className="col-span-2"><label className="block text-sm text-gray-700 mb-1">P.O. Number</label><input type="text" value={invoiceData.poNumber} onChange={(e) => setInvoiceData(prev => ({ ...prev, poNumber: e.target.value }))} className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg" /></div>
+              <div><label className="block text-sm text-gray-700 mb-1">P.O. Date</label><input type="date" value={invoiceData.poDate} onChange={(e) => setInvoiceData(prev => ({ ...prev, poDate: e.target.value }))} className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg" /></div>
+              <div></div>
+              <div><label className="block text-sm text-gray-700 mb-1">D.C. Number</label><input type="text" value={invoiceData.dcNumber} onChange={(e) => setInvoiceData(prev => ({ ...prev, dcNumber: e.target.value }))} className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg" /></div>
+              <div><label className="block text-sm text-gray-700 mb-1">D.C. Date</label><input type="date" value={invoiceData.dcDate} onChange={(e) => setInvoiceData(prev => ({ ...prev, dcDate: e.target.value }))} className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg" /></div>
             </div>
           </div>
           <div className="bg-white rounded-xl border border-gray-200 p-6">
@@ -757,63 +484,63 @@ const CreateInvoiceComponent = ({
           <div className="bg-white rounded-xl border border-gray-200 p-6">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-bold text-gray-900">Items & Services <span className="text-red-500">*</span></h3>
-              <button onClick={addItem} className="flex items-center px-3 py-1.5 text-white bg-blue-600 rounded-lg text-xs font-medium hover:bg-blue-700">
-                <Plus className="w-4 h-4 mr-1" /> Add Item
-              </button>
+              <button onClick={addItem} className="flex items-center px-3 py-1.5 text-white bg-blue-600 rounded-lg text-xs font-medium hover:bg-blue-700"><Plus className="w-4 h-4 mr-1" /> Add Item</button>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="text-xs uppercase font-semibold text-gray-500">
                   <tr>
-                    <th className="p-2 text-left w-10">#</th>
-                    <th className="p-2 text-left">Description</th>
-                    <th className="p-2 text-left w-32">HSN</th>
-                    <th className="p-2 text-left w-24">Qty</th>
-                    <th className="p-2 text-left w-32">Rate (₹)</th>
-                    <th className="p-2 text-left w-32">Amount (₹)</th>
-                    <th className="p-2 text-left w-10"></th>
+                    <th className="p-2 text-left w-10">#</th><th className="p-2 text-left">Description</th><th className="p-2 text-left w-32">HSN</th><th className="p-2 text-left w-24">Qty</th><th className="p-2 text-left w-32">Rate (₹)</th><th className="p-2 text-left w-32">Amount (₹)</th><th className="p-2 text-left w-10"></th>
                   </tr>
                 </thead>
                 <tbody>
                   {invoiceData.items.map((item, index) => (
                     <tr key={item.id} className="border-t">
-                      <td className="p-2 text-sm">{index + 1}</td>
+                      <td className="p-2 text-sm align-top">{index + 1}</td>
                       <td className="p-2"><input type="text" placeholder="Item description" value={item.description} onChange={(e) => updateItem(item.id, 'description', e.target.value)} className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg"/></td>
-                      <td className="p-2"><input type="text" placeholder="HSN" value={item.hsnCode} onChange={(e) => updateItem(item.id, 'hsnCode', e.target.value)} className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg" /></td>
-                      <td className="p-2"><input type="number" value={item.quantity} onChange={(e) => updateItem(item.id, 'quantity', parseFloat(e.target.value) || 0)} className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg" min="0" /></td>
-                      <td className="p-2"><input type="number" value={item.rate} onChange={(e) => updateItem(item.id, 'rate', parseFloat(e.target.value) || 0)} className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg" min="0" /></td>
-                      <td className="p-2"><input type="text" value={item.amount.toLocaleString()} readOnly className="w-full px-3 py-2 text-sm bg-gray-200 border-0 rounded-lg text-gray-600" /></td>
-                      <td className="p-2"><button onClick={() => removeItem(item.id)} className="text-red-500 hover:text-red-700" > <X className="w-4 h-4" /> </button></td>
+                      <td className="p-2 align-top"><input type="text" placeholder="HSN" value={item.hsnCode} onChange={(e) => updateItem(item.id, 'hsnCode', e.target.value)} className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg" /></td>
+                      <td className="p-2 align-top"><input type="number" value={item.quantity} onFocus={e => e.target.select()} onChange={(e) => updateItem(item.id, 'quantity', parseFloat(e.target.value) || 0)} className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg" min="0" /></td>
+                      <td className="p-2 align-top"><input type="number" value={item.rate} onFocus={e => e.target.select()} onChange={(e) => updateItem(item.id, 'rate', parseFloat(e.target.value) || 0)} className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg" min="0" /></td>
+                      <td className="p-2 align-top"><input type="text" value={item.amount.toLocaleString()} readOnly className="w-full px-3 py-2 text-sm bg-gray-200 border-0 rounded-lg text-gray-600" /></td>
+                      <td className="p-2 align-top"><button onClick={() => removeItem(item.id)} className="text-red-500 hover:text-red-700" > <X className="w-4 h-4" /> </button></td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
+            <div className="mt-4">
+                <label className="block text-sm text-gray-700 mb-1">Invoice Notes (Optional)</label>
+                <textarea 
+                    placeholder="e.g., For labour charges only" 
+                    value={invoiceData.invoiceNotes} 
+                    onChange={(e) => setInvoiceData(prev => ({ ...prev, invoiceNotes: e.target.value }))}
+                    className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg resize-none h-16"
+                />
+            </div>
           </div>
         </div>
         <div className="space-y-8">
             <div className="p-6 bg-white rounded-xl border border-gray-200">
-                <h3 className="mb-4 text-lg font-bold text-gray-900">Tax Calculation</h3>
+                <h3 className="mb-4 text-lg font-bold text-gray-900">Tax & Calculation</h3>
                 <div className="grid grid-cols-3 gap-4 mb-4">
-                    <div>
-                        <label className="block mb-1 text-sm text-gray-700">CGST (%)</label>
-                        <input type="number" value={invoiceData.cgst} onChange={(e) => setInvoiceData(prev => ({ ...prev, cgst: parseFloat(e.target.value) || 0 }))} className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg" min="0" max="100"/>
-                    </div>
-                    <div>
-                        <label className="block mb-1 text-sm text-gray-700">SGST (%)</label>
-                        <input type="number" value={invoiceData.sgst} onChange={(e) => setInvoiceData(prev => ({ ...prev, sgst: parseFloat(e.target.value) || 0 }))} className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg" min="0" max="100"/>
-                    </div>
-                    <div>
-                        <label className="block mb-1 text-sm text-gray-700">IGST (%)</label>
-                        <input type="number" value={invoiceData.igst} onChange={(e) => setInvoiceData(prev => ({ ...prev, igst: parseFloat(e.target.value) || 0 }))} className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg" min="0" max="100"/>
+                    <div><label className="block mb-1 text-sm text-gray-700">CGST (%)</label><input type="number" value={invoiceData.cgst} onChange={(e) => setInvoiceData(prev => ({ ...prev, cgst: parseFloat(e.target.value) || 0 }))} className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg" min="0" max="100"/></div>
+                    <div><label className="block mb-1 text-sm text-gray-700">SGST (%)</label><input type="number" value={invoiceData.sgst} onChange={(e) => setInvoiceData(prev => ({ ...prev, sgst: parseFloat(e.target.value) || 0 }))} className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg" min="0" max="100"/></div>
+                    <div><label className="block mb-1 text-sm text-gray-700">IGST (%)</label><input type="number" value={invoiceData.igst} onChange={(e) => setInvoiceData(prev => ({ ...prev, igst: parseFloat(e.target.value) || 0 }))} className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg" min="0" max="100"/></div>
+                </div>
+                <div className="flex items-center justify-between py-2">
+                    <label htmlFor="roundOffToggle" className="text-sm font-medium text-gray-700">Enable Round Off</label>
+                    <div className="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
+                        <input type="checkbox" name="roundOffToggle" id="roundOffToggle" checked={invoiceData.isRoundOff} onChange={(e) => setInvoiceData(prev => ({ ...prev, isRoundOff: e.target.checked }))} className="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"/>
+                        <label htmlFor="roundOffToggle" className="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"></label>
                     </div>
                 </div>
-                <div className="p-4 pt-4 bg-gray-50 rounded-lg border-t">
+                <div className="p-4 pt-4 bg-gray-50 rounded-lg border-t mt-2">
                     <div className="space-y-2">
                         <div className="flex justify-between text-sm"><span className="text-gray-600">Subtotal:</span><span className="font-medium">₹{calculations.subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span></div>
                         {invoiceData.cgst > 0 && (<div className="flex justify-between text-sm"><span className="text-gray-600">CGST ({invoiceData.cgst}%):</span><span>₹{calculations.cgstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span></div>)}
                         {invoiceData.sgst > 0 && (<div className="flex justify-between text-sm"><span className="text-gray-600">SGST ({invoiceData.sgst}%):</span><span>₹{calculations.sgstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span></div>)}
                         {invoiceData.igst > 0 && (<div className="flex justify-between text-sm"><span className="text-gray-600">IGST ({invoiceData.igst}%):</span><span>₹{calculations.igstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span></div>)}
+                        {invoiceData.isRoundOff && (<div className="flex justify-between text-sm"><span className="text-gray-600">Round Off:</span><span>₹{calculations.roundOffAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span></div>)}
                         <div className="flex justify-between pt-2 font-bold text-base border-t"><span>Total Amount:</span><span>₹{calculations.total.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span></div>
                     </div>
                 </div>
@@ -822,29 +549,20 @@ const CreateInvoiceComponent = ({
               <h3 className="mb-4 text-lg font-bold text-gray-900">Status</h3>
               <div>
                 <label className="block mb-1 text-sm text-gray-700">Set Invoice Status</label>
-                <select value={invoiceData.status} onChange={(e) => setInvoiceData(prev => ({ ...prev, status: e.target.value }))} className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg">
-                  <option value="Unpaid">Unpaid</option>
-                  <option value="Paid">Paid</option>
-                  <option value="Draft">Draft</option>
-                </select>
+                <select value={invoiceData.status} onChange={(e) => setInvoiceData(prev => ({ ...prev, status: e.target.value }))} className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg"><option value="Unpaid">Unpaid</option><option value="Paid">Paid</option><option value="Draft">Draft</option></select>
               </div>
             </div>
             <div className="p-6 bg-white rounded-xl border border-gray-200">
               <h3 className="mb-4 text-lg font-bold text-gray-900">Payment & Notes</h3>
               <div className="space-y-4">
-                <div>
-                  <label className="block mb-1 text-sm text-gray-700">Bank Details</label>
-                  <select value={invoiceData.bankDetails} onChange={(e) => setInvoiceData(prev => ({ ...prev, bankDetails: e.target.value }))} className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg" ><option>State Bank Of India</option><option>HDFC Bank</option><option>ICICI Bank</option><option>Axis Bank</option></select>
-                </div>
-                <div>
-                  <label className="block mb-1 text-sm text-gray-700">Declaration</label>
-                  <textarea value={invoiceData.declaration} onChange={(e) => setInvoiceData(prev => ({ ...prev, declaration: e.target.value }))} className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg resize-none h-20" />
-                </div>
+                <div><label className="block mb-1 text-sm text-gray-700">Bank Details</label><select value={invoiceData.bankDetails} onChange={(e) => setInvoiceData(prev => ({ ...prev, bankDetails: e.target.value }))} className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg" ><option>State Bank Of India</option><option>HDFC Bank</option><option>ICICI Bank</option><option>Axis Bank</option></select></div>
+                <div><label className="block mb-1 text-sm text-gray-700">Declaration</label><textarea value={invoiceData.declaration} onChange={(e) => setInvoiceData(prev => ({ ...prev, declaration: e.target.value }))} className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg resize-none h-20" /></div>
               </div>
             </div>
           </div>
       </main>
     </div>
+    <style>{`.toggle-checkbox:checked { right: 0; border-color: #2563eb; } .toggle-checkbox:checked + .toggle-label { background-color: #2563eb; }`}</style>
   </div>
 );
 
@@ -860,49 +578,27 @@ const InvoiceManagementComponent = ({
       <div className="px-8 pt-32 pb-8 mx-auto max-w-7xl">
         <header>
           <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Invoice Management</h1>
-              <p className="mt-1 text-sm text-gray-600">Manage all your invoices in one place</p>
-            </div>
+            <div><h1 className="text-2xl font-bold text-gray-900">Invoice Management</h1><p className="mt-1 text-sm text-gray-600">Manage all your invoices in one place</p></div>
           </div>
         </header>
         <main className="mt-8">
           <div className="flex justify-between items-center mb-8">
             <div className="flex p-1 bg-gray-100 rounded-xl">
-              {tabs.map((tab) => (
-                <button key={tab} onClick={() => setActiveTab(tab)} className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${activeTab === tab ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-800'}`}>
-                  {tab}
-                </button>
-              ))}
+              {tabs.map((tab) => (<button key={tab} onClick={() => setActiveTab(tab)} className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${activeTab === tab ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-800'}`}>{tab}</button>))}
             </div>
             <div className="flex items-center gap-4 w-full lg:w-auto mt-4 lg:mt-0">
               <div className="relative flex-1 lg:flex-none">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search invoices..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full lg:w-80 bg-gray-100 rounded-lg pl-9 pr-4 py-2 text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
+                <input type="text" placeholder="Search invoices..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full lg:w-80 bg-gray-100 rounded-lg pl-9 pr-4 py-2 text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"/>
               </div>
-               <button onClick={handleCreateInvoice} className="flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg transition-colors hover:bg-blue-700">
-                <Plus className="w-4 h-4 mr-2" />
-                Create Invoice
-              </button>
+               <button onClick={handleCreateInvoice} className="flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg transition-colors hover:bg-blue-700"><Plus className="w-4 h-4 mr-2" />Create Invoice</button>
             </div>
           </div>
           <div className="overflow-hidden bg-white rounded-xl border border-gray-200 shadow-sm">
             <table className="w-full">
               <thead className="text-xs font-semibold text-gray-500 uppercase bg-gray-50">
                   <tr>
-                      <th className="px-6 py-3 text-left">Invoice No</th>
-                      <th className="px-6 py-3 text-left">Date</th>
-                      <th className="px-6 py-3 text-left">Client</th>
-                      <th className="px-6 py-3 text-left">Amount</th>
-                      <th className="px-6 py-3 text-left">Due Date</th>
-                      <th className="px-6 py-3 text-left">Status</th>
-                      <th className="px-6 py-3 text-left">Actions</th>
+                      <th className="px-6 py-3 text-left">Invoice No</th><th className="px-6 py-3 text-left">Date</th><th className="px-6 py-3 text-left">Client</th><th className="px-6 py-3 text-left">Amount</th><th className="px-6 py-3 text-left">Due Date</th><th className="px-6 py-3 text-left">Status</th><th className="px-6 py-3 text-left">Actions</th>
                   </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
@@ -941,11 +637,7 @@ const InvoiceManagementComponent = ({
 };
 
 const InvoiceManagementSystem = () => {
-  // Check for 'action=create' in the URL query parameters
-  const [currentPage, setCurrentPage] = useState(() => {
-    const searchParams = new URLSearchParams(window.location.search);
-    return searchParams.get('action') === 'create' ? 'create' : 'management';
-  });
+  const [currentPage, setCurrentPage] = useState('management');
   const [activeTab, setActiveTab] = useState('All Invoices');
   const [invoices, setInvoices] = useState([]);
   const [filteredInvoices, setFilteredInvoices] = useState([]);
@@ -955,39 +647,68 @@ const InvoiceManagementSystem = () => {
   const [editingInvoice, setEditingInvoice] = useState(null);
   const [invoiceToDelete, setInvoiceToDelete] = useState(null);
 
-  const [invoiceData, setInvoiceData] = useState({
-    invoiceNumber: '', invoiceDate: new Date().toISOString().split('T')[0], dueDate: '', joNumber: '', dcNumber: '', dcDate: '', clientId: '', client: null, items: [], cgst: 9, sgst: 9, igst: 0, bankDetails: 'State Bank Of India', status: 'Unpaid', declaration: 'We declare that this invoice shows the actual price of the goods Described and that all Particulars are true and correct.'
+  const generateNextInvoiceNumber = () => {
+    const currentYear = new Date().getFullYear();
+    const financialYearStart = (new Date().getMonth() >= 3) ? currentYear : currentYear - 1;
+    const financialYearString = `${financialYearStart}-${(financialYearStart + 1).toString().slice(2)}`;
+    const invoicesInCurrentYear = invoices.filter(inv => {
+        const invYearMatch = inv.invoiceNumber.match(/\/(20\d{2}-\d{2})/);
+        return invYearMatch && invYearMatch[1] === financialYearString;
+    });
+    if (invoicesInCurrentYear.length === 0) return `001/${financialYearString}`;
+    const maxNumber = invoicesInCurrentYear.reduce((max, invoice) => {
+        const num = parseInt(invoice.invoiceNumber.split('/')[0]);
+        return num > max ? num : max;
+    }, 0);
+    return `${String(maxNumber + 1).padStart(3, '0')}/${financialYearString}`;
+  };
+
+  const getInitialInvoiceData = () => ({
+    invoiceNumber: generateNextInvoiceNumber(),
+    invoiceDate: new Date().toISOString().split('T')[0],
+    dueDate: '',
+    poNumber: '',
+    poDate: '',
+    dcNumber: '',
+    dcDate: '',
+    clientId: '',
+    client: null,
+    items: [],
+    cgst: 9,
+    sgst: 9,
+    igst: 0,
+    bankDetails: 'State Bank Of India',
+    status: 'Unpaid',
+    declaration: 'We declare that this invoice shows the actual price of the goods Described and that all Particulars are true and correct.',
+    isRoundOff: false,
+    invoiceNotes: '',
   });
+
+  const [invoiceData, setInvoiceData] = useState(getInitialInvoiceData);
 
   const [clients] = useState([
     { id: 1, name: 'TechnoFab Industries', address: '123 Industrial Area, Mumbai', gst: '27ABCDE1234F1Z5' },
     { id: 2, name: 'Digital Solutions Ltd', address: '456 Tech Park, Bangalore', gst: '29FGHIJ5678K2L6' },
     { id: 3, name: 'Tech Innovators Pvt Ltd', address: '789 Innovation Hub, Pune', gst: '27MNOPQ9012R3S7' }
   ]);
-
-  const [calculations, setCalculations] = useState({ subtotal: 0, cgstAmount: 0, sgstAmount: 0, igstAmount: 0, total: 0 });
+  
+  const [calculations, setCalculations] = useState({ subtotal: 0, cgstAmount: 0, sgstAmount: 0, igstAmount: 0, roundOffAmount: 0, total: 0 });
 
   const sampleInvoices = [
-    { id: 1, invoiceNumber: 'INV-2025-001', invoiceDate: '2025-08-15', client: { id: 1, name: 'TechnoFab Industries', address: '123 Industrial Area, Mumbai', gst: '27ABCDE1234F1Z5' }, amount: 147500, dueDate: '2025-09-14', status: 'Paid', items: [ { id: 1, description: 'Web Development Service', hsnCode: '998314', quantity: 1, rate: 125000, amount: 125000 } ], cgst: 9, sgst: 9, igst: 0 },
-    { id: 2, invoiceNumber: 'INV-2025-002', invoiceDate: '2025-08-16', client: { id: 2, name: 'Digital Solutions Ltd', address: '456 Tech Park, Bangalore', gst: '29FGHIJ5678K2L6' }, amount: 100300, dueDate: '2025-09-15', status: 'Draft', items: [ { id: 1, description: 'Mobile App Development', hsnCode: '998314', quantity: 1, rate: 85000, amount: 85000 } ], cgst: 9, sgst: 9, igst: 0 },
-    { id: 3, invoiceNumber: 'INV-2025-003', invoiceDate: '2025-07-17', client: { id: 3, name: 'Tech Innovators Pvt Ltd', address: '789 Innovation Hub, Pune', gst: '27MNOPQ9012R3S7' }, amount: 295000, dueDate: '2025-08-16', status: 'Unpaid', items: [ { id: 1, description: 'E-commerce Platform', hsnCode: '998314', quantity: 1, rate: 250000, amount: 250000 } ], cgst: 9, sgst: 9, igst: 0 }
+    { id: 1, invoiceNumber: '001/2025-26', invoiceDate: '2025-08-15', client: { id: 1, name: 'TechnoFab Industries', address: '123 Industrial Area, Mumbai', gst: '27ABCDE1234F1Z5' }, amount: 147500, dueDate: '2025-09-14', status: 'Paid', items: [ { id: 1, description: 'Web Development Service', hsnCode: '998314', quantity: 1, rate: 125000, amount: 125000 } ], cgst: 9, sgst: 9, igst: 0, poNumber: 'PO-101', poDate: '2025-08-01', isRoundOff: false, invoiceNotes: 'Thank you for your business.' },
+    { id: 2, invoiceNumber: '002/2025-26', invoiceDate: '2025-08-16', client: { id: 2, name: 'Digital Solutions Ltd', address: '456 Tech Park, Bangalore', gst: '29FGHIJ5678K2L6' }, amount: 100300, dueDate: '2025-09-15', status: 'Draft', items: [ { id: 1, description: 'Mobile App Development', hsnCode: '998314', quantity: 1, rate: 85000, amount: 85000 } ], cgst: 9, sgst: 9, igst: 0, poNumber: 'PO-102', poDate: '2025-08-05', isRoundOff: false, invoiceNotes: '' },
+    { id: 3, invoiceNumber: '003/2025-26', invoiceDate: '2025-07-17', client: { id: 3, name: 'Tech Innovators Pvt Ltd', address: '789 Innovation Hub, Pune', gst: '27MNOPQ9012R3S7' }, amount: 295000, dueDate: '2025-08-16', status: 'Unpaid', items: [ { id: 1, description: 'E-commerce Platform', hsnCode: '998314', quantity: 1, rate: 250000, amount: 250000 } ], cgst: 9, sgst: 9, igst: 0, poNumber: 'PO-103', poDate: '2025-07-10', isRoundOff: false, invoiceNotes: 'For labour charges only' }
   ];
 
   useEffect(() => { setInvoices(sampleInvoices); }, []);
 
   const getDynamicStatus = (invoice) => {
-    if (invoice.status === 'Paid' || invoice.status === 'Draft') {
-      return invoice.status;
-    }
+    if (invoice.status === 'Paid' || invoice.status === 'Draft') return invoice.status;
     const today = new Date();
     const dueDate = new Date(invoice.dueDate);
     today.setHours(0, 0, 0, 0);
     dueDate.setHours(0, 0, 0, 0);
-    
-    if (invoice.dueDate && today > dueDate) {
-      return 'Overdue';
-    }
-    
+    if (invoice.dueDate && today > dueDate) return 'Overdue';
     return 'Unpaid';
   };
 
@@ -1018,9 +739,15 @@ const InvoiceManagementSystem = () => {
     const cgstAmount = (subtotal * invoiceData.cgst) / 100;
     const sgstAmount = (subtotal * invoiceData.sgst) / 100;
     const igstAmount = (subtotal * invoiceData.igst) / 100;
-    const total = subtotal + cgstAmount + sgstAmount + igstAmount;
-    setCalculations({ subtotal, cgstAmount, sgstAmount, igstAmount, total });
-  }, [invoiceData.items, invoiceData.cgst, invoiceData.sgst, invoiceData.igst]);
+    let total = subtotal + cgstAmount + sgstAmount + igstAmount;
+    let roundOffAmount = 0;
+    if (invoiceData.isRoundOff) {
+        const roundedTotal = Math.round(total);
+        roundOffAmount = roundedTotal - total;
+        total = roundedTotal;
+    }
+    setCalculations({ subtotal, cgstAmount, sgstAmount, igstAmount, roundOffAmount, total });
+  }, [invoiceData.items, invoiceData.cgst, invoiceData.sgst, invoiceData.igst, invoiceData.isRoundOff]);
 
   const getStatusColor = (status) => {
     switch (status) { case 'Paid': return 'bg-green-500'; case 'Draft': return 'bg-yellow-500'; case 'Overdue': return 'bg-red-500'; case 'Unpaid': return 'bg-orange-500'; default: return 'bg-gray-500'; }
@@ -1057,24 +784,18 @@ const InvoiceManagementSystem = () => {
     const selectedClient = clients.find(c => c.id === parseInt(clientId)); 
     setInvoiceData(prev => ({ ...prev, clientId: clientId, client: selectedClient })); 
   };
-
-  const generateNextInvoiceNumber = () => { if (invoices.length === 0) return `INV-2025-001`; const maxNumber = invoices.reduce((max, invoice) => { const num = parseInt(invoice.invoiceNumber.split('-')[2]); return num > max ? num : max; }, 0); return `INV-2025-${String(maxNumber + 1).padStart(3, '0')}`; };
   
-  const resetInvoiceForm = () => { 
-    setInvoiceData({ invoiceNumber: generateNextInvoiceNumber(), invoiceDate: new Date().toISOString().split('T')[0], dueDate: '', joNumber: '', dcNumber: '', dcDate: '', clientId: '', client: null, items: [], cgst: 9, sgst: 9, igst: 0, bankDetails: 'State Bank Of India', status: 'Unpaid', declaration: 'We declare that this invoice shows the actual price of the goods Described and that all Particulars are true and correct.' }); 
-  };
+  const resetInvoiceForm = () => { setInvoiceData(getInitialInvoiceData()); };
 
   const validateInvoice = () => {
-    const { invoiceNumber, invoiceDate, joNumber, dcNumber, dcDate, clientId, items } = invoiceData;
+    const { invoiceNumber, invoiceDate, dcNumber, dcDate, clientId, items } = invoiceData;
     const missingFields = [];
     if (!invoiceNumber) missingFields.push("Invoice Number");
     if (!invoiceDate) missingFields.push("Invoice Date");
-    if (!joNumber) missingFields.push("J.O Number");
     if (!dcNumber) missingFields.push("D.C Number");
     if (!dcDate) missingFields.push("D.C Date");
     if (!clientId) missingFields.push("Client Information");
     if (items.length === 0) missingFields.push("At least one item");
-
     if (missingFields.length > 0) {
       alert(`Please fill in all required fields:\n- ${missingFields.join('\n- ')}`);
       return false;
@@ -1099,19 +820,10 @@ const InvoiceManagementSystem = () => {
   };
   
   const handleCreateInvoice = () => { resetInvoiceForm(); setEditingInvoice(null); setCurrentPage('create'); };
-  
   const handleViewInvoice = (invoice) => { setSelectedInvoice(invoice); setShowPreview(true); };
-  
   const handleEditInvoice = (invoice) => { const invoiceToEdit = JSON.parse(JSON.stringify(invoice)); setInvoiceData(invoiceToEdit); setEditingInvoice(invoiceToEdit); setCurrentPage('edit'); };
-
-  const handleDownloadInvoice = (invoice) => { 
-      setSelectedInvoice(invoice);
-      setShowPreview(true);
-  };
-  
-  const promptDelete = (invoiceId) => {
-    setInvoiceToDelete(invoiceId);
-  };
+  const handleDownloadInvoice = (invoice) => { setSelectedInvoice(invoice); setShowPreview(true); };
+  const promptDelete = (invoiceId) => { setInvoiceToDelete(invoiceId); };
 
   const confirmDelete = () => {
     if (invoiceToDelete) {
@@ -1123,39 +835,18 @@ const InvoiceManagementSystem = () => {
 
   return (
     <div>
-      <ConfirmationModal
-        isOpen={!!invoiceToDelete}
-        onClose={() => setInvoiceToDelete(null)}
-        onConfirm={confirmDelete}
-        title="Confirm Deletion"
-        message="Are you sure you want to delete this invoice? This action cannot be undone."
-      />
+      <ConfirmationModal isOpen={!!invoiceToDelete} onClose={() => setInvoiceToDelete(null)} onConfirm={confirmDelete} title="Confirm Deletion" message="Are you sure you want to delete this invoice? This action cannot be undone."/>
       {currentPage === 'management' && (
-        <InvoiceManagementComponent 
-          activeTab={activeTab} searchTerm={searchTerm} filteredInvoices={filteredInvoices} 
-          setActiveTab={setActiveTab} setSearchTerm={setSearchTerm} handleCreateInvoice={handleCreateInvoice} 
-          getStatusColor={getStatusColor} handleViewInvoice={handleViewInvoice} handleEditInvoice={handleEditInvoice} 
-          handleDownloadInvoice={handleDownloadInvoice} promptDelete={promptDelete} getDynamicStatus={getDynamicStatus}
-        />
+        <InvoiceManagementComponent activeTab={activeTab} searchTerm={searchTerm} filteredInvoices={filteredInvoices} setActiveTab={setActiveTab} setSearchTerm={setSearchTerm} handleCreateInvoice={handleCreateInvoice} getStatusColor={getStatusColor} handleViewInvoice={handleViewInvoice} handleEditInvoice={handleEditInvoice} handleDownloadInvoice={handleDownloadInvoice} promptDelete={promptDelete} getDynamicStatus={getDynamicStatus}/>
       )}
       {(currentPage === 'create' || currentPage === 'edit') && (
-        <CreateInvoiceComponent 
-          editingInvoice={editingInvoice} invoiceData={invoiceData} clients={clients} calculations={calculations} 
-          setCurrentPage={setCurrentPage} saveDraft={saveDraft} setShowPreview={setShowPreview} 
-          updateInvoice={updateInvoice} saveInvoice={saveInvoice} setInvoiceData={setInvoiceData} 
-          handleClientSelect={handleClientSelect} addItem={addItem} updateItem={updateItem} removeItem={removeItem} 
-        />
+        <CreateInvoiceComponent editingInvoice={editingInvoice} invoiceData={invoiceData} clients={clients} calculations={calculations} setCurrentPage={setCurrentPage} saveDraft={saveDraft} setShowPreview={setShowPreview} updateInvoice={updateInvoice} saveInvoice={saveInvoice} setInvoiceData={setInvoiceData} handleClientSelect={handleClientSelect} addItem={addItem} updateItem={updateItem} removeItem={removeItem} />
       )}
       {showPreview && (
-        <InvoicePreview 
-          invoice={selectedInvoice} 
-          invoiceData={currentPage !== 'management' ? invoiceData : null} 
-          calculations={calculations} 
-          setShowPreview={setShowPreview} 
-        />
+        <InvoicePreview invoice={selectedInvoice} invoiceData={currentPage !== 'management' ? invoiceData : null} calculations={calculations} setShowPreview={setShowPreview} />
       )}
     </div>
   );
 };
 
-export default InvoiceManagementSystem
+export default InvoiceManagementSystem;
