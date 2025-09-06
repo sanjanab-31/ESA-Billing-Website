@@ -110,66 +110,118 @@ const ClientAutocomplete = ({ clients, selectedClient, onSelect }) => {
 
 // MOVED OUTSIDE: InvoicePreview component (✅ UPDATED with a more robust PDF generation method)
 const InvoicePreview = ({ invoice, invoiceData, calculations, setShowPreview }) => {
-  const previewRef = useRef(); // Ref for the content to be captured
+  const previewRef = useRef();
   const previewData = invoice || invoiceData;
   
   const previewCalcs = invoice ? {
     subtotal: invoice.items.reduce((sum, item) => sum + item.amount, 0),
-    cgstAmount: (invoice.items.reduce((sum, item) => sum + item.amount, 0) * invoice.cgst) / 100,
-    sgstAmount: (invoice.items.reduce((sum, item) => sum + item.amount, 0) * invoice.sgst) / 100,
-    igstAmount: (invoice.items.reduce((sum, item) => sum + item.amount, 0) * invoice.igst) / 100,
-    total: invoice.amount
+    cgstAmount: (invoice.items.reduce((sum, item) => sum + item.amount, 0) * (invoice.cgst || 0)) / 100,
+    sgstAmount: (invoice.items.reduce((sum, item) => sum + item.amount, 0) * (invoice.sgst || 0)) / 100,
+    igstAmount: (invoice.items.reduce((sum, item) => sum + item.amount, 0) * (invoice.igst || 0)) / 100,
+    total: invoice.amount || 0
   } : calculations;
   
-  // FIX: A more robust PDF handler using an off-screen clone
+  // Handle PDF download
   const handleDownloadPdf = async () => {
-  console.log("Download button clicked ✅");
-  try {
-    const contentToCapture = previewRef.current;
-    if (!contentToCapture) {
-      console.error("Preview content not found.");
-      return;
+    try {
+      const contentToCapture = previewRef.current;
+      if (!contentToCapture) {
+        console.error("Preview content not found.");
+        return;
+      }
+
+      // Hide buttons before capturing
+      const buttons = contentToCapture.querySelectorAll('.no-print');
+      buttons.forEach(btn => btn.style.display = 'none');
+
+      const canvas = await html2canvas(contentToCapture, { 
+        scale: 2, 
+        useCORS: true,
+        logging: true,
+        letterRendering: true
+      });
+
+      // Show buttons again after capturing
+      buttons.forEach(btn => btn.style.display = '');
+
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      });
+
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = canvas.width;
+      const imgHeight = canvas.height;
+      const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight) * 0.95; // 95% of page size
+      const imgX = (pdfWidth - imgWidth * ratio) / 2;
+      const imgY = 10; // 10mm from top
+
+      pdf.addImage(imgData, 'PNG', imgX, imgY, imgWidth * ratio, imgHeight * ratio);
+      pdf.save(`invoice-${previewData.invoiceNumber || 'draft'}.pdf`);
+    } catch (err) {
+      console.error("PDF generation failed:", err);
+      alert('Failed to generate PDF. Please try again.');
     }
-    const canvas = await html2canvas(contentToCapture, { scale: 2, useCORS: true });
-    const imgData = canvas.toDataURL("image/png");
-    const pdf = new jsPDF("p", "mm", "a4");
-    const pdfWidth = pdf.internal.pageSize.getWidth();
-    const pdfHeight = pdf.internal.pageSize.getHeight();
-    const imgHeight = (canvas.height * pdfWidth) / canvas.width;
-    let heightLeft = imgHeight;
-    let position = 0;
+  };
 
-    pdf.addImage(imgData, "PNG", 0, position, pdfWidth, imgHeight);
-    heightLeft -= pdfHeight;
-
-    while (heightLeft > 0) {
-      position = -(imgHeight - heightLeft);
-      pdf.addPage();
-      pdf.addImage(imgData, "PNG", 0, position, pdfWidth, imgHeight);
-      heightLeft -= pdfHeight;
-    }
-
-    pdf.save("invoice.pdf");
-    console.log("PDF generated ✅");
-  } catch (err) {
-    console.error("PDF generation failed:", err);
-  }
-};
+  // Handle print
+  const handlePrint = () => {
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Invoice ${previewData.invoiceNumber || ''}</title>
+          <style>
+            @media print {
+              @page { margin: 0; }
+              body { margin: 1.6cm; }
+              .no-print { display: none !important; }
+            }
+            body { font-family: Arial, sans-serif; }
+            .print-container { max-width: 800px; margin: 0 auto; }
+          </style>
+        </head>
+        <body>
+          <div class="print-container">${previewRef.current.innerHTML}</div>
+          <script>
+            window.onload = function() { window.print(); window.onafterprint = function() { window.close(); } }
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-2xl max-w-4xl w-full flex flex-col max-h-[90vh]">
-        <div className="p-6 border-b flex justify-between items-center sticky top-0 bg-white z-10">
+        <div className="p-4 border-b flex justify-between items-center sticky top-0 bg-white z-10">
           <h2 className="text-lg font-bold text-gray-900">Invoice Preview</h2>
           <div className="flex items-center space-x-2">
             <button
+              onClick={handlePrint}
+              className="no-print flex items-center px-3 py-1.5 text-sm text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 mr-2"
+            >
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+              </svg>
+              Print
+            </button>
+            <button
               onClick={handleDownloadPdf}
-              className="flex items-center px-3 py-1.5 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700"
+              className="no-print flex items-center px-3 py-1.5 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700"
             >
               <Download className="w-4 h-4 mr-2" />
               Download PDF
             </button>
-            <button onClick={() => setShowPreview(false)} className="p-2 hover:bg-gray-100 rounded-full">
+            <button 
+              onClick={() => setShowPreview(false)} 
+              className="no-print p-2 text-gray-500 hover:bg-gray-100 rounded-full"
+              aria-label="Close"
+            >
               <X className="w-5 h-5" />
             </button>
           </div>
@@ -543,7 +595,11 @@ const InvoiceManagementComponent = ({
 
 
 const InvoiceManagementSystem = () => {
-  const [currentPage, setCurrentPage] = useState('management');
+  // Check for 'action=create' in the URL query parameters
+  const [currentPage, setCurrentPage] = useState(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    return searchParams.get('action') === 'create' ? 'create' : 'management';
+  });
   const [activeTab, setActiveTab] = useState('All Invoices');
   const [invoices, setInvoices] = useState([]);
   const [filteredInvoices, setFilteredInvoices] = useState([]);
