@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useContext } from 'react';
-import { Building, Upload, Save, User, Lock, Eye, EyeOff, Bell, Mail, MessageSquare, Monitor, FileText, TrendingUp, AlertTriangle, UserCheck, SlidersHorizontal, ShieldCheck, ShieldAlert, LogOut } from 'lucide-react';
+// Added Package to the import list for the new notification type
+import { Building, Upload, Save, User, Lock, Eye, EyeOff, Bell, Mail, MessageSquare, Monitor, FileText, TrendingUp, AlertTriangle, UserCheck, SlidersHorizontal, ShieldCheck, ShieldAlert, LogOut, Package } from 'lucide-react';
 import { AuthContext } from '../../context/AuthContext';
 
 // A reusable toggle switch component
@@ -501,7 +502,7 @@ const ProfileSettings = () => {
 
 const NotificationsSettings = () => {
     const [notifications, setNotifications] = useState({
-        email: true, sms: false, browser: true, invoiceReminders: true, paymentAlerts: true, overdueAlerts: true, newClientAlerts: true,
+        paymentAlerts: true, overdueAlerts: true, newClientAlerts: true, newProductAlerts: true,
     });
 
     const handleToggle = (key) => {
@@ -523,22 +524,17 @@ const NotificationsSettings = () => {
     
     return (
         <div className="p-6 border border-gray-200 rounded-xl">
-            <div className="space-y-8">
+             <div className="space-y-6">
                 <div>
-                    <h3 className="text-base font-bold text-gray-800 mb-4">Notification Channels</h3>
-                    <div className="space-y-4">
-                        <NotificationItem icon={Mail} title="Email Notifications" description="Receive notifications via email" enabled={notifications.email} onToggle={() => handleToggle('email')} />
-                        <NotificationItem icon={MessageSquare} title="SMS Notifications" description="Receive notifications via SMS" enabled={notifications.sms} onToggle={() => handleToggle('sms')} />
-                        <NotificationItem icon={Monitor} title="Browser Notifications" description="Show browser notifications" enabled={notifications.browser} onToggle={() => handleToggle('browser')} />
+                    <div className="flex items-center gap-3 mb-6">
+                        <Bell size={20} className="text-gray-700" />
+                        <h2 className="text-lg font-bold text-gray-900">Notification Settings</h2>
                     </div>
-                </div>
-                 <div className="border-t border-gray-200 pt-6">
-                    <h3 className="text-base font-bold text-gray-800 mb-4">Alert Types</h3>
                      <div className="space-y-4">
-                        <NotificationItem icon={FileText} title="Invoice Reminders" description="Get reminded about pending invoices" enabled={notifications.invoiceReminders} onToggle={() => handleToggle('invoiceReminders')} />
                         <NotificationItem icon={TrendingUp} title="Payment Alerts" description="Get notified when payments are received" enabled={notifications.paymentAlerts} onToggle={() => handleToggle('paymentAlerts')} />
                         <NotificationItem icon={AlertTriangle} title="Overdue Alerts" description="Get alerted about overdue payments" enabled={notifications.overdueAlerts} onToggle={() => handleToggle('overdueAlerts')} />
                         <NotificationItem icon={UserCheck} title="New Client Alerts" description="Get notified when new clients are added" enabled={notifications.newClientAlerts} onToggle={() => handleToggle('newClientAlerts')} />
+                        <NotificationItem icon={Package} title="New Product Alerts" description="Get notified when new products are added" enabled={notifications.newProductAlerts} onToggle={() => handleToggle('newProductAlerts')} />
                     </div>
                 </div>
                  <div className="pt-2">
@@ -554,7 +550,7 @@ const NotificationsSettings = () => {
 
 const SystemSettings = () => {
     const [config, setConfig] = useState({ currency: 'INR', timeZone: 'Asia/Kolkata', dateFormat: 'DD/MM/YYYY', invoicePrefix: 'INV' });
-    const [features, setFeatures] = useState({ autoInvoice: true, gstCalculation: true, roundOff: true, autoBackup: true });
+    const [features, setFeatures] = useState({ autoInvoice: true, gstCalculation: true, roundOff: true });
 
     const FeatureItem = ({ title, description, enabled, onToggle }) => (
         <div className="flex items-center justify-between">
@@ -597,7 +593,6 @@ const SystemSettings = () => {
                        <FeatureItem title="Auto Invoice Numbering" description="Automatically generate sequential invoice numbers" enabled={features.autoInvoice} onToggle={() => setFeatures(p => ({...p, autoInvoice: !p.autoInvoice}))} />
                        <FeatureItem title="GST Calculation" description="Enable automatic GST calculation" enabled={features.gstCalculation} onToggle={() => setFeatures(p => ({...p, gstCalculation: !p.gstCalculation}))} />
                        <FeatureItem title="Round Off" description="Enable automatic round off for invoice totals" enabled={features.roundOff} onToggle={() => setFeatures(p => ({...p, roundOff: !p.roundOff}))} />
-                       <FeatureItem title="Auto Backup" description="Automatically backup data daily" enabled={features.autoBackup} onToggle={() => setFeatures(p => ({...p, autoBackup: !p.autoBackup}))} />
                     </div>
                 </div>
                  <div className="pt-2">
@@ -614,22 +609,15 @@ const SystemSettings = () => {
 const SecuritySettings = () => {
     const { user, signOut } = useContext(AuthContext);
     const [security, setSecurity] = useState({
-        twoFactor: false,
         loginAlerts: true,
-        sessionTimeout: true,
     });
     const [isLoading, setIsLoading] = useState(false);
     const [message, setMessage] = useState({ text: '', type: '' });
     
-    // Load saved security settings from user's profile or database
     useEffect(() => {
         if (user) {
-            // Load saved settings from user profile or database
-            // For now, we'll use default values
             setSecurity({
-                twoFactor: user.twoFactorEnabled || false,
                 loginAlerts: user.loginAlertsEnabled !== false, // Default to true if not set
-                sessionTimeout: user.sessionTimeoutEnabled !== false, // Default to true if not set
             });
         }
     }, [user]);
@@ -647,39 +635,11 @@ const SecuritySettings = () => {
         }
     };
 
-    const handleTwoFactorToggle = async () => {
-        try {
-            setIsLoading(true);
-            // In a real app, you would call an API to enable/disable 2FA
-            // For now, we'll just toggle the local state
-            const newTwoFactorState = !security.twoFactor;
-            setSecurity(prev => ({ ...prev, twoFactor: newTwoFactorState }));
-            
-            setMessage({
-                text: newTwoFactorState 
-                    ? 'Two-factor authentication has been enabled.' 
-                    : 'Two-factor authentication has been disabled.',
-                type: 'success'
-            });
-        } catch (error) {
-            console.error('Error updating two-factor authentication:', error);
-            setMessage({
-                text: 'Failed to update two-factor authentication. Please try again.',
-                type: 'error'
-            });
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
     const handleSettingToggle = async (setting) => {
         try {
             setIsLoading(true);
             const newValue = !security[setting];
             setSecurity(prev => ({ ...prev, [setting]: newValue }));
-            
-            // In a real app, you would save this to the database
-            // await updateUserSettings({ [setting]: newValue });
             
             setMessage({
                 text: `${setting.split(/(?=[A-Z])/).join(' ').replace(/^./, str => str.toUpperCase())} has been ${newValue ? 'enabled' : 'disabled'}.`,
@@ -722,45 +682,12 @@ const SecuritySettings = () => {
                 <h2 className="text-lg font-bold text-gray-900">Security Settings</h2>
             </div>
             <div className="space-y-6">
-                <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                    <div className="flex items-center gap-3">
-                        <ShieldCheck size={18} className="text-green-600"/>
-                        <p className="font-semibold text-sm text-green-700">Security Status: Good</p>
-                    </div>
-                    <p className="text-xs text-green-600 mt-1">Your account security is up to date. All recommended settings are enabled.</p>
-                </div>
                 <div className="space-y-4">
-                     <SecurityItem 
-                        title="Two-Factor Authentication" 
-                        description="Add an extra layer of security to your account" 
-                        button={
-                            <button 
-                                onClick={handleTwoFactorToggle}
-                                disabled={isLoading}
-                                className={`px-4 py-1.5 border ${security.twoFactor ? 'border-red-300 hover:bg-red-50' : 'border-blue-300 hover:bg-blue-50'} rounded-md text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
-                            >
-                                {isLoading && security.twoFactor === !security.twoFactor ? (
-                                    'Updating...'
-                                ) : security.twoFactor ? (
-                                    'Disable 2FA'
-                                ) : (
-                                    'Enable 2FA'
-                                )}
-                            </button>
-                        }
-                    />
                     <SecurityItem 
                         title="Login Alerts" 
                         description="Get notified of new login attempts" 
                         enabled={security.loginAlerts} 
                         onToggle={() => handleSettingToggle('loginAlerts')}
-                        disabled={isLoading}
-                    />
-                    <SecurityItem 
-                        title="Session Timeout" 
-                        description="Auto-logout after 30 minutes of inactivity" 
-                        enabled={security.sessionTimeout} 
-                        onToggle={() => handleSettingToggle('sessionTimeout')}
                         disabled={isLoading}
                     />
                 </div>
