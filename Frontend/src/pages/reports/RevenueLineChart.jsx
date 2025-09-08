@@ -197,7 +197,6 @@ const GSTSummary = () => (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* GST Collection Summary */}
         <div className="p-5 border border-gray-200 rounded-xl">
-             {/* FONT CHANGE: Section header */}
             <h3 className="font-bold text-gray-900 text-lg">GST Collection Summary</h3>
             <p className="text-sm text-gray-500 mb-4">Tax breakdown by type</p>
             <div className="space-y-3">
@@ -235,138 +234,11 @@ const GSTSummary = () => (
         </div>
         {/* GST Distribution */}
         <div className="p-5 border border-gray-200 rounded-xl flex flex-col items-center justify-center">
-             <h3 className="font-bold text-gray-900 self-start text-lg">GST Distribution</h3>
-             <p className="text-sm text-gray-500 mb-4 self-start">Visual breakdown</p>
-             <div className="flex-grow flex items-center justify-center">
+            <h3 className="font-bold text-gray-900 self-start text-lg">GST Distribution</h3>
+            <p className="text-sm text-gray-500 mb-4 self-start">Visual breakdown</p>
+            <div className="flex-grow flex items-center justify-center">
                 <DonutChart cgst={50} sgst={50} igst={0} />
             </div>
-        </div>
-    </div>
-);
-
-// Component for the Product-wise Summary
-const ProductWiseSummary = () => {
-    const products = [
-        { name: 'Manufacturing Equipment', hsn: '8479', revenue: '₹4,85,000', invoices: '18 invoices', tax: '₹87,300', iconColor: 'bg-red-500' },
-        { name: 'Industrial Components', hsn: '8708', revenue: '₹2,95,000', invoices: '22 invoices', tax: '₹53,100', iconColor: 'bg-blue-500' },
-        { name: 'Automotive Parts', hsn: '8714', revenue: '₹2,35,000', invoices: '15 invoices', tax: '₹42,300', iconColor: 'bg-green-500' },
-        { name: 'Electrical Equipment', hsn: '8536', revenue: '₹1,55,000', invoices: '12 invoices', tax: '₹27,900', iconColor: 'bg-yellow-500' },
-        { name: 'Testing Instruments', hsn: '9027', revenue: '₹1,25,000', invoices: '8 invoices', tax: '₹22,500', iconColor: 'bg-purple-500' },
-    ];
-
-    return (
-        <div className="p-5 border border-gray-200 rounded-xl">
-            <h3 className="font-bold text-gray-900 text-lg">Product-wise Revenue Analysis</h3>
-            <p className="text-sm text-gray-500 mb-4">Revenue breakdown by product categories and HSN codes</p>
-            <div className="space-y-4">
-                {products.map(product => (
-                    <div key={product.name} className="p-4 border border-gray-200 rounded-lg flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                            <div className={`w-12 h-12 ${product.iconColor} rounded-lg flex items-center justify-center`}>
-                                <Truck size={24} className="text-white"/>
-                            </div>
-                            <div>
-                                <p className="font-bold text-sm text-gray-900">{product.name}</p>
-                                <p className="text-xs text-gray-500">HSN: {product.hsn}</p>
-                            </div>
-                        </div>
-                        <div className="text-right">
-                            <p className="font-bold text-lg text-gray-900">{product.revenue}</p>
-                            <p className="text-xs text-gray-500">{product.invoices}</p>
-                            <p className="text-xs text-yellow-600">Tax: {product.tax}</p>
-                        </div>
-                    </div>
-                ))}
-            </div>
-        </div>
-    );
-};
-
-// Component for the Client-wise Summary
-const ClientWiseSummary = () => {
-    const clients = [
-        { name: 'TechnoFab Industries', invoices: '15 invoices generated', revenue: '₹2,85,000', status: 'Outstanding', outstandingAmount: '₹25,000', iconColor: 'bg-purple-500' },
-        { name: 'Kumar Enterprises', invoices: '12 invoices generated', revenue: '₹1,95,000', status: 'Paid', iconColor: 'bg-blue-500' },
-        { name: 'Global Manufacturing', invoices: '8 invoices generated', revenue: '₹1,75,000', status: 'Outstanding', outstandingAmount: '₹25,000', iconColor: 'bg-green-500' },
-        { name: 'Metro Solutions Ltd', invoices: '6 invoices generated', revenue: '₹1,45,000', status: 'Outstanding', outstandingAmount: '₹25,000', iconColor: 'bg-yellow-500' },
-        { name: 'Sunshine Traders', invoices: '10 invoices generated', revenue: '₹1,25,000', status: 'Paid', iconColor: 'bg-red-500' },
-    ];
-
-    return (
-        <div className="p-5 border border-gray-200 rounded-xl">
-            <h3 className="font-bold text-gray-900 text-lg">Client-wise Revenue Analysis</h3>
-            <p className="text-sm text-gray-500 mb-4">Top performing clients by revenue</p>
-            <div className="space-y-4">
-                {clients.map(client => (
-                    <div key={client.name} className="p-4 border border-gray-200 rounded-lg flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                            <div className={`w-12 h-12 ${client.iconColor} rounded-lg flex items-center justify-center`}>
-                                <UserCheck size={24} className="text-white"/>
-                            </div>
-                            <div>
-                                <p className="font-bold text-sm text-gray-900">{client.name}</p>
-                                <p className="text-xs text-gray-500">{client.invoices}</p>
-                            </div>
-                        </div>
-                        <div className="text-right">
-                            <p className="font-bold text-lg text-gray-900">{client.revenue}</p>
-                            {client.status === 'Paid' ? (
-                                <span className="text-xs bg-green-100 text-green-700 font-medium px-2 py-0.5 rounded-full">Paid</span>
-                            ) : (
-                                <div className="flex items-center justify-end gap-2">
-                                    <span className="text-xs bg-red-100 text-red-700 font-medium px-2 py-0.5 rounded-full">Outstanding</span>
-                                    <span className="text-xs text-red-500 font-medium">{client.outstandingAmount}</span>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                ))}
-            </div>
-        </div>
-    );
-};
-
-// Component for Yearly Trends
-const YearlyTrends = () => (
-    <div className="p-5 border border-gray-200 rounded-xl">
-        <h3 className="font-bold text-gray-900 text-lg">Yearly Growth Trends</h3>
-        <p className="text-sm text-gray-500 mb-4">Year-over-year business growth analysis</p>
-        <div className="h-96">
-             <svg width="100%" height="100%" viewBox="0 0 500 200" preserveAspectRatio="none">
-                 {/* Grid lines */}
-                {[0, 50, 100, 150, 200].map(y=>(
-                    <line key={y} x1="30" y1={y} x2="490" y2={y} stroke="#E2E8F0" strokeWidth="1" strokeDasharray="4 4" />
-                ))}
-                
-                 {/* Y-axis labels */}
-                <text x="25" y="10" fill="#64748B" fontSize="10" textAnchor="end">₹16M</text>
-                <text x="25" y="60" fill="#64748B" fontSize="10" textAnchor="end">₹12M</text>
-                <text x="25" y="110" fill="#64748B" fontSize="10" textAnchor="end">₹8M</text>
-                <text x="25" y="160" fill="#64748B" fontSize="10" textAnchor="end">₹4M</text>
-                <text x="25" y="210" fill="#64748B" fontSize="10" textAnchor="end">₹0M</text>
-
-                 {/* X-axis labels */}
-                <text x="100" y="225" fill="#64748B" fontSize="10" textAnchor="middle">2021</text>
-                <text x="233" y="225" fill="#64748B" fontSize="10" textAnchor="middle">2022</text>
-                <text x="366" y="225" fill="#64748B" fontSize="10" textAnchor="middle">2023</text>
-                <text x="490" y="225" fill="#64748B" fontSize="10" textAnchor="middle">2024</text>
-                
-                 {/* Data lines */}
-                <polyline points="100,120 233,90 366,60 490,30" fill="none" stroke="#1A73E8" strokeWidth="2.5" />
-                <polyline points="100,190 233,185 366,180 490,175" fill="none" stroke="#34D399" strokeWidth="2.5" />
-
-                 {/* Data points */}
-                <circle cx="100" cy="120" r="4" fill="#1A73E8" stroke="white" strokeWidth="2" />
-                <circle cx="233" cy="90" r="4" fill="#1A73E8" stroke="white" strokeWidth="2" />
-                <circle cx="366" cy="60" r="4" fill="#1A73E8" stroke="white" strokeWidth="2" />
-                <circle cx="490" cy="30" r="4" fill="#1A73E8" stroke="white" strokeWidth="2" />
-                
-                <circle cx="100" cy="190" r="4" fill="#34D399" stroke="white" strokeWidth="2" />
-                <circle cx="233" cy="185" r="4" fill="#34D399" stroke="white" strokeWidth="2" />
-                <circle cx="366" cy="180" r="4" fill="#34D399" stroke="white" strokeWidth="2" />
-                <circle cx="490" cy="175" r="4" fill="#34D399" stroke="white" strokeWidth="2" />
-
-            </svg>
         </div>
     </div>
 );
@@ -375,6 +247,8 @@ const YearlyTrends = () => (
 const ReportsAnalytics = () => {
     const [activeTab, setActiveTab] = useState('Overview');
     const [reportType, setReportType] = useState('Monthly Report');
+    const currentYear = new Date().getFullYear();
+    const [timePeriod, setTimePeriod] = useState('This Month');
     const [showFromCalendar, setShowFromCalendar] = useState(false);
     const [showToCalendar, setShowToCalendar] = useState(false);
     const [fromDate, setFromDate] = useState(null);
@@ -382,7 +256,8 @@ const ReportsAnalytics = () => {
     const [fromDateString, setFromDateString] = useState('');
     const [toDateString, setToDateString] = useState('');
 
-    const tabs = ['Overview', 'GST Summary', 'Product-wise', 'Client-wise', 'Yearly Trends'];
+    const tabs = ['Overview', 'GST Summary'];
+    const years = Array.from({ length: 5 }, (_, i) => currentYear - i);
     
     const formatDate = (date) => {
         if (!date) return '';
@@ -391,6 +266,17 @@ const ReportsAnalytics = () => {
         let month = ('0' + (d.getMonth() + 1)).slice(-2);
         let year = d.getFullYear();
         return `${day}-${month}-${year}`;
+    };
+
+    const handleReportTypeChange = (e) => {
+        const newReportType = e.target.value;
+        setReportType(newReportType);
+        // Reset time period to a default value when report type changes
+        if (newReportType === 'Monthly Report') {
+            setTimePeriod('This Month');
+        } else if (newReportType === 'Yearly Report') {
+            setTimePeriod(currentYear.toString());
+        }
     };
     
     const handleFromDateSelect = (date) => {
@@ -441,7 +327,8 @@ const ReportsAnalytics = () => {
                                 </div>
                             </div>
                         </div>
-                         {/* Charts */}
+
+                        {/* Charts */}
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
                             <div className="p-5 border border-gray-200 rounded-xl">
                                 <h3 className="font-bold text-gray-900 text-lg">Revenue Trends</h3>
@@ -454,7 +341,9 @@ const ReportsAnalytics = () => {
                                 <div className="h-64"><RevenueBarChart /></div>
                             </div>
                         </div>
-                        <div className="p-5 border border-gray-200 rounded-xl mt-6">
+
+                        {/* Export Options */}
+                        <div className="p-5 border border-gray-200 rounded-xl">
                             <h3 className="font-bold text-gray-900 text-lg">Export Options</h3>
                             <p className="text-sm text-gray-500 mb-4">Download reports in various formats</p>
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -467,15 +356,11 @@ const ReportsAnalytics = () => {
                     </>
                 );
             case 'GST Summary': return <GSTSummary />;
-            case 'Product-wise': return <ProductWiseSummary />;
-            case 'Client-wise': return <ClientWiseSummary />;
-            case 'Yearly Trends': return <YearlyTrends />;
             default: return null;
         }
     };
 
     return (
-        // LAYOUT CHANGE: Applying consistent page structure
         <div className="min-h-screen bg-white font-sans">
             <div className="max-w-7xl mx-auto px-8 pb-8 pt-32">
                 {/* Header */}
@@ -491,11 +376,11 @@ const ReportsAnalytics = () => {
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-4 items-end">
                             {/* Report Type */}
                             <div>
-                                <label className="text-sm text-gray-800 mb-1 block">Report Type</label>
+                                <label className="text-sm font-medium text-gray-800 mb-1 block">Report Type</label>
                                 <div className="relative">
                                     <select 
                                         value={reportType}
-                                        onChange={(e) => setReportType(e.target.value)}
+                                        onChange={handleReportTypeChange}
                                         className="w-full bg-gray-100 border-0 rounded-md text-sm p-2.5 appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500"
                                     >
                                         <option>Monthly Report</option>
@@ -508,9 +393,11 @@ const ReportsAnalytics = () => {
                             
                             {/* Time Period */}
                             <div>
-                                <label className="text-sm text-gray-800 mb-1 block">Time Period</label>
+                                <label className="text-sm font-medium text-gray-800 mb-1 block">Time Period</label>
                                 <div className="relative">
                                     <select 
+                                        value={timePeriod}
+                                        onChange={(e) => setTimePeriod(e.target.value)}
                                         className="w-full bg-gray-100 border-0 rounded-md text-sm p-2.5 appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
                                         disabled={reportType === 'Custom Report'}
                                     >
@@ -521,10 +408,7 @@ const ReportsAnalytics = () => {
                                             </>
                                         )}
                                         {reportType === 'Yearly Report' && (
-                                            <>
-                                                <option>This Year</option>
-                                                <option>Last Year</option>
-                                            </>
+                                            years.map(year => <option key={year}>{year}</option>)
                                         )}
                                         {reportType === 'Custom Report' && (
                                             <option>Custom</option>
@@ -536,7 +420,7 @@ const ReportsAnalytics = () => {
 
                             {/* From Date */}
                             <div className={`relative ${reportType === 'Custom Report' ? 'block' : 'invisible'}`}>
-                                <label className="text-sm text-gray-800 mb-1 block">From Date</label>
+                                <label className="text-sm font-medium text-gray-800 mb-1 block">From Date</label>
                                 <div className="relative">
                                     <input 
                                         value={fromDateString}
@@ -554,7 +438,7 @@ const ReportsAnalytics = () => {
 
                             {/* To Date */}
                             <div className={`relative ${reportType === 'Custom Report' ? 'block' : 'invisible'}`}>
-                                <label className="text-sm text-gray-800 mb-1 block">To Date</label>
+                                <label className="text-sm font-medium text-gray-800 mb-1 block">To Date</label>
                                 <div className="relative">
                                      <input 
                                         value={toDateString}
@@ -579,7 +463,6 @@ const ReportsAnalytics = () => {
                                 <button 
                                     key={tab}
                                     onClick={() => setActiveTab(tab)}
-                                    // FONT CHANGE: Added font-medium for consistency
                                     className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors whitespace-nowrap ${activeTab === tab ? 'bg-white text-gray-900 shadow-sm' : 'bg-transparent text-gray-600 hover:bg-gray-200'}`}
                                 >
                                     {tab}
