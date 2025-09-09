@@ -121,22 +121,20 @@ const ProductAutocomplete = ({ products, value, onSelect, onChange }) => {
   const [searchTerm, setSearchTerm] = useState(value || "");
   const [suggestions, setSuggestions] = useState([]);
   const [isFocused, setIsFocused] = useState(false);
-  const wrapperRef = useRef(null); // Ref for the div containing the input
+  const wrapperRef = useRef(null);
   const [dropdownStyle, setDropdownStyle] = useState({});
 
-  // Function to calculate and update the dropdown's position
   const updateDropdownPosition = () => {
     if (wrapperRef.current) {
       const rect = wrapperRef.current.getBoundingClientRect();
       setDropdownStyle({
-        top: `${rect.bottom}px`, // Position it right below the input
+        top: `${rect.bottom}px`,
         left: `${rect.left}px`,
-        width: `${rect.width}px`, // Make it the same width as the input
+        width: `${rect.width}px`,
       });
     }
   };
 
-  // When the input is focused, calculate position and listen for scroll/resize to keep it aligned
   useEffect(() => {
     if (isFocused) {
       updateDropdownPosition();
@@ -187,7 +185,6 @@ const ProductAutocomplete = ({ products, value, onSelect, onChange }) => {
     setIsFocused(false);
   };
 
-  // This is the dropdown list that will be rendered in a portal
   const Dropdown = () => (
     <ul
       style={{ ...dropdownStyle, position: "fixed" }}
@@ -215,7 +212,6 @@ const ProductAutocomplete = ({ products, value, onSelect, onChange }) => {
         onFocus={() => setIsFocused(true)}
         className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg"
       />
-      {/* Use the portal to render the dropdown outside the clipping container */}
       {isFocused &&
         suggestions.length > 0 &&
         createPortal(<Dropdown />, document.body)}
@@ -943,8 +939,9 @@ const CreateInvoiceComponent = ({
                 />
               </div>
               <div>
+                {/* CHANGED: Added required indicator */}
                 <label className="block text-sm text-gray-700 mb-1">
-                  P.O. Number
+                  P.O. Number <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -1869,11 +1866,20 @@ const InvoiceManagementSystem = () => {
   };
 
   const validateInvoice = () => {
-    const { invoiceNumber, invoiceDate, dcNumber, dcDate, clientId, items } =
-      invoiceData;
+    // CHANGED: Added poNumber to validation
+    const {
+      invoiceNumber,
+      invoiceDate,
+      poNumber,
+      dcNumber,
+      dcDate,
+      clientId,
+      items,
+    } = invoiceData;
     const missingFields = [];
     if (!invoiceNumber) missingFields.push("Invoice Number");
     if (!invoiceDate) missingFields.push("Invoice Date");
+    if (!poNumber) missingFields.push("P.O. Number");
     if (!dcNumber) missingFields.push("D.C Number");
     if (!dcDate) missingFields.push("D.C Date");
     if (!clientId) missingFields.push("Client Information");
