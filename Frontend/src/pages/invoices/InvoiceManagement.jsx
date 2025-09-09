@@ -98,7 +98,7 @@ const ClientAutocomplete = ({ clients, selectedClient, onSelect }) => {
         onChange={handleInputChange}
         onFocus={() => setIsFocused(true)}
         placeholder="Type to search for a client..."
-        className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg"
+        className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
       />
       {isFocused && suggestions.length > 0 && (
         <ul className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-auto">
@@ -210,7 +210,7 @@ const ProductAutocomplete = ({ products, value, onSelect, onChange }) => {
         value={searchTerm}
         onChange={handleInputChange}
         onFocus={() => setIsFocused(true)}
-        className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg"
+        className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
       />
       {isFocused &&
         suggestions.length > 0 &&
@@ -347,9 +347,9 @@ const InvoicePreview = ({
     const bankDetails = `Bank Name : ${
       previewData.bankDetails || "State Bank Of India"
     }<br>
-                        A/C No &nbsp;&nbsp;&nbsp;&nbsp;: 42455711572<br>
-                        IFSC Code : SBIN0015017<br>
-                        Branch &nbsp;&nbsp;&nbsp;&nbsp;: Malumichampatti`;
+                                A/C No &nbsp;&nbsp;&nbsp;&nbsp;: 42455711572<br>
+                                IFSC Code : SBIN0015017<br>
+                                Branch &nbsp;&nbsp;&nbsp;&nbsp;: Malumichampatti`;
     return `
       <!DOCTYPE html>
       <html>
@@ -903,7 +903,7 @@ const CreateInvoiceComponent = ({
                       invoiceNumber: e.target.value,
                     }))
                   }
-                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg"
+                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div>
@@ -919,7 +919,7 @@ const CreateInvoiceComponent = ({
                       invoiceDate: e.target.value,
                     }))
                   }
-                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg"
+                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div>
@@ -935,7 +935,7 @@ const CreateInvoiceComponent = ({
                       dueDate: e.target.value,
                     }))
                   }
-                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg"
+                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div>
@@ -952,7 +952,7 @@ const CreateInvoiceComponent = ({
                       poNumber: e.target.value,
                     }))
                   }
-                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg"
+                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div>
@@ -968,7 +968,7 @@ const CreateInvoiceComponent = ({
                       dcNumber: e.target.value,
                     }))
                   }
-                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg"
+                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div>
@@ -984,7 +984,7 @@ const CreateInvoiceComponent = ({
                       dcDate: e.target.value,
                     }))
                   }
-                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg"
+                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
             </div>
@@ -1050,7 +1050,7 @@ const CreateInvoiceComponent = ({
                           onChange={(e) =>
                             updateItem(item.id, "hsnCode", e.target.value)
                           }
-                          className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg"
+                          className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                       </td>
                       <td className="p-2 align-top">
@@ -1065,7 +1065,7 @@ const CreateInvoiceComponent = ({
                               parseFloat(e.target.value) || 0
                             )
                           }
-                          className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg"
+                          className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                           min="0"
                         />
                       </td>
@@ -1081,7 +1081,7 @@ const CreateInvoiceComponent = ({
                               parseFloat(e.target.value) || 0
                             )
                           }
-                          className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg"
+                          className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                           min="0"
                         />
                       </td>
@@ -1119,7 +1119,7 @@ const CreateInvoiceComponent = ({
                     invoiceNotes: e.target.value,
                   }))
                 }
-                className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg resize-none h-16"
+                className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg resize-none h-16 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
           </div>
@@ -1143,7 +1143,7 @@ const CreateInvoiceComponent = ({
                       cgst: parseFloat(e.target.value) || 0,
                     }))
                   }
-                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg"
+                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   min="0"
                   max="100"
                 />
@@ -1161,7 +1161,7 @@ const CreateInvoiceComponent = ({
                       sgst: parseFloat(e.target.value) || 0,
                     }))
                   }
-                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg"
+                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   min="0"
                   max="100"
                 />
@@ -1179,7 +1179,7 @@ const CreateInvoiceComponent = ({
                       igst: parseFloat(e.target.value) || 0,
                     }))
                   }
-                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg"
+                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   min="0"
                   max="100"
                 />
@@ -1297,7 +1297,7 @@ const CreateInvoiceComponent = ({
                     status: e.target.value,
                   }))
                 }
-                className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg"
+                className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="Unpaid">Unpaid</option>
                 <option value="Paid">Paid</option>
@@ -1322,7 +1322,7 @@ const CreateInvoiceComponent = ({
                       bankDetails: e.target.value,
                     }))
                   }
-                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg"
+                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option>State Bank Of India</option>
                   <option>HDFC Bank</option>
@@ -1342,7 +1342,7 @@ const CreateInvoiceComponent = ({
                       declaration: e.target.value,
                     }))
                   }
-                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg resize-none h-20"
+                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg resize-none h-20 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
             </div>
