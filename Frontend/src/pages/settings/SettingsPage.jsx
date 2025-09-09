@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useContext } from 'react';
-// Added Package to the import list for the new notification type
-import { Building, Upload, Save, User, Lock, Eye, EyeOff, Bell, Mail, MessageSquare, Monitor, FileText, TrendingUp, AlertTriangle, UserCheck, SlidersHorizontal, ShieldCheck, ShieldAlert, LogOut, Package } from 'lucide-react';
+// Added 'Clock' to the import list for the new session timeout display
+import { Building, Upload, Save, User, Lock, Eye, EyeOff, Bell, Mail, MessageSquare, Monitor, FileText, TrendingUp, AlertTriangle, UserCheck, SlidersHorizontal, ShieldCheck, ShieldAlert, LogOut, Package, Clock } from 'lucide-react';
 import { AuthContext } from '../../context/AuthContext';
 
 // A reusable toggle switch component
@@ -607,21 +607,10 @@ const SystemSettings = () => {
 };
 
 const SecuritySettings = () => {
-    const { user, signOut } = useContext(AuthContext);
-    const [security, setSecurity] = useState({
-        loginAlerts: true,
-    });
-    const [isLoading, setIsLoading] = useState(false);
+    // ✅ UPDATED: Get the new state and function from the context
+    const { signOut, isSessionTimeoutEnabled, toggleSessionTimeout } = useContext(AuthContext);
     const [message, setMessage] = useState({ text: '', type: '' });
     
-    useEffect(() => {
-        if (user) {
-            setSecurity({
-                loginAlerts: user.loginAlertsEnabled !== false, // Default to true if not set
-            });
-        }
-    }, [user]);
-
     const handleLogout = async () => {
         try {
             await signOut();
@@ -635,43 +624,18 @@ const SecuritySettings = () => {
         }
     };
 
-    const handleSettingToggle = async (setting) => {
-        try {
-            setIsLoading(true);
-            const newValue = !security[setting];
-            setSecurity(prev => ({ ...prev, [setting]: newValue }));
-            
-            setMessage({
-                text: `${setting.split(/(?=[A-Z])/).join(' ').replace(/^./, str => str.toUpperCase())} has been ${newValue ? 'enabled' : 'disabled'}.`,
-                type: 'success'
-            });
-        } catch (error) {
-            console.error(`Error updating ${setting}:`, error);
-            setMessage({
-                text: `Failed to update ${setting}. Please try again.`,
-                type: 'error'
-            });
-            // Revert on error
-            setSecurity(prev => ({ ...prev, [setting]: !prev[setting] }));
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    const SecurityItem = ({ title, description, enabled, onToggle, button, disabled = false }) => (
+    // ✅ UPDATED: A more flexible SecurityItem that can accept any UI control
+    const SecurityItem = ({ icon: Icon, title, description, control }) => (
         <div className="p-4 border border-gray-200 rounded-lg flex items-center justify-between">
-            <div>
-                 <h4 className="font-medium text-gray-900 text-sm">{title}</h4>
-                 <p className="text-xs text-gray-500">{description}</p>
+            <div className="flex items-center gap-4">
+                 <Icon size={20} className="text-gray-500" />
+                 <div>
+                    <h4 className="font-medium text-gray-900 text-sm">{title}</h4>
+                    <p className="text-xs text-gray-500">{description}</p>
+                 </div>
             </div>
-            {button ? button : (
-                <div className={disabled ? 'opacity-50 cursor-not-allowed' : ''}>
-                    <ToggleSwitch 
-                        enabled={enabled} 
-                        setEnabled={disabled ? () => {} : onToggle} 
-                    />
-                </div>
-            )}
+            {/* This will render our toggle switch */}
+            {control && <div>{control}</div>}
         </div>
     );
 
@@ -682,13 +646,23 @@ const SecuritySettings = () => {
                 <h2 className="text-lg font-bold text-gray-900">Security Settings</h2>
             </div>
             <div className="space-y-6">
+                 {message.text && (
+                     <div className={`p-3 rounded-md text-sm ${message.type === 'error' ? 'bg-red-50 text-red-700' : ''}`}>
+                         {message.text}
+                     </div>
+                 )}
                 <div className="space-y-4">
+                    {/* ✅ UPDATED: The SecurityItem now renders a ToggleSwitch */}
                     <SecurityItem 
-                        title="Login Alerts" 
-                        description="Get notified of new login attempts" 
-                        enabled={security.loginAlerts} 
-                        onToggle={() => handleSettingToggle('loginAlerts')}
-                        disabled={isLoading}
+                        icon={Clock}
+                        title="Session Timeout" 
+                        description="Automatically log out after 15 minutes of inactivity." 
+                        control={
+                            <ToggleSwitch
+                                enabled={isSessionTimeoutEnabled}
+                                setEnabled={toggleSessionTimeout}
+                            />
+                        }
                     />
                 </div>
                  <div className="border-t border-gray-200 pt-6">

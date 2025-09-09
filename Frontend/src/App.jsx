@@ -1,7 +1,7 @@
 // frontend/src/App.jsx
 import React, { useContext } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
-import SignIn from "./pages/auth/SiginIn";   // ✅ fixed typo: SiginIn → SignIn
+import SignIn from "./pages/auth/SiginIn";
 import Dashboard from "./pages/dashboard/Dashboard";
 import Invoices from "./pages/invoices/InvoiceManagement";
 import Products from "./pages/products/ProductsList";
@@ -11,13 +11,25 @@ import { AuthContext } from "./context/AuthContext";
 import Clients from "./pages/clients/ClientManagement";
 import { TrendingUp, AlertCircle, MapPin, Phone, Mail, Trash2 } from "lucide-react";
 import Report from "./pages/reports/RevenueLineChart";
-import Settings from "./pages/settings/SettingsPage"
+import Settings from "./pages/settings/SettingsPage";
+import InactivityDetector from "./components/InactivityDetector";
 
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useContext(AuthContext);
   if (loading) return <div className="p-8">Loading...</div>;
-  return user ? children : <Navigate to="/signin" replace />;
+
+  if (!user) {
+    return <Navigate to="/signin" replace />;
+  }
+
+  // ✅ 2. RENDER THE DETECTOR ALONGSIDE YOUR PROTECTED CONTENT
+  return (
+    <>
+      <InactivityDetector />
+      {children}
+    </>
+  );
 }
 
 export default function App() {
