@@ -1,16 +1,26 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Plus, Search, Eye, Edit, Trash2, X } from 'lucide-react';
 
-// --- Mock Data for the Product Table ---
-const initialProducts = [
-    { id: 'PROD01', name: 'TechnoFab Industries', hsn: '3223', price: '₹1,25,000', revenue: '12,00,000' },
-    { id: 'PROD02', name: 'QuantumCore Solutions', hsn: '3223', price: '₹2,50,000', revenue: '25,00,000' },
-    { id: 'PROD03', name: 'AeroGlide Dynamics', hsn: '3232', price: '₹95,000', revenue: '8,70,000' },
-    { id: 'PROD04', name: 'Nexus Robotics', hsn: '3223', price: '₹5,60,000', revenue: '48,00,000' },
-    { id: 'PROD05', name: 'BioSynth Innovations', hsn: '3232', price: '₹1,10,000', revenue: '11,50,000' },
+// --- MOCK DATA: Start of Changes ---
+
+// NOTE: In a real application, this client data would be fetched from an API or passed via props.
+// It is included here to make the component functional for demonstration.
+const availableClients = [
+    { id: 1, name: 'Sunshine Traders' },
+    { id: 2, name: 'TechnoFab Industries' },
+    { id: 3, name: 'Global Imports' },
 ];
 
-// --- Reusable Modal Wrapper for the Overlay Effect ---
+// CHANGED: Products now have a 'clientId' and more descriptive names.
+const initialProducts = [
+    { id: 'PROD01', name: 'Industrial Gearbox T-100', hsn: '8483', price: '₹1,25,000', revenue: '12,00,000', clientId: 2 },
+    { id: 'PROD02', name: 'Quantum Processor Q-Chip', hsn: '8542', price: '₹2,50,000', revenue: '25,00,000', clientId: 1 },
+    { id: 'PROD03', name: 'AeroGlide Wing Assembly', hsn: '8803', price: '₹95,000', revenue: '8,70,000', clientId: 3 },
+    { id: 'PROD04', name: 'Nexus Robotic Arm v2', hsn: '8479', price: '₹5,60,000', revenue: '48,00,000', clientId: 2 },
+    { id: 'PROD05', name: 'BioSynth Protein Sequencer', hsn: '9027', price: '₹1,10,000', revenue: '11,50,000', clientId: 1 },
+];
+// --- MOCK DATA: End of Changes ---
+
 const ModalWrapper = ({ children, onClose }) => (
     <div 
         className="fixed inset-0 bg-black bg-opacity-50 modal-backdrop flex justify-center items-center z-50 p-4"
@@ -25,11 +35,12 @@ const ModalWrapper = ({ children, onClose }) => (
     </div>
 );
 
-// --- Add/Edit Product Modal Component ---
-const ProductFormModal = ({ onClose, onSave, productToEdit }) => {
+// --- CHANGED: ProductFormModal now accepts clients and handles client selection ---
+const ProductFormModal = ({ onClose, onSave, productToEdit, clients }) => {
     const [name, setName] = useState('');
     const [hsn, setHsn] = useState('');
     const [price, setPrice] = useState('');
+    const [selectedClientId, setSelectedClientId] = useState(''); // State for the dropdown
 
     useEffect(() => {
         if (productToEdit) {
@@ -37,16 +48,19 @@ const ProductFormModal = ({ onClose, onSave, productToEdit }) => {
             setHsn(productToEdit.hsn);
             const priceValue = productToEdit.price.replace(/[^0-9.-]+/g,"");
             setPrice(priceValue);
+            setSelectedClientId(productToEdit.clientId || ''); // Set client on edit
         } else {
+            // Reset form for adding new product
             setName('');
             setHsn('');
             setPrice('');
+            setSelectedClientId('');
         }
     }, [productToEdit]);
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        onSave({ ...productToEdit, name, hsn, price });
+        onSave({ ...productToEdit, name, hsn, price, clientId: selectedClientId }); // Pass clientId on save
     };
     
     const modalTitle = productToEdit ? "Edit Product" : "Add New Product";
@@ -58,6 +72,22 @@ const ProductFormModal = ({ onClose, onSave, productToEdit }) => {
             <div className="p-6">
                 <h2 className="text-lg font-bold text-gray-900 mb-4">{modalTitle}</h2>
                 <form onSubmit={handleSubmit} className="space-y-4">
+                    {/* CHANGED: Added Client Selector Dropdown */}
+                    <div>
+                        <label htmlFor="client" className="block text-sm text-gray-700 mb-1">Client *</label>
+                        <select 
+                            id="client" 
+                            value={selectedClientId} 
+                            onChange={(e) => setSelectedClientId(Number(e.target.value))}
+                            className="w-full px-3 py-2 bg-gray-100 border-0 rounded-lg text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500" 
+                            required
+                        >
+                            <option value="" disabled>Select a client</option>
+                            {clients.map(client => (
+                                <option key={client.id} value={client.id}>{client.name}</option>
+                            ))}
+                        </select>
+                    </div>
                     <div>
                         <label htmlFor="productName" className="block text-sm text-gray-700 mb-1">Product Name *</label>
                         <input id="productName" type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Enter product name" className="w-full px-3 py-2 bg-gray-100 border-0 rounded-lg text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500" required />
@@ -82,8 +112,8 @@ const ProductFormModal = ({ onClose, onSave, productToEdit }) => {
     );
 };
 
-// --- View Product Modal ---
-const ProductViewModal = ({ product, onClose }) => {
+// --- CHANGED: ProductViewModal now displays the client's name ---
+const ProductViewModal = ({ product, onClose, clientName }) => {
     if (!product) return null;
     return (
         <ModalWrapper onClose={onClose}>
@@ -92,6 +122,8 @@ const ProductViewModal = ({ product, onClose }) => {
                 <h2 className="text-lg font-bold text-gray-900 mb-4">Product Details</h2>
                 <div className="space-y-3 text-sm">
                     <div className="flex justify-between border-b pb-2"><span className="text-gray-600">S.No:</span> <span className="font-medium text-gray-800">{product.displayId}</span></div>
+                    {/* Added Client Name display */}
+                    <div className="flex justify-between border-b pb-2"><span className="text-gray-600">Client:</span> <span className="font-medium text-gray-800 text-right">{clientName}</span></div>
                     <div className="flex justify-between border-b pb-2"><span className="text-gray-600">Product Name:</span> <span className="font-medium text-gray-800 text-right">{product.name}</span></div>
                     <div className="flex justify-between border-b pb-2"><span className="text-gray-600">HSN Code:</span> <span className="font-medium text-gray-800">{product.hsn}</span></div>
                     <div className="flex justify-between border-b pb-2"><span className="text-gray-600">Price:</span> <span className="font-medium text-gray-800">{product.price}</span></div>
@@ -105,7 +137,6 @@ const ProductViewModal = ({ product, onClose }) => {
     );
 };
 
-// --- Delete Confirmation Modal ---
 const DeleteConfirmationModal = ({ onClose, onConfirm, productName }) => {
     return (
         <ModalWrapper onClose={onClose}>
@@ -123,14 +154,19 @@ const DeleteConfirmationModal = ({ onClose, onConfirm, productName }) => {
     );
 };
 
-// --- Product Row Component ---
-const ProductRow = ({ product, serialNumber, onView, onEdit, onDelete }) => (
+// --- CHANGED: ProductRow now accepts and displays the client's name ---
+const ProductRow = ({ product, serialNumber, clientName, onView, onEdit, onDelete }) => (
     <tr className="hover:bg-gray-50 transition-colors">
         <td className="px-4 py-4 w-24 text-sm text-gray-600">{serialNumber}</td>
-        <td className="px-4 py-4 w-auto text-sm font-medium text-gray-900">{product.name}</td>
+        <td className="px-4 py-4 w-auto">
+             {/* Display Product Name and Client Name */}
+            <div className="text-sm font-medium text-gray-900">{product.name}</div>
+            <div className="text-xs text-blue-600 md:hidden">{clientName}</div>
+        </td>
+        {/* Added Client Name column, hidden on small screens */}
+        <td className="px-4 py-4 w-60 text-sm text-gray-600 hidden md:table-cell">{clientName}</td>
         <td className="px-4 py-4 w-40 text-sm text-gray-600 hidden md:table-cell">{product.hsn}</td>
         <td className="px-4 py-4 w-40 text-sm text-gray-600 hidden lg:table-cell">{product.price}</td>
-        <td className="px-4 py-4 w-40 text-sm text-gray-600 hidden lg:table-cell">{product.revenue}</td>
         <td className="px-4 py-4 w-32">
             <div className="flex items-center gap-1">
                 <button onClick={() => onView(product)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors" title="View Details"><Eye size={16} className="text-gray-700" /></button>
@@ -141,11 +177,12 @@ const ProductRow = ({ product, serialNumber, onView, onEdit, onDelete }) => (
     </tr>
 );
 
-// --- Main App Component ---
-export default function App() {
+export default function ProductManagement() {
   const [products, setProducts] = useState(initialProducts);
   const [searchTerm, setSearchTerm] = useState('');
   const [modal, setModal] = useState({ isOpen: false, type: null, data: null });
+  // CHANGED: Client data is now part of the state
+  const [clients, setClients] = useState(availableClients);
 
   const filteredProducts = useMemo(() => {
     if (!searchTerm) return products;
@@ -157,16 +194,24 @@ export default function App() {
 
   const closeModal = () => setModal({ isOpen: false, type: null, data: null });
 
+  // CHANGED: handleSaveProduct now also saves the clientId
   const handleSaveProduct = (productData) => {
     if (modal.type === 'edit') {
-        setProducts(products.map(p => p.id === productData.id ? { ...p, ...productData, price: `₹${Number(productData.price).toLocaleString('en-IN')}` } : p));
+        setProducts(products.map(p => p.id === productData.id ? { 
+            ...p, 
+            name: productData.name,
+            hsn: productData.hsn,
+            price: `₹${Number(productData.price).toLocaleString('en-IN')}`,
+            clientId: productData.clientId,
+        } : p));
     } else {
         const newProduct = {
             id: `PROD${Date.now()}`,
             name: productData.name,
             hsn: productData.hsn,
             price: `₹${Number(productData.price).toLocaleString('en-IN')}`,
-            revenue: 'N/A',
+            revenue: '₹0', // New products have 0 revenue initially
+            clientId: productData.clientId,
         };
         setProducts([...products, newProduct]);
     }
@@ -194,7 +239,6 @@ export default function App() {
                   <p className="text-sm text-gray-500 mt-1">View all your products in one place</p>
               </div>
               <div className="flex items-center gap-4 w-full lg:w-auto mt-4 lg:mt-0">
-                  {/* --- SEARCH BAR: Start of Changes --- */}
                   <div className="relative flex-1 lg:flex-none">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                       <input
@@ -205,7 +249,6 @@ export default function App() {
                         className="w-full lg:w-80 bg-gray-100 rounded-lg pl-9 pr-4 py-2 text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                   </div>
-                  {/* --- SEARCH BAR: End of Changes --- */}
                   <button onClick={() => setModal({ isOpen: true, type: 'add', data: null })} className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">
                       <Plus size={16} />
                       Add Product
@@ -218,26 +261,33 @@ export default function App() {
                 <table className="w-full min-w-[900px]">
                     <thead className="bg-gray-50 text-xs font-semibold uppercase tracking-wider text-gray-500 border-b border-gray-200">
                         <tr>
+                            {/* CHANGED: Table headers updated */}
                             <th className="px-4 py-3 text-left w-24">S.No</th>
                             <th className="px-4 py-3 text-left w-auto">Product Name</th>
+                            <th className="px-4 py-3 text-left w-60 hidden md:table-cell">Client Name</th>
                             <th className="px-4 py-3 text-left w-40 hidden md:table-cell">HSN Code</th>
                             <th className="px-4 py-3 text-left w-40 hidden lg:table-cell">Price</th>
-                            <th className="px-4 py-3 text-left w-40 hidden lg:table-cell">Total Revenue</th>
                             <th className="px-4 py-3 text-left w-32">Actions</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
                         {filteredProducts.length > 0 ? (
-                            filteredProducts.map((product, index) => (
-                                <ProductRow 
-                                    key={product.id}
-                                    product={product}
-                                    serialNumber={String(index + 1).padStart(2, '0')}
-                                    onView={(p) => setModal({ isOpen: true, type: 'view', data: { ...p, displayId: String(index + 1).padStart(2, '0') } })}
-                                    onEdit={(p) => setModal({ isOpen: true, type: 'edit', data: p })}
-                                    onDelete={handleDeleteProduct}
-                                />
-                            ))
+                            filteredProducts.map((product, index) => {
+                                // CHANGED: Find the client name corresponding to the product's clientId
+                                const client = clients.find(c => c.id === product.clientId);
+                                const clientName = client ? client.name : 'Unknown Client';
+                                return (
+                                    <ProductRow 
+                                        key={product.id}
+                                        product={product}
+                                        serialNumber={String(index + 1).padStart(2, '0')}
+                                        clientName={clientName} // Pass client name to the row
+                                        onView={(p) => setModal({ isOpen: true, type: 'view', data: { ...p, displayId: String(index + 1).padStart(2, '0') } })}
+                                        onEdit={(p) => setModal({ isOpen: true, type: 'edit', data: p })}
+                                        onDelete={handleDeleteProduct}
+                                    />
+                                );
+                            })
                         ) : (
                             <tr>
                                 <td colSpan="6" className="text-center text-sm text-gray-500 py-12">No products found.</td>
@@ -253,12 +303,20 @@ export default function App() {
       {/* --- MODAL RENDERING --- */}
       {modal.isOpen && (
         <>
-            {modal.type === 'view' && <ProductViewModal product={modal.data} onClose={closeModal} />}
+            {modal.type === 'view' && (
+                <ProductViewModal 
+                    product={modal.data} 
+                    onClose={closeModal} 
+                    // Pass the client name to the view modal
+                    clientName={clients.find(c => c.id === modal.data.clientId)?.name || 'Unknown Client'}
+                />
+            )}
             {(modal.type === 'add' || modal.type === 'edit') && (
                 <ProductFormModal
                     onClose={closeModal}
                     onSave={handleSaveProduct}
                     productToEdit={modal.type === 'edit' ? modal.data : null}
+                    clients={clients} // Pass clients list to the form modal
                 />
             )}
             {modal.type === 'delete' && (
