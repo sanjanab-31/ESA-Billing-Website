@@ -1,6 +1,8 @@
 // firebaseClient.js (or wherever you initialize Firebase)
 import { initializeApp } from "firebase/app";
 import { getAuth, setPersistence, browserSessionPersistence } from "firebase/auth";
+import { getFirestore } from "firebase/firestore";
+import { getStorage } from "firebase/storage";
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -11,8 +13,11 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
+// Initialize Firebase services
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
+const db = getFirestore(app, 'esabilling');
+const storage = getStorage(app);
 
 // Force session persistence
 setPersistence(auth, browserSessionPersistence)
@@ -23,4 +28,5 @@ setPersistence(auth, browserSessionPersistence)
     console.error("Failed to set persistence:", error);
   });
 
-export { auth };
+// Export all Firebase services
+export { auth, db, storage };

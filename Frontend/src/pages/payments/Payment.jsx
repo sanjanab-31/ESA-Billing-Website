@@ -1,5 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect, useContext } from 'react';
 import { IndianRupee, CheckCircle2, AlertCircle, Clock, Search, Send, Check, Bell, Save, X } from 'lucide-react';
+import { useInvoices, useAllPayments } from '../../hooks/useFirestore';
+import { createPayment, updateInvoice } from '../../utils/database';
+import { AuthContext } from '../../context/AuthContext';
+import { LoadingSpinner, SkeletonCard, ErrorState, EmptyState } from '../../components/LoadingSpinner';
 
 // CHANGE: Updated modal to handle transaction ID
 const PaymentMethodModal = ({ isOpen, onClose, onConfirm }) => {
@@ -191,14 +195,53 @@ const PaymentsPage = () => {
     const [paymentToMarkPaid, setPaymentToMarkPaid] = useState(null);
     const tabs = ['All Payments', 'Overdue', 'Pending', 'Paid'];
 
-    const [payments, setPayments] = useState([
-        { invoiceNo: 'INV-2025-001', client: 'TechnoFab Industries', amount: 125000, received: 125000, dueDate: '14/08/2025', status: 'Paid', paymentDate: '10/08/2025', method: 'UPI', transactionId: 'TXN12345' },
-        { invoiceNo: 'INV-2025-002', client: 'Kumar Enterprises', amount: 89500, received: 0, dueDate: '17/10/2025', status: 'Unpaid' },
-        { invoiceNo: 'INV-2025-003', client: 'Global Manufacturing', amount: 205000, received: 0, dueDate: '20/08/2025', status: 'Unpaid' },
-        { invoiceNo: 'INV-2025-004', client: 'Metro Solutions Ltd', amount: 67800, received: 0, dueDate: '15/07/2025', status: 'Unpaid' },
-        { invoiceNo: 'INV-2025-005', client: 'Sunshine Traders', amount: 156000, received: 100000, dueDate: '24/11/2025', status: 'Partial' },
-        { invoiceNo: 'INV-2025-006', client: 'Kumar Enterprises', amount: 75000, received: 75000, dueDate: '10/08/2025', status: 'Paid', paymentDate: '10/08/2025', method: 'Cash' },
-    ]);
+    // Get authentication context
+    const { user, loading: authLoading } = useContext(AuthContext);
+
+    // Use Firestore hooks
+    const { 
+        invoices: allInvoices = [], 
+        loading: invoicesLoading, 
+        error: invoicesError,
+        editInvoice: updateInvoice
+    } = useInvoices();
+
+    const { payments: allPayments = [] } = useAllPayments();
+
+    // Map invoices -> payment rows
+    const [paymentsState, setPaymentsState] = useState([]);
+
+    // Debug logging
+    useEffect(() => {
+        console.log('PaymentsPage Debug:', {
+            user: user ? { uid: user.uid, email: user.email } : null,
+            authLoading,
+            invoices: allInvoices?.length || 0,
+            invoicesLoading,
+            invoicesError
+        });
+    }, [user, authLoading, allInvoices, invoicesLoading, invoicesError]);
+
+    // Build paymentsState from invoices and payments when data changes
+    useEffect(() => {
+        const computed = (allInvoices || []).map(inv => {
+            const invoiceNo = inv.invoiceNumber || inv.displayId || inv.id;
+            const client = inv.client?.name || inv.customerName || inv.customer || 'Unknown Client';
+            const amount = inv.total || inv.amount || 0;
+            
+            // Calculate received amount from payments
+            const invoicePayments = (allPayments || []).filter(payment => payment.invoiceId === inv.id);
+            const received = invoicePayments.reduce((sum, payment) => sum + (payment.amount || 0), 0);
+            
+            const paymentDate = inv.paymentDate || null;
+            const method = inv.paymentMethod || null;
+            const transactionId = inv.transactionId || null;
+            const dueDate = inv.dueDate || '-';
+            const status = inv.status === 'paid' ? 'Paid' : (inv.status === 'sent' ? 'Unpaid' : inv.status);
+            return { invoiceNo, client, amount, received, dueDate, status, paymentDate, method, transactionId, id: inv.id };
+        });
+        setPaymentsState(computed);
+    }, [allInvoices, allPayments]);
 
     const parseDateDDMMYYYY = (dateString) => {
         const [day, month, year] = dateString.split('/');
@@ -217,16 +260,41 @@ const PaymentsPage = () => {
     };
 
     const handleMarkAsPaid = (invoiceNo) => setPaymentToMarkPaid(invoiceNo);
-    
-    // CHANGE: Function now accepts transactionId
-    const confirmMarkAsPaid = (method, transactionId) => {
-        const today = new Date().toLocaleDateString('en-GB');
-        setPayments(payments.map(p => 
-            p.invoiceNo === paymentToMarkPaid
-                ? { ...p, status: 'Paid', paymentDate: today, received: p.amount, overdueDays: 0, method: method, transactionId: transactionId } 
-                : p
-        ));
-        setPaymentToMarkPaid(null);
+
+    // Function now accepts transactionId and updates Firestore
+    const confirmMarkAsPaid = async (method, transactionId) => {
+        try {
+            const today = new Date().toLocaleDateString('en-GB');
+            
+            // Find the invoice to mark as paid
+            const invoiceToUpdate = allInvoices.find(inv => inv.invoiceNumber === paymentToMarkPaid);
+            if (invoiceToUpdate) {
+                // Update invoice status to paid
+                await updateInvoice(invoiceToUpdate.id, { 
+                    status: 'paid',
+                    paymentMethod: method,
+                    transactionId: transactionId,
+                    paymentDate: today
+                });
+                
+                // Create a payment record
+                await createPayment({
+                    invoiceId: invoiceToUpdate.id,
+                    amount: invoiceToUpdate.total || invoiceToUpdate.amount,
+                    method: method,
+                    transactionId: transactionId,
+                    paymentDate: today,
+                    status: 'completed'
+                });
+                
+                alert('Payment recorded successfully!');
+            }
+        } catch (error) {
+            console.error('Error recording payment:', error);
+            alert('Error recording payment: ' + error.message);
+        } finally {
+            setPaymentToMarkPaid(null);
+        }
     };
 
     const handleSavePayment = (invoiceNo, paidAmountStr) => {
@@ -235,24 +303,13 @@ const PaymentsPage = () => {
             alert("Please enter a valid amount.");
             return;
         }
-        setPayments(payments.map(p => {
-            if (p.invoiceNo === invoiceNo) {
-                const newReceived = (p.received || 0) + paidAmount;
-                const isFullyPaid = newReceived >= p.amount;
-                // Open the modal if the payment becomes fully paid
-                if (isFullyPaid) {
-                    setPaymentToMarkPaid(invoiceNo);
-                    return { ...p, received: p.amount }; // Set as fully received, but wait for modal confirmation for status change
-                }
-                // Otherwise, just update as partial
-                return { ...p, status: 'Partial', received: newReceived };
-            }
-            return p;
-        }));
+        // This logic needs to be updated to interact with Firestore
+        // For now, it's a placeholder
+        alert(`Amount ${paidAmount} saved for ${invoiceNo}. (Placeholder)`);
         setEditingPaymentId(null);
     };
 
-    const paymentsWithDynamicStatus = payments.map(getDynamicStatus);
+    const paymentsWithDynamicStatus = paymentsState.map(getDynamicStatus);
     const filteredPayments = paymentsWithDynamicStatus.filter(payment => {
         const matchesSearch = payment.invoiceNo.toLowerCase().includes(searchTerm.toLowerCase()) || payment.client.toLowerCase().includes(searchTerm.toLowerCase());
         if (activeTab === 'All Payments') return matchesSearch;
@@ -263,6 +320,22 @@ const PaymentsPage = () => {
     });
 
     const overdueCount = paymentsWithDynamicStatus.filter(p => p.status === 'Overdue').length;
+
+    // CSV Export
+    const exportCSV = () => {
+        const rows = [
+            ['Invoice No','Client','Amount','Received','Due Date','Status','Payment Date','Method','Transaction ID']
+        ];
+        paymentsState.forEach(p => rows.push([p.invoiceNo, p.client, p.amount, p.received, p.dueDate, p.status, p.paymentDate || '', p.method || '', p.transactionId || '']));
+        const csvContent = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'payments_export.csv';
+        a.click();
+        URL.revokeObjectURL(url);
+    };
 
     const renderContent = () => {
         if (activeTab === 'Overdue' || activeTab === 'Pending') {
@@ -284,7 +357,12 @@ const PaymentsPage = () => {
                                 <PendingPaymentCard key={payment.invoiceNo} invoice={payment} onMarkPaid={handleMarkAsPaid} editingPaymentId={editingPaymentId} setEditingPaymentId={setEditingPaymentId} onSavePayment={handleSavePayment} />
                             ))
                         ) : (
-                             <div className="text-center py-16 text-gray-500"><p>No {isOverdueTab ? 'overdue' : 'pending'} payments found.</p></div>
+                            <EmptyState 
+                                icon={<AlertCircle className="h-16 w-16" />}
+                                title={`No ${isOverdueTab ? 'overdue' : 'pending'} payments`}
+                                message={`There are no ${isOverdueTab ? 'overdue' : 'pending'} payments at the moment.`}
+                                className="py-16"
+                            />
                         )}
                     </div>
                 </div>
@@ -315,7 +393,12 @@ const PaymentsPage = () => {
                         </tbody>
                     </table>
                      {filteredPayments.length === 0 && (
-                         <div className="text-center py-16 text-gray-500"><p>No paid payments found.</p></div>
+                         <EmptyState 
+                             icon={<CheckCircle2 className="h-16 w-16" />}
+                             title="No paid payments"
+                             message="No completed payments found in the selected period."
+                             className="py-16"
+                         />
                     )}
                 </div>
             );
@@ -341,13 +424,58 @@ const PaymentsPage = () => {
                         {filteredPayments.map(payment => <PaymentRow key={payment.invoiceNo} {...payment} amount={`₹${payment.amount.toLocaleString()}`} received={payment.received ? `₹${payment.received.toLocaleString()}` : null} />)}
                     </tbody>
                 </table>
-                 {filteredPayments.length === 0 && (<div className="text-center py-16 text-gray-500"><p>No payments found for "{activeTab}"</p></div>)}
+                 {filteredPayments.length === 0 && (
+                     <EmptyState 
+                         icon={<Search className="h-16 w-16" />}
+                         title="No payments found"
+                         message={searchTerm ? `No payments match "${searchTerm}"` : `No payments found for "${activeTab}"`}
+                         className="py-16"
+                     />
+                 )}
+            </div>
+        );
+    }
+
+    // Show loading state
+    if (invoicesLoading || authLoading) {
+        return (
+            <div className="min-h-screen bg-gray-50 font-sans">
+                <div className="max-w-7xl mx-auto px-8 pb-8 pt-32">
+                    <header className="mb-8">
+                        <h1 className="text-2xl font-bold text-gray-900">Payment Management</h1>
+                        <p className="text-sm text-gray-500 mt-1">Track payments, manage overdue invoices, and send reminders</p>
+                    </header>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+                        {Array.from({ length: 4 }).map((_, i) => (
+                            <SkeletonCard key={i} />
+                        ))}
+                    </div>
+                    <div className="bg-white rounded-xl border border-gray-200 p-6">
+                        <LoadingSpinner size="lg" text="Loading payment data..." />
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    // Show error state
+    if (invoicesError || authLoading === false && !user) {
+        return (
+            <div className="min-h-screen bg-gray-50 font-sans">
+                <div className="max-w-7xl mx-auto px-8 pb-8 pt-32">
+                    <ErrorState 
+                        title="Unable to load payments"
+                        message={invoicesError || "Please sign in to view payment data"}
+                        onRetry={() => window.location.reload()}
+                        className="min-h-96"
+                    />
+                </div>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-white font-sans">
+        <div className="min-h-screen bg-gray-50 font-sans">
             <PaymentMethodModal isOpen={!!paymentToMarkPaid} onClose={() => setPaymentToMarkPaid(null)} onConfirm={confirmMarkAsPaid} />
             <div className="max-w-7xl mx-auto px-8 pb-8 pt-32">
                 <header>
@@ -356,17 +484,31 @@ const PaymentsPage = () => {
                 </header>
                 <main className="mt-8">
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-                        <StatCard title="Total Amount" amount="₹7,18,300" subtitle="All invoices" icon={IndianRupee} iconBgColor="bg-blue-500" />
-                        <StatCard title="Amount Received" amount="₹3,00,000" subtitle="41.7% of total" icon={CheckCircle2} iconBgColor="bg-green-500" />
-                        <StatCard title="Overdue Amount" amount="₹2,72,800" subtitle="Needs attention" icon={AlertCircle} iconBgColor="bg-red-500" />
-                        <StatCard title="Pending Amount" amount="₹1,45,500" subtitle="Awaiting payment" icon={Clock} iconBgColor="bg-yellow-500" />
+                        {(() => {
+                            const totalAmount = paymentsState.reduce((s, p) => s + (p.amount || 0), 0);
+                            const amountReceived = paymentsState.reduce((s, p) => s + (p.received || 0), 0);
+                            const overdueAmount = paymentsState.filter(p => p.status === 'Overdue').reduce((s, p) => s + (p.amount - (p.received || 0)), 0);
+                            const pendingAmount = paymentsState.filter(p => p.status === 'Unpaid' || p.status === 'Partial').reduce((s, p) => s + (p.amount - (p.received || 0)), 0);
+                            return (
+                                <>
+                                    <StatCard title="Total Amount" amount={`₹${totalAmount.toLocaleString()}`} subtitle="All invoices" icon={IndianRupee} iconBgColor="bg-blue-500" />
+                                    <StatCard title="Amount Received" amount={`₹${amountReceived.toLocaleString()}`} subtitle={`${totalAmount > 0 ? Math.round((amountReceived / totalAmount) * 100) : 0}% of total`} icon={CheckCircle2} iconBgColor="bg-green-500" />
+                                    <StatCard title="Overdue Amount" amount={`₹${overdueAmount.toLocaleString()}`} subtitle="Needs attention" icon={AlertCircle} iconBgColor="bg-red-500" />
+                                    <StatCard title="Pending Amount" amount={`₹${pendingAmount.toLocaleString()}`} subtitle="Awaiting payment" icon={Clock} iconBgColor="bg-yellow-500" />
+                                </>
+                            );
+                        })()}
                     </div>
                      <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-6">
                         <div className="relative w-full md:w-96">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                             <input type="text" placeholder="Search by invoice number or client..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full bg-white border border-gray-300 rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                         </div>
-                         <div className="bg-gray-100 rounded-lg p-1 flex items-center space-x-1 max-w-max overflow-x-auto">
+                                 <div className="flex items-center gap-4">
+                                     <div className="bg-white rounded-md">
+                                          <button onClick={exportCSV} className="px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700">Export CSV</button>
+                                     </div>
+                                     <div className="bg-gray-100 rounded-lg p-1 flex items-center space-x-1 max-w-max overflow-x-auto">
                             {tabs.map(tab => (
                                 <button key={tab} onClick={() => setActiveTab(tab)} className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors whitespace-nowrap flex items-center gap-2 ${activeTab === tab ? 'bg-white text-gray-900 shadow-sm' : 'bg-transparent text-gray-600 hover:bg-gray-200'}`}>
                                     {tab}
@@ -374,6 +516,7 @@ const PaymentsPage = () => {
                                 </button>
                             ))}
                         </div>
+                    </div>
                     </div>
                     {renderContent()}
                 </main>

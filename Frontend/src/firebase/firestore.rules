@@ -1,0 +1,79 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Users collection - users can read/write their own data
+    match /users/{userId} {
+      allow read, write: if isOwner(userId);
+      allow read: if isAdmin();
+    }
+
+    // Customers collection
+    match /customers/{customerId} {
+      // Authenticated users can read all customers
+      allow read: if isAuthenticated();
+      // Only admins can create, update, or delete customers
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Invoices collection
+    match /invoices/{invoiceId} {
+      // Authenticated users can read invoices
+      allow read: if isAuthenticated();
+      // Only admins can create invoices
+      allow create: if isAdmin();
+      // Invoices can be updated by admins or if not paid
+      allow update: if isAdmin() || (isAuthenticated() && resource.data.status != 'paid');
+      // Only admins can delete invoices
+      allow delete: if isAdmin();
+    }
+
+    // Invoice items subcollection
+    match /invoices/{invoiceId}/items/{itemId} {
+      // Same rules as parent invoice
+      allow read: if isAuthenticated();
+      allow create: if isAdmin();
+      allow update: if isAdmin() || (isAuthenticated() && get(/databases/$(database)/documents/invoices/$(invoiceId)).data.status != 'paid');
+      allow delete: if isAdmin();
+    }
+
+    // Payments collection
+    match /payments/{paymentId} {
+      // Authenticated users can read payments
+      allow read: if isAuthenticated();
+      // Only admins can create payments
+      allow create: if isAdmin();
+      // Payments can be updated by admins only
+      allow update, delete: if isAdmin();
+    }
+
+    // Reports collection (admin only)
+    match /reports/{reportId} {
+      allow read, write: if isAdmin();
+    }
+
+    // Settings collection (admin only)
+    match /settings/{settingId} {
+      allow read, write: if isAdmin();
+    }
+
+    // Default deny rule
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,6 +1,10 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useContext } from 'react';
 // Added IndianRupee to the import list
 import { ChevronDown, Calendar, TrendingUp, FileText, Percent, Users, FileDown, Printer, Sheet, BookOpen, Truck, UserCheck, ChevronLeft, ChevronRight, IndianRupee } from 'lucide-react';
+import { useDashboard, useInvoices, useCustomers, useAllPayments } from '../../hooks/useFirestore';
+import { AuthContext } from '../../context/AuthContext';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 
 // Calendar Popup Component
 const CalendarPopup = ({ onDateSelect, onClose }) => {
@@ -76,58 +80,147 @@ const CalendarPopup = ({ onDateSelect, onClose }) => {
 };
 
 
-// A simple placeholder for the line chart component
-const RevenueLineChart = () => (
-    <div className="w-full h-full flex items-end">
-        <svg width="100%" height="100%" viewBox="0 0 300 150" preserveAspectRatio="none">
-            {/* Dashed Grid Lines */}
-            {[25, 50, 75, 100, 125].map(y => (
-                <line key={y} x1="25" y1={y} x2="295" y2={y} stroke="#E2E8F0" strokeWidth="1" strokeDasharray="4 4" />
-            ))}
+// Dynamic line chart component using real data
+const RevenueLineChart = ({ invoices = [] }) => {
+    // Generate last 6 months data
+    const generateMonthlyData = () => {
+        const months = [];
+        const currentDate = new Date();
+        
+        for (let i = 5; i >= 0; i--) {
+            const date = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
+            const monthName = date.toLocaleDateString('en-US', { month: 'short' });
             
-            {/* Y-Axis Labels */}
-            <text x="20" y="28" fill="#64748B" fontSize="10" textAnchor="end">1400k</text>
-            <text x="20" y="53" fill="#64748B" fontSize="10" textAnchor="end">1050k</text>
-            <text x="20" y="78" fill="#64748B" fontSize="10" textAnchor="end">700k</text>
-            <text x="20" y="103" fill="#64748B" fontSize="10" textAnchor="end">350k</text>
-            <text x="20" y="128" fill="#64748B" fontSize="10" textAnchor="end">₹0k</text>
-
-            {/* X-Axis Labels */}
-            <text x="45" y="145" fill="#64748B" fontSize="10" textAnchor="middle">Aug</text>
-            <text x="90" y="145" fill="#64748B" fontSize="10" textAnchor="middle">Sep</text>
-            <text x="135" y="145" fill="#64748B" fontSize="10" textAnchor="middle">Oct</text>
-            <text x="180" y="145" fill="#64748B" fontSize="10" textAnchor="middle">Nov</text>
-            <text x="225" y="145" fill="#64748B" fontSize="10" textAnchor="middle">Dec</text>
-            <text x="270" y="145" fill="#64748B" fontSize="10" textAnchor="middle">Jan</text>
+            // Calculate revenue for this month
+            const monthStart = new Date(date.getFullYear(), date.getMonth(), 1);
+            const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0);
             
-            {/* Gradient for Area Chart */}
-            <defs>
-                <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#1A73E8" stopOpacity={0.2}/>
-                    <stop offset="100%" stopColor="#1A73E8" stopOpacity={0}/>
-                </linearGradient>
-            </defs>
-
-            {/* Data Path */}
-            <path d="M 45 100 C 90 80, 135 85, 180 60 S 225 30, 270 45" stroke="#1A73E8" strokeWidth="2" fill="none" />
+            const monthRevenue = invoices
+                .filter(inv => {
+                    const invDate = new Date(inv.invoiceDate || inv.createdAt?.toDate?.() || inv.createdAt);
+                    return invDate >= monthStart && invDate <= monthEnd && inv.status === 'paid';
+                })
+                .reduce((sum, inv) => sum + (inv.total || inv.amount || 0), 0);
             
-            {/* Area Path */}
-            <path d="M 45 100 C 90 80, 135 85, 180 60 S 225 30, 270 45 L 270 125 L 45 125 Z" fill="url(#areaGradient)" />
-        </svg>
-    </div>
-);
+            months.push({
+                name: monthName,
+                revenue: monthRevenue,
+                count: invoices.filter(inv => {
+                    const invDate = new Date(inv.invoiceDate || inv.createdAt?.toDate?.() || inv.createdAt);
+                    return invDate >= monthStart && invDate <= monthEnd;
+                }).length
+            });
+        }
+        
+        return months;
+    };
 
-// A simple placeholder for the bar chart component
-const RevenueBarChart = () => {
-    const data = [
-        { name: 'Aug', value: 800, label: '₹800k' },
-        { name: 'Sep', value: 900, label: '₹900k' },
-        { name: 'Oct', value: 1100, label: '₹1100k' },
-        { name: 'Nov', value: 1000, label: '₹1000k' },
-        { name: 'Dec', value: 1400, label: '₹1400k' },
-        { name: 'Jan', value: 1200, label: '₹1200k' },
-    ];
-    const maxValue = 1500;
+    const data = generateMonthlyData();
+    const maxRevenue = Math.max(...data.map(d => d.revenue), 1);
+    const maxCount = Math.max(...data.map(d => d.count), 1);
+
+    const getYPosition = (value, maxValue) => {
+        return 125 - (value / maxValue) * 100;
+    };
+
+    const getXPosition = (index) => {
+        return 25 + (index * 45);
+    };
+
+    // Generate path for revenue line
+    const revenuePath = data.map((item, index) => {
+        const x = getXPosition(index);
+        const y = getYPosition(item.revenue, maxRevenue);
+        return `${index === 0 ? 'M' : 'L'} ${x} ${y}`;
+    }).join(' ');
+
+    // Generate path for invoice count line
+    const countPath = data.map((item, index) => {
+        const x = getXPosition(index);
+        const y = getYPosition(item.count, maxCount);
+        return `${index === 0 ? 'M' : 'L'} ${x} ${y}`;
+    }).join(' ');
+
+    return (
+        <div className="w-full h-full flex items-end">
+            <svg width="100%" height="100%" viewBox="0 0 300 150" preserveAspectRatio="none">
+                {/* Dashed Grid Lines */}
+                {[25, 50, 75, 100, 125].map(y => (
+                    <line key={y} x1="25" y1={y} x2="295" y2={y} stroke="#E2E8F0" strokeWidth="1" strokeDasharray="4 4" />
+                ))}
+                
+                {/* Y-Axis Labels */}
+                <text x="20" y="28" fill="#64748B" fontSize="10" textAnchor="end">₹{(maxRevenue/1000).toFixed(0)}k</text>
+                <text x="20" y="53" fill="#64748B" fontSize="10" textAnchor="end">₹{(maxRevenue*0.75/1000).toFixed(0)}k</text>
+                <text x="20" y="78" fill="#64748B" fontSize="10" textAnchor="end">₹{(maxRevenue*0.5/1000).toFixed(0)}k</text>
+                <text x="20" y="103" fill="#64748B" fontSize="10" textAnchor="end">₹{(maxRevenue*0.25/1000).toFixed(0)}k</text>
+                <text x="20" y="128" fill="#64748B" fontSize="10" textAnchor="end">₹0k</text>
+
+                {/* X-Axis Labels */}
+                {data.map((item, index) => (
+                    <text key={index} x={getXPosition(index)} y="145" fill="#64748B" fontSize="10" textAnchor="middle">{item.name}</text>
+                ))}
+                
+                {/* Gradient for Area Chart */}
+                <defs>
+                    <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#1A73E8" stopOpacity={0.2}/>
+                        <stop offset="100%" stopColor="#1A73E8" stopOpacity={0}/>
+                    </linearGradient>
+                </defs>
+
+                {/* Revenue Line */}
+                <path d={revenuePath} stroke="#1A73E8" strokeWidth="2" fill="none" />
+                
+                {/* Invoice Count Line */}
+                <path d={countPath} stroke="#34D399" strokeWidth="2" fill="none" strokeDasharray="4 4" />
+                
+                {/* Data Points */}
+                {data.map((item, index) => (
+                    <g key={index}>
+                        <circle cx={getXPosition(index)} cy={getYPosition(item.revenue, maxRevenue)} r="3" fill="#1A73E8" />
+                        <circle cx={getXPosition(index)} cy={getYPosition(item.count, maxCount)} r="3" fill="#34D399" />
+                    </g>
+                ))}
+            </svg>
+        </div>
+    );
+};
+
+// Dynamic bar chart component using real data
+const RevenueBarChart = ({ invoices = [] }) => {
+    // Generate last 6 months data
+    const generateMonthlyData = () => {
+        const months = [];
+        const currentDate = new Date();
+        
+        for (let i = 5; i >= 0; i--) {
+            const date = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
+            const monthName = date.toLocaleDateString('en-US', { month: 'short' });
+            
+            // Calculate revenue for this month
+            const monthStart = new Date(date.getFullYear(), date.getMonth(), 1);
+            const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+            
+            const monthRevenue = invoices
+                .filter(inv => {
+                    const invDate = new Date(inv.invoiceDate || inv.createdAt?.toDate?.() || inv.createdAt);
+                    return invDate >= monthStart && invDate <= monthEnd && inv.status === 'paid';
+                })
+                .reduce((sum, inv) => sum + (inv.total || inv.amount || 0), 0);
+            
+            months.push({
+                name: monthName,
+                value: monthRevenue,
+                label: `₹${(monthRevenue/1000).toFixed(0)}k`
+            });
+        }
+        
+        return months;
+    };
+
+    const data = generateMonthlyData();
+    const maxValue = Math.max(...data.map(d => d.value), 1);
 
     return (
         <div className="w-full h-full flex items-end">
@@ -138,10 +231,10 @@ const RevenueBarChart = () => {
                 ))}
             
                  {/* Y-Axis Labels */}
-                <text x="25" y="10" fill="#64748B" fontSize="10" textAnchor="end">₹1400k</text>
-                <text x="25" y="35" fill="#64748B" fontSize="10" textAnchor="end">₹1050k</text>
-                <text x="25" y="60" fill="#64748B" fontSize="10" textAnchor="end">₹700k</text>
-                <text x="25" y="85" fill="#64748B" fontSize="10" textAnchor="end">₹350k</text>
+                <text x="25" y="10" fill="#64748B" fontSize="10" textAnchor="end">₹{(maxValue/1000).toFixed(0)}k</text>
+                <text x="25" y="35" fill="#64748B" fontSize="10" textAnchor="end">₹{(maxValue*0.75/1000).toFixed(0)}k</text>
+                <text x="25" y="60" fill="#64748B" fontSize="10" textAnchor="end">₹{(maxValue*0.5/1000).toFixed(0)}k</text>
+                <text x="25" y="85" fill="#64748B" fontSize="10" textAnchor="end">₹{(maxValue*0.25/1000).toFixed(0)}k</text>
                 <text x="25" y="110" fill="#64748B" fontSize="10" textAnchor="end">₹0k</text>
 
                  {/* Bars and X-Axis Labels */}
@@ -192,56 +285,96 @@ const DonutChart = ({ cgst, sgst, igst }) => {
 };
 
 
-// Component for the GST Summary tab content
-const GSTSummary = () => (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* GST Collection Summary */}
-        <div className="p-5 border border-gray-200 rounded-xl">
-            <h3 className="font-bold text-gray-900 text-lg">GST Collection Summary</h3>
-            <p className="text-sm text-gray-500 mb-4">Tax breakdown by type</p>
-            <div className="space-y-3">
-                <div className="bg-gray-50/50 p-4 rounded-lg flex justify-between items-center">
-                    <div className="flex items-center gap-3">
-                        <div className="w-4 h-4 bg-blue-500 rounded-full"></div>
-                        <span className="font-medium text-sm">CGST</span>
+// Component for the GST Summary tab content using real data
+const GSTSummary = ({ invoices = [] }) => {
+    // Calculate GST totals from invoices
+    const calculateGST = () => {
+        const paidInvoices = invoices.filter(inv => inv.status === 'paid');
+        
+        let totalCGST = 0;
+        let totalSGST = 0;
+        let totalIGST = 0;
+        
+        paidInvoices.forEach(inv => {
+            const subtotal = inv.items?.reduce((sum, item) => sum + (item.amount || 0), 0) || (inv.total || inv.amount || 0);
+            const cgstRate = inv.cgst || 0;
+            const sgstRate = inv.sgst || 0;
+            const igstRate = inv.igst || 0;
+            
+            totalCGST += (subtotal * cgstRate) / 100;
+            totalSGST += (subtotal * sgstRate) / 100;
+            totalIGST += (subtotal * igstRate) / 100;
+        });
+        
+        const total = totalCGST + totalSGST + totalIGST;
+        
+        return {
+            cgst: totalCGST,
+            sgst: totalSGST,
+            igst: totalIGST,
+            total,
+            cgstPercent: total > 0 ? (totalCGST / total) * 100 : 0,
+            sgstPercent: total > 0 ? (totalSGST / total) * 100 : 0,
+            igstPercent: total > 0 ? (totalIGST / total) * 100 : 0
+        };
+    };
+
+    const gstData = calculateGST();
+
+    return (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* GST Collection Summary */}
+            <div className="p-5 border border-gray-200 rounded-xl">
+                <h3 className="font-bold text-gray-900 text-lg">GST Collection Summary</h3>
+                <p className="text-sm text-gray-500 mb-4">Tax breakdown by type</p>
+                <div className="space-y-3">
+                    <div className="bg-gray-50/50 p-4 rounded-lg flex justify-between items-center">
+                        <div className="flex items-center gap-3">
+                            <div className="w-4 h-4 bg-blue-500 rounded-full"></div>
+                            <span className="font-medium text-sm">CGST</span>
+                        </div>
+                        <div className="text-right">
+                            <p className="font-bold text-sm text-gray-900">₹{gstData.cgst.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</p>
+                            <p className="text-xs text-gray-500">{gstData.cgstPercent.toFixed(1)}%</p>
+                        </div>
                     </div>
-                    <div className="text-right">
-                        <p className="font-bold text-sm text-gray-900">₹1,12,275</p>
-                        <p className="text-xs text-gray-500">50%</p>
+                     <div className="bg-gray-50/50 p-4 rounded-lg flex justify-between items-center">
+                        <div className="flex items-center gap-3">
+                            <div className="w-4 h-4 bg-green-400 rounded-full"></div>
+                            <span className="font-medium text-sm">SGST</span>
+                        </div>
+                        <div className="text-right">
+                            <p className="font-bold text-sm text-gray-900">₹{gstData.sgst.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</p>
+                            <p className="text-xs text-gray-500">{gstData.sgstPercent.toFixed(1)}%</p>
+                        </div>
                     </div>
-                </div>
-                 <div className="bg-gray-50/50 p-4 rounded-lg flex justify-between items-center">
-                    <div className="flex items-center gap-3">
-                        <div className="w-4 h-4 bg-green-400 rounded-full"></div>
-                        <span className="font-medium text-sm">SGST</span>
-                    </div>
-                    <div className="text-right">
-                        <p className="font-bold text-sm text-gray-900">₹1,12,275</p>
-                        <p className="text-xs text-gray-500">50%</p>
-                    </div>
-                </div>
-                 <div className="bg-gray-50/50 p-4 rounded-lg flex justify-between items-center">
-                    <div className="flex items-center gap-3">
-                        <div className="w-4 h-4 bg-yellow-400 rounded-full"></div>
-                        <span className="font-medium text-sm">IGST</span>
-                    </div>
-                    <div className="text-right">
-                        <p className="font-bold text-sm text-gray-900">₹0</p>
-                        <p className="text-xs text-gray-500">0%</p>
+                     <div className="bg-gray-50/50 p-4 rounded-lg flex justify-between items-center">
+                        <div className="flex items-center gap-3">
+                            <div className="w-4 h-4 bg-yellow-400 rounded-full"></div>
+                            <span className="font-medium text-sm">IGST</span>
+                        </div>
+                        <div className="text-right">
+                            <p className="font-bold text-sm text-gray-900">₹{gstData.igst.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</p>
+                            <p className="text-xs text-gray-500">{gstData.igstPercent.toFixed(1)}%</p>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
-        {/* GST Distribution */}
-        <div className="p-5 border border-gray-200 rounded-xl flex flex-col items-center justify-center">
-            <h3 className="font-bold text-gray-900 self-start text-lg">GST Distribution</h3>
-            <p className="text-sm text-gray-500 mb-4 self-start">Visual breakdown</p>
-            <div className="flex-grow flex items-center justify-center">
-                <DonutChart cgst={50} sgst={50} igst={0} />
+            {/* GST Distribution */}
+            <div className="p-5 border border-gray-200 rounded-xl flex flex-col items-center justify-center">
+                <h3 className="font-bold text-gray-900 self-start text-lg">GST Distribution</h3>
+                <p className="text-sm text-gray-500 mb-4 self-start">Visual breakdown</p>
+                <div className="flex-grow flex items-center justify-center">
+                    <DonutChart 
+                        cgst={gstData.cgstPercent} 
+                        sgst={gstData.sgstPercent} 
+                        igst={gstData.igstPercent} 
+                    />
+                </div>
             </div>
         </div>
-    </div>
-);
+    );
+};
 
 
 const ReportsAnalytics = () => {
@@ -255,6 +388,15 @@ const ReportsAnalytics = () => {
     const [toDate, setToDate] = useState(null);
     const [fromDateString, setFromDateString] = useState('');
     const [toDateString, setToDateString] = useState('');
+
+    // Get authentication context
+    const { user, loading: authLoading } = useContext(AuthContext);
+
+    // Use Firestore hooks
+    const { stats, loading: statsLoading, error: statsError } = useDashboard();
+    const { invoices, loading: invoicesLoading, error: invoicesError } = useInvoices();
+    const { customers, loading: customersLoading, error: customersError } = useCustomers();
+    const { payments, loading: paymentsLoading, error: paymentsError } = useAllPayments();
 
     const tabs = ['Overview', 'GST Summary'];
     const years = Array.from({ length: 5 }, (_, i) => currentYear - i);
@@ -292,6 +434,35 @@ const ReportsAnalytics = () => {
     };
 
     const renderContent = () => {
+        // Show loading state
+        if (statsLoading || invoicesLoading || customersLoading || paymentsLoading) {
+            return (
+                <div className="flex items-center justify-center h-64">
+                    <div className="text-center">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                        <p className="text-gray-600">Loading reports...</p>
+                    </div>
+                </div>
+            );
+        }
+
+        // Show error state
+        if (statsError || invoicesError || customersError || paymentsError) {
+            return (
+                <div className="flex items-center justify-center h-64">
+                    <div className="text-center">
+                        <p className="text-red-600 mb-4">Error loading reports: {statsError || invoicesError || customersError || paymentsError}</p>
+                        <button 
+                            onClick={() => window.location.reload()} 
+                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                        >
+                            Retry
+                        </button>
+                    </div>
+                </div>
+            );
+        }
+
         switch (activeTab) {
             case 'Overview':
                 return (
@@ -301,29 +472,29 @@ const ReportsAnalytics = () => {
                             <div className="p-5 border border-gray-200 rounded-xl">
                                 <div>
                                     <p className="flex items-center text-sm text-gray-500"><IndianRupee size={14} className="mr-2" /> Total Revenue</p>
-                                    <p className="text-2xl font-bold text-gray-900 mt-1">₹12,47,500</p>
-                                    <p className="text-xs text-green-500 flex items-center mt-1"><TrendingUp size={12} className="mr-1"/> +8.5%</p>
+                                    <p className="text-2xl font-bold text-gray-900 mt-1">₹{stats?.totalRevenue?.toLocaleString('en-IN') || '0'}</p>
+                                    <p className="text-xs text-green-500 flex items-center mt-1"><TrendingUp size={12} className="mr-1"/> Real-time data</p>
                                 </div>
                             </div>
                             <div className="p-5 border border-gray-200 rounded-xl">
                                 <div>
                                     <p className="flex items-center text-sm text-gray-500"><FileText size={14} className="mr-2" /> Total Invoices</p>
-                                    <p className="text-2xl font-bold text-gray-900 mt-1">68</p>
-                                    <p className="text-xs text-green-500 flex items-center mt-1"><TrendingUp size={12} className="mr-1"/> +12%</p>
+                                    <p className="text-2xl font-bold text-gray-900 mt-1">{stats?.totalInvoices || 0}</p>
+                                    <p className="text-xs text-green-500 flex items-center mt-1"><TrendingUp size={12} className="mr-1"/> Live count</p>
                                 </div>
                             </div>
                             <div className="p-5 border border-gray-200 rounded-xl">
                                 <div>
                                     <p className="flex items-center text-sm text-gray-500"><Percent size={14} className="mr-2" /> GST Collected</p>
-                                    <p className="text-2xl font-bold text-gray-900 mt-1">₹2,24,550</p>
-                                    <p className="text-xs text-gray-500 mt-1">18% effective rate</p>
+                                    <p className="text-2xl font-bold text-gray-900 mt-1">₹{stats?.totalPayments?.toLocaleString('en-IN') || '0'}</p>
+                                    <p className="text-xs text-gray-500 mt-1">From paid invoices</p>
                                 </div>
                             </div>
                             <div className="p-5 border border-gray-200 rounded-xl">
                                 <div>
                                     <p className="flex items-center text-sm text-gray-500"><Users size={14} className="mr-2" /> Total Clients</p>
-                                    <p className="text-2xl font-bold text-gray-900 mt-1">25</p>
-                                    <p className="text-xs text-green-500 flex items-center mt-1"><TrendingUp size={12} className="mr-1"/> +3 new</p>
+                                    <p className="text-2xl font-bold text-gray-900 mt-1">{stats?.totalCustomers || 0}</p>
+                                    <p className="text-xs text-green-500 flex items-center mt-1"><TrendingUp size={12} className="mr-1"/> Active clients</p>
                                 </div>
                             </div>
                         </div>
@@ -333,12 +504,12 @@ const ReportsAnalytics = () => {
                             <div className="p-5 border border-gray-200 rounded-xl">
                                 <h3 className="font-bold text-gray-900 text-lg">Revenue Trends</h3>
                                 <p className="text-sm text-gray-500 mb-4">Monthly revenue and invoice count</p>
-                                <div className="h-64"><RevenueLineChart /></div>
+                                <div className="h-64"><RevenueLineChart invoices={invoices || []} /></div>
                             </div>
                             <div className="p-5 border border-gray-200 rounded-xl">
                                 <h3 className="font-bold text-gray-900 text-lg">Revenue by Month</h3>
                                 <p className="text-sm text-gray-500 mb-4">Monthly comparison</p>
-                                <div className="h-64"><RevenueBarChart /></div>
+                                <div className="h-64"><RevenueBarChart invoices={invoices || []} /></div>
                             </div>
                         </div>
 
@@ -346,16 +517,36 @@ const ReportsAnalytics = () => {
                         <div className="p-5 border border-gray-200 rounded-xl">
                             <h3 className="font-bold text-gray-900 text-lg">Export Options</h3>
                             <p className="text-sm text-gray-500 mb-4">Download reports in various formats</p>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                                <button className="p-5 border border-gray-200 rounded-lg flex flex-col items-center justify-center space-y-2 hover:bg-gray-50 transition-colors"><Printer size={24} className="text-gray-700"/><span className="text-sm font-medium">PDF Report</span></button>
-                                <button className="p-5 border border-gray-200 rounded-lg flex flex-col items-center justify-center space-y-2 hover:bg-gray-50 transition-colors"><Sheet size={24} className="text-gray-700"/><span className="text-sm font-medium">Excel Export</span></button>
-                                <button className="p-5 border border-gray-200 rounded-lg flex flex-col items-center justify-center space-y-2 hover:bg-gray-50 transition-colors"><BookOpen size={24} className="text-gray-700"/><span className="text-sm font-medium">Summary Report</span></button>
-                                <button className="p-5 border border-gray-200 rounded-lg flex flex-col items-center justify-center space-y-2 hover:bg-gray-50 transition-colors"><FileDown size={24} className="text-gray-700"/><span className="text-sm font-medium">Detailed Report</span></button>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                                <button 
+                                    onClick={() => exportToPDF(invoices, customers, payments, stats)}
+                                    className="p-5 border border-gray-200 rounded-lg flex flex-col items-center justify-center space-y-2 hover:bg-gray-50 transition-colors"
+                                >
+                                    <Printer size={24} className="text-gray-700"/>
+                                    <span className="text-sm font-medium">PDF Report</span>
+                                    <span className="text-xs text-gray-500">Detailed invoice report</span>
+                                </button>
+                                <button 
+                                    onClick={() => exportToExcel(invoices, customers, payments)}
+                                    className="p-5 border border-gray-200 rounded-lg flex flex-col items-center justify-center space-y-2 hover:bg-gray-50 transition-colors"
+                                >
+                                    <Sheet size={24} className="text-gray-700"/>
+                                    <span className="text-sm font-medium">CSV Export</span>
+                                    <span className="text-xs text-gray-500">All invoice details</span>
+                                </button>
+                                <button 
+                                    onClick={() => exportDetailed(invoices, customers, payments, stats)}
+                                    className="p-5 border border-gray-200 rounded-lg flex flex-col items-center justify-center space-y-2 hover:bg-gray-50 transition-colors"
+                                >
+                                    <FileDown size={24} className="text-gray-700"/>
+                                    <span className="text-sm font-medium">Detailed Report</span>
+                                    <span className="text-xs text-gray-500">Complete data export</span>
+                                </button>
                             </div>
                         </div>
                     </>
                 );
-            case 'GST Summary': return <GSTSummary />;
+            case 'GST Summary': return <GSTSummary invoices={invoices || []} />;
             default: return null;
         }
     };
@@ -479,5 +670,192 @@ const ReportsAnalytics = () => {
         </div>
     );
 };
+
+    // Export functions
+    const exportToPDF = (invoices, customers, payments, stats) => {
+        const doc = new jsPDF();
+        
+        // Header
+        doc.setFontSize(20);
+        doc.text('Business Report', 20, 20);
+        doc.setFontSize(12);
+        doc.text(`Generated on: ${new Date().toLocaleDateString('en-IN')}`, 20, 30);
+        
+        // Summary Stats
+        doc.setFontSize(16);
+        doc.text('Summary Statistics', 20, 50);
+        
+        const summaryData = [
+            ['Total Revenue', `₹${stats?.totalRevenue?.toLocaleString('en-IN') || '0'}`],
+            ['Total Invoices', stats?.totalInvoices || 0],
+            ['Total Customers', stats?.totalCustomers || 0],
+            ['Paid Invoices', stats?.paidInvoices || 0],
+            ['Unpaid Invoices', stats?.unpaidInvoices || 0],
+            ['Payment Rate', `${stats?.paymentRate?.toFixed(1) || 0}%`]
+        ];
+        
+        doc.autoTable({
+            startY: 60,
+            head: [['Metric', 'Value']],
+            body: summaryData,
+            theme: 'grid',
+            headStyles: { fillColor: [66, 139, 202] },
+            styles: { fontSize: 10 }
+        });
+        
+        // Detailed Invoice Information
+        doc.setFontSize(16);
+        doc.text('Detailed Invoice Information', 20, doc.lastAutoTable.finalY + 20);
+        
+        const invoiceData = (invoices || []).map(inv => [
+            inv.invoiceNumber || 'N/A',
+            inv.client?.name || 'N/A',
+            inv.client?.email || 'N/A',
+            inv.client?.phone || 'N/A',
+            `₹${(inv.total || inv.amount || 0).toLocaleString('en-IN')}`,
+            inv.status || 'N/A',
+            inv.invoiceDate ? new Date(inv.invoiceDate).toLocaleDateString('en-IN') : 'N/A',
+            inv.dueDate ? new Date(inv.dueDate).toLocaleDateString('en-IN') : 'N/A',
+            inv.items?.length || 0,
+            inv.cgst ? `${inv.cgst}%` : '0%',
+            inv.sgst ? `${inv.sgst}%` : '0%',
+            inv.igst ? `${inv.igst}%` : '0%'
+        ]);
+        
+        doc.autoTable({
+            startY: doc.lastAutoTable.finalY + 30,
+            head: [['Invoice #', 'Client', 'Email', 'Phone', 'Amount', 'Status', 'Invoice Date', 'Due Date', 'Items', 'CGST', 'SGST', 'IGST']],
+            body: invoiceData,
+            theme: 'grid',
+            headStyles: { fillColor: [66, 139, 202] },
+            styles: { fontSize: 8 },
+            columnStyles: {
+                4: { halign: 'right' },
+                5: { halign: 'center' },
+                6: { halign: 'center' },
+                7: { halign: 'center' },
+                8: { halign: 'center' },
+                9: { halign: 'center' },
+                10: { halign: 'center' },
+                11: { halign: 'center' }
+            }
+        });
+        
+        // Payment Information
+        if (payments && payments.length > 0) {
+            doc.setFontSize(16);
+            doc.text('Payment Information', 20, doc.lastAutoTable.finalY + 20);
+            
+            const paymentData = payments.map(payment => [
+                payment.invoiceId || 'N/A',
+                `₹${(payment.amount || 0).toLocaleString('en-IN')}`,
+                payment.method || 'N/A',
+                payment.transactionId || 'N/A',
+                payment.paymentDate ? new Date(payment.paymentDate).toLocaleDateString('en-IN') : 'N/A',
+                payment.status || 'N/A'
+            ]);
+            
+            doc.autoTable({
+                startY: doc.lastAutoTable.finalY + 30,
+                head: [['Invoice ID', 'Amount', 'Method', 'Transaction ID', 'Payment Date', 'Status']],
+                body: paymentData,
+                theme: 'grid',
+                headStyles: { fillColor: [66, 139, 202] },
+                styles: { fontSize: 10 },
+                columnStyles: {
+                    1: { halign: 'right' },
+                    4: { halign: 'center' },
+                    5: { halign: 'center' }
+                }
+            });
+        }
+        
+        // Save the PDF
+        doc.save(`business_report_${new Date().toISOString().split('T')[0]}.pdf`);
+    };
+
+    const exportToExcel = (invoices, customers, payments) => {
+        // Create detailed CSV with all invoice information
+        const csvData = [
+            ['Invoice Number', 'Client Name', 'Client Email', 'Client Phone', 'Client Address', 'Amount', 'Subtotal', 'CGST %', 'SGST %', 'IGST %', 'CGST Amount', 'SGST Amount', 'IGST Amount', 'Status', 'Invoice Date', 'Due Date', 'Items Count', 'Payment Status', 'Payment Method', 'Transaction ID', 'Payment Date']
+        ];
+        
+        (invoices || []).forEach(inv => {
+            const invoicePayments = (payments || []).filter(p => p.invoiceId === inv.id);
+            const latestPayment = invoicePayments[invoicePayments.length - 1];
+            
+            const subtotal = inv.items?.reduce((sum, item) => sum + (item.amount || 0), 0) || (inv.total || inv.amount || 0);
+            const cgstAmount = (subtotal * (inv.cgst || 0)) / 100;
+            const sgstAmount = (subtotal * (inv.sgst || 0)) / 100;
+            const igstAmount = (subtotal * (inv.igst || 0)) / 100;
+            
+            csvData.push([
+                inv.invoiceNumber || '',
+                inv.client?.name || '',
+                inv.client?.email || '',
+                inv.client?.phone || '',
+                inv.client?.address || '',
+                inv.total || inv.amount || 0,
+                subtotal,
+                inv.cgst || 0,
+                inv.sgst || 0,
+                inv.igst || 0,
+                cgstAmount,
+                sgstAmount,
+                igstAmount,
+                inv.status || '',
+                inv.invoiceDate ? new Date(inv.invoiceDate).toLocaleDateString('en-IN') : '',
+                inv.dueDate ? new Date(inv.dueDate).toLocaleDateString('en-IN') : '',
+                inv.items?.length || 0,
+                latestPayment ? 'Paid' : 'Unpaid',
+                latestPayment?.method || '',
+                latestPayment?.transactionId || '',
+                latestPayment?.paymentDate ? new Date(latestPayment.paymentDate).toLocaleDateString('en-IN') : ''
+            ]);
+        });
+        
+        const csvContent = csvData.map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `detailed_invoices_export_${new Date().toISOString().split('T')[0]}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+    };
+
+    const exportDetailed = (invoices, customers, payments, stats) => {
+        // This will export a comprehensive JSON with all data
+        const detailedData = {
+            reportInfo: {
+                generatedAt: new Date().toISOString(),
+                reportType: 'Detailed Business Report',
+                totalRecords: {
+                    invoices: invoices?.length || 0,
+                    customers: customers?.length || 0,
+                    payments: payments?.length || 0
+                }
+            },
+            summary: {
+                totalRevenue: stats?.totalRevenue || 0,
+                totalInvoices: stats?.totalInvoices || 0,
+                totalCustomers: stats?.totalCustomers || 0,
+                paidInvoices: stats?.paidInvoices || 0,
+                unpaidInvoices: stats?.unpaidInvoices || 0,
+                paymentRate: stats?.paymentRate || 0
+            },
+            invoices: invoices || [],
+            customers: customers || [],
+            payments: payments || []
+        };
+        
+        const blob = new Blob([JSON.stringify(detailedData, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `detailed_report_${new Date().toISOString().split('T')[0]}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+    };
 
 export default ReportsAnalytics;

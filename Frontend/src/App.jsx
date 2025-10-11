@@ -9,7 +9,6 @@ import Payments from "./pages/payments/Payment";
 import Header from "./components/Header";
 import { AuthContext } from "./context/AuthContext";
 import Clients from "./pages/clients/ClientManagement";
-import { TrendingUp, AlertCircle, MapPin, Phone, Mail, Trash2 } from "lucide-react";
 import Report from "./pages/reports/RevenueLineChart";
 import Settings from "./pages/settings/SettingsPage";
 import InactivityDetector from "./components/InactivityDetector";

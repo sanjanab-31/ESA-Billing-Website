@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useContext } from 'react';
 // Added 'Clock' to the import list for the new session timeout display
 import { Building, Upload, Save, User, Lock, Eye, EyeOff, Bell, Mail, MessageSquare, Monitor, FileText, TrendingUp, AlertTriangle, UserCheck, SlidersHorizontal, ShieldCheck, ShieldAlert, LogOut, Package, Clock } from 'lucide-react';
 import { AuthContext } from '../../context/AuthContext';
+import { useSettings } from '../../hooks/useFirestore';
 
 // A reusable toggle switch component
 const ToggleSwitch = ({ enabled, setEnabled }) => (
@@ -36,6 +37,21 @@ const CompanySettings = () => {
     const [logoPreview, setLogoPreview] = useState(null);
     const fileInputRef = useRef(null);
 
+    // Use Firestore settings hook
+    const { settings, loading: settingsLoading, error: settingsError, updateSettings } = useSettings();
+
+    // Load settings from Firestore
+    useEffect(() => {
+        if (settings) {
+            if (settings.companyInfo) {
+                setCompanyInfo(prev => ({ ...prev, ...settings.companyInfo }));
+            }
+            if (settings.bankingInfo) {
+                setBankingInfo(prev => ({ ...prev, ...settings.bankingInfo }));
+            }
+        }
+    }, [settings]);
+
     const handleCompanyChange = (e) => {
         setCompanyInfo({ ...companyInfo, [e.target.name]: e.target.value });
     };
@@ -52,17 +68,32 @@ const CompanySettings = () => {
         }
     };
 
-    const handleSaveCompany = () => {
-        console.log("Saving Company Info:", companyInfo);
-        if (logoPreview) {
-             console.log("Logo is ready for upload.");
+    const handleSaveCompany = async () => {
+        try {
+            const result = await updateSettings('companyInfo', companyInfo, 'Company information settings');
+            if (result.success) {
+                alert("Company settings saved successfully!");
+            } else {
+                alert("Error saving company settings: " + result.error);
+            }
+        } catch (error) {
+            console.error('Error saving company settings:', error);
+            alert("Error saving company settings: " + error.message);
         }
-        alert("Company settings saved! (Placeholder)");
     };
     
-    const handleSaveBanking = () => {
-        console.log("Saving Banking Info:", bankingInfo);
-        alert("Banking information saved! (Placeholder)");
+    const handleSaveBanking = async () => {
+        try {
+            const result = await updateSettings('bankingInfo', bankingInfo, 'Banking information settings');
+            if (result.success) {
+                alert("Banking information saved successfully!");
+            } else {
+                alert("Error saving banking information: " + result.error);
+            }
+        } catch (error) {
+            console.error('Error saving banking information:', error);
+            alert("Error saving banking information: " + error.message);
+        }
     };
 
     return (
@@ -552,6 +583,40 @@ const SystemSettings = () => {
     const [config, setConfig] = useState({ currency: 'INR', timeZone: 'Asia/Kolkata', dateFormat: 'DD/MM/YYYY', invoicePrefix: 'INV' });
     const [features, setFeatures] = useState({ autoInvoice: true, gstCalculation: true, roundOff: true });
 
+    // Use Firestore settings hook
+    const { settings, loading: settingsLoading, error: settingsError, updateSettings } = useSettings();
+
+    // Load settings from Firestore
+    useEffect(() => {
+        if (settings) {
+            if (settings.systemConfig) {
+                setConfig(prev => ({ ...prev, ...settings.systemConfig }));
+            }
+            if (settings.systemFeatures) {
+                setFeatures(prev => ({ ...prev, ...settings.systemFeatures }));
+            }
+        }
+    }, [settings]);
+
+    const handleSaveSystemSettings = async () => {
+        try {
+            const systemSettings = {
+                systemConfig: config,
+                systemFeatures: features
+            };
+            
+            const result = await updateSettings('systemSettings', systemSettings, 'System configuration and features');
+            if (result.success) {
+                alert("System settings saved successfully!");
+            } else {
+                alert("Error saving system settings: " + result.error);
+            }
+        } catch (error) {
+            console.error('Error saving system settings:', error);
+            alert("Error saving system settings: " + error.message);
+        }
+    };
+
     const FeatureItem = ({ title, description, enabled, onToggle }) => (
         <div className="flex items-center justify-between">
             <div>
@@ -596,7 +661,7 @@ const SystemSettings = () => {
                     </div>
                 </div>
                  <div className="pt-2">
-                    <button className="flex items-center gap-2 px-5 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700">
+                    <button onClick={handleSaveSystemSettings} className="flex items-center gap-2 px-5 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700">
                         <Save size={16} />
                         Save System Settings
                     </button>
@@ -682,6 +747,23 @@ const SettingsPage = () => {
     const [activeTab, setActiveTab] = useState('Company');
     const tabs = ['Company', 'Profile', 'Notifications', 'System', 'Security'];
 
+    // Get authentication context
+    const { user, loading: authLoading } = useContext(AuthContext);
+
+    // Use Firestore settings hook
+    const { settings, loading: settingsLoading, error: settingsError } = useSettings();
+
+    // Debug logging
+    useEffect(() => {
+        console.log('SettingsPage Debug:', {
+            user: user ? { uid: user.uid, email: user.email } : null,
+            authLoading,
+            settings,
+            settingsLoading,
+            settingsError
+        });
+    }, [user, authLoading, settings, settingsLoading, settingsError]);
+
     
     const renderContent = () => {
         switch (activeTab) {
@@ -703,6 +785,13 @@ const SettingsPage = () => {
     return (
         // LAYOUT CHANGE: Applying consistent page structure
         <div className="min-h-screen bg-white font-sans">
+            {/* Debug info */}
+            <div className="fixed top-20 right-4 bg-white p-2 rounded shadow text-xs z-50">
+                Auth: {authLoading ? 'Loading...' : user ? user.email : 'Not signed in'} | 
+                Settings: {settingsLoading ? 'Loading...' : settings ? 'Loaded' : 'None'} | 
+                Error: {settingsError || 'None'}
+            </div>
+            
             <div className="max-w-7xl mx-auto px-8 pb-8 pt-32">
                 <header>
                     <h1 className="text-2xl font-bold text-gray-900">Settings</h1>

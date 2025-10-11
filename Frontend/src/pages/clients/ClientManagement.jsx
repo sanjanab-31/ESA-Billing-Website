@@ -1,6 +1,8 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useContext } from 'react';
 // CHANGED: Imported the 'Search' icon
 import { Plus, Eye, Edit, MoreHorizontal, X, FileText, TrendingUp, AlertCircle, MapPin, Phone, Mail, Trash2, Search } from 'lucide-react';
+import { useCustomers } from '../../hooks/useFirestore';
+import { AuthContext } from '../../context/AuthContext';
 
 const ClientManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -15,74 +17,29 @@ const ClientManagement = () => {
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
   const [clientToDelete, setClientToDelete] = useState(null);
 
-  const [clients, setClients] = useState([
-    {
-      id: 1,
-      name: 'Sunshine Traders',
-      email: 'accounts@sunshine.co.in',
-      gstin: '33ABCXY7890Z1A2',
-      phone: '+91 54321 09876',
-      totalInvoices: 10,
-      totalRevenue: '₹1,25,000',
-      outstanding: '₹0',
-      address: '123 Business Street, Mumbai, Maharashtra',
-      amountPaid: '₹1,25,000',
-      firstInvoice: 'Jan 2023',
-      lastInvoice: '15/12/2023',
-      avgInvoice: '₹12,500',
-      paymentRate: '100%',
-      revenueData: [
-        { month: 'Sep', value: 30000, label: '₹30,000' },
-        { month: 'Oct', value: 25000, label: '₹25,000' },
-        { month: 'Nov', value: 40000, label: '₹40,000' },
-        { month: 'Dec', value: 30000, label: '₹30,000' }
-      ]
-    },
-    {
-      id: 2,
-      name: 'TechnoFab Industries',
-      email: 'accounts@technofab.com',
-      gstin: '29ABCDE1234F1Z5',
-      phone: '+91 98765 43210',
-      totalInvoices: 15,
-      totalRevenue: '₹2,85,000',
-      outstanding: '₹25,000',
-      address: '123, Industrial Area, Bangalore, Karnataka -560001',
-      amountPaid: '₹2,85,000',
-      firstInvoice: 'Dec 2023',
-      lastInvoice: '20/01/2024',
-      avgInvoice: '₹19,000',
-      paymentRate: '91%',
-      revenueData: [
-        { month: 'Oct', value: 35000, label: '₹35,000' },
-        { month: 'Nov', value: 42000, label: '₹42,000' },
-        { month: 'Dec', value: 38000, label: '₹38,000' },
-        { month: 'Jan', value: 45000, label: '₹45,000' }
-      ]
-    },
-    {
-      id: 3,
-      name: 'Global Imports',
-      email: 'info@globalimports.co.in',
-      gstin: '19FGHIJ5678K2L3',
-      phone: '+91 87654 32109',
-      totalInvoices: 8,
-      totalRevenue: '₹3,75,000',
-      outstanding: '₹0',
-      address: '789 Import Plaza, Delhi',
-      amountPaid: '₹3,75,000',
-      firstInvoice: 'Mar 2023',
-      lastInvoice: '18/01/2024',
-      avgInvoice: '₹46,875',
-      paymentRate: '100%',
-      revenueData: [
-        { month: 'Oct', value: 80000, label: '₹80,000' },
-        { month: 'Nov', value: 95000, label: '₹95,000' },
-        { month: 'Dec', value: 110000, label: '₹1,10,000' },
-        { month: 'Jan', value: 90000, label: '₹90,000' }
-      ]
-    }
-  ]);
+  // Get authentication context
+  const { user, loading: authLoading } = useContext(AuthContext);
+
+  // Use Firestore hook
+  const { 
+    customers, 
+    loading, 
+    error, 
+    addCustomer, 
+    editCustomer, 
+    removeCustomer 
+  } = useCustomers({ search: searchTerm });
+
+  // Debug logging
+  useEffect(() => {
+    console.log('ClientManagement Debug:', {
+      user: user ? { uid: user.uid, email: user.email } : null,
+      authLoading,
+      customers: customers?.length || 0,
+      loading,
+      error
+    });
+  }, [user, authLoading, customers, loading, error]);
 
   const [formData, setFormData] = useState({
     name: '', gstin: '', phone: '', email: '', address: ''
@@ -91,13 +48,6 @@ const ClientManagement = () => {
   const [editFormData, setEditFormData] = useState({
     name: '', gstin: '', phone: '', email: '', address: ''
   });
-
-  const filteredClients = clients.filter(client =>
-    client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    client.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    client.gstin.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    client.phone.toLowerCase().includes(searchTerm.toLowerCase())
-  );
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -109,29 +59,23 @@ const ClientManagement = () => {
     setEditFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleAddClient = () => {
-    if (formData.name && formData.gstin && formData.address) {
-      const newClient = {
-        id: clients.length + 1,
+  const handleAddClient = async () => {
+    if (formData.name && formData.email) {
+      const result = await addCustomer({
         name: formData.name,
         email: formData.email,
-        gstin: formData.gstin,
         phone: formData.phone,
-        totalInvoices: 0,
-        totalRevenue: '₹0',
-        outstanding: '₹0',
         address: formData.address,
-        amountPaid: '₹0',
-        firstInvoice: '-',
-        lastInvoice: '-',
-        avgInvoice: '₹0',
-        paymentRate: '0%',
-        revenueData: []
-      };
+        company: formData.gstin, // Using GSTIN as company identifier
+        taxId: formData.gstin,
+      });
       
-      setClients(prev => [...prev, newClient]);
-      setFormData({ name: '', gstin: '', phone: '', email: '', address: '' });
-      setShowAddModal(false);
+      if (result.success) {
+        setFormData({ name: '', gstin: '', phone: '', email: '', address: '' });
+        setShowAddModal(false);
+      } else {
+        alert('Error adding client: ' + result.error);
+      }
     }
   };
 
@@ -163,16 +107,24 @@ const ClientManagement = () => {
     setDropdownOpen(null);
   };
 
-  const handleUpdateClient = () => {
-    if (editFormData.name && editFormData.gstin && editFormData.address) {
-      setClients(prev => prev.map(client => 
-        client.id === selectedClient.id 
-          ? { ...client, ...editFormData }
-          : client
-      ));
-      setShowEditModal(false);
-      setSelectedClient(null);
-      setEditFormData({ name: '', gstin: '', phone: '', email: '', address: '' });
+  const handleUpdateClient = async () => {
+    if (editFormData.name && editFormData.email && selectedClient) {
+      const result = await editCustomer(selectedClient.id, {
+        name: editFormData.name,
+        email: editFormData.email,
+        phone: editFormData.phone,
+        address: editFormData.address,
+        company: editFormData.gstin,
+        taxId: editFormData.gstin,
+      });
+      
+      if (result.success) {
+        setShowEditModal(false);
+        setSelectedClient(null);
+        setEditFormData({ name: '', gstin: '', phone: '', email: '', address: '' });
+      } else {
+        alert('Error updating client: ' + result.error);
+      }
     }
   };
   
@@ -184,11 +136,15 @@ const ClientManagement = () => {
   };
 
   // CHANGED: New function to perform the actual deletion
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (clientToDelete) {
-      setClients(prev => prev.filter(client => client.id !== clientToDelete.id));
-      setShowDeleteConfirmModal(false);
-      setClientToDelete(null);
+      const result = await removeCustomer(clientToDelete.id);
+      if (result.success) {
+        setShowDeleteConfirmModal(false);
+        setClientToDelete(null);
+      } else {
+        alert('Error deleting client: ' + result.error);
+      }
     }
   };
 
@@ -232,6 +188,13 @@ const ClientManagement = () => {
             <p className="text-sm text-gray-500 mt-1">
               Manage your client relationships and track business performance
             </p>
+            {/* Debug info */}
+            <div className="mt-2 text-xs text-gray-500">
+              Auth Status: {authLoading ? 'Loading...' : user ? `Signed in as ${user.email}` : 'Not signed in'} | 
+              Data Loading: {loading ? 'Yes' : 'No'} | 
+              Error: {error || 'None'} |
+              Customers: {customers?.length || 0}
+            </div>
           </div>
           <div className="flex items-center gap-4 w-full lg:w-auto mt-4 lg:mt-0">
             {/* --- SEARCH BAR: Start of Changes --- */}
@@ -271,52 +234,76 @@ const ClientManagement = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {filteredClients.map((client) => (
-                  <tr key={client.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-4 py-4 w-80">
-                      <div className="text-sm font-medium text-gray-900 mb-1">{client.name}</div>
-                      <div className="text-xs text-gray-500">{client.email}</div>
-                    </td>
-                    <td className="px-4 py-4 w-36 font-mono text-sm text-gray-700">{client.gstin}</td>
-                    <td className="px-4 py-4 w-36 text-sm text-gray-700">{client.phone}</td>
-                    <td className="px-4 py-4 w-28 text-center text-sm text-gray-700">{client.totalInvoices}</td>
-                    <td className="px-4 py-4 w-28 text-sm text-gray-700">{client.totalRevenue}</td>
-                    <td className={`px-4 py-4 w-28 text-sm font-medium ${client.outstanding === '₹0' ? 'text-gray-500' : 'text-red-500'}`}>{client.outstanding}</td>
-                    <td className="px-4 py-4 w-32">
-                      <div className="flex items-center gap-1">
-                        <button onClick={() => handleViewClient(client)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors" title="View Details">
-                          <Eye size={16} className="text-gray-700" />
-                        </button>
-                        <button onClick={() => handleEditClient(client)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors" title="Edit Client">
-                          <Edit size={16} className="text-gray-700" />
-                        </button>
-                        <div className="relative" ref={dropdownOpen === client.id ? dropdownRef : null}>
-                          <button onClick={() => toggleDropdown(client.id)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors" title="More Actions">
-                            <MoreHorizontal size={16} className="text-gray-700" />
-                          </button>
-                          {dropdownOpen === client.id && (
-                            <div className="absolute right-0 mt-1 w-36 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
-                              {/* CHANGED: onClick now calls handleDeleteClient with the full client object */}
-                              <button onClick={() => handleDeleteClient(client)} className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 rounded-lg">
-                                <Trash2 size={14} />
-                                Delete Client
-                              </button>
-                            </div>
-                          )}
-                        </div>
+                {loading ? (
+                  <tr>
+                    <td colSpan="7" className="px-4 py-8 text-center">
+                      <div className="flex items-center justify-center">
+                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mr-2"></div>
+                        <span className="text-gray-600">Loading clients...</span>
                       </div>
                     </td>
                   </tr>
-                ))}
+                ) : error ? (
+                  <tr>
+                    <td colSpan="7" className="px-4 py-8 text-center">
+                      <div className="text-red-600">
+                        <p>Error loading clients: {error}</p>
+                        <button 
+                          onClick={() => window.location.reload()} 
+                          className="mt-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                        >
+                          Retry
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ) : customers.length > 0 ? (
+                  customers.map((client) => (
+                    <tr key={client.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-4 py-4 w-80">
+                        <div className="text-sm font-medium text-gray-900 mb-1">{client.name}</div>
+                        <div className="text-xs text-gray-500">{client.email}</div>
+                      </td>
+                      <td className="px-4 py-4 w-36 font-mono text-sm text-gray-700">{client.taxId || client.company || '-'}</td>
+                      <td className="px-4 py-4 w-36 text-sm text-gray-700">{client.phone || '-'}</td>
+                      <td className="px-4 py-4 w-28 text-center text-sm text-gray-700">-</td>
+                      <td className="px-4 py-4 w-28 text-sm text-gray-700">-</td>
+                      <td className="px-4 py-4 w-28 text-sm font-medium text-gray-500">-</td>
+                      <td className="px-4 py-4 w-32">
+                        <div className="flex items-center gap-1">
+                          <button onClick={() => handleViewClient(client)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors" title="View Details">
+                            <Eye size={16} className="text-gray-700" />
+                          </button>
+                          <button onClick={() => handleEditClient(client)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors" title="Edit Client">
+                            <Edit size={16} className="text-gray-700" />
+                          </button>
+                          <div className="relative" ref={dropdownOpen === client.id ? dropdownRef : null}>
+                            <button onClick={() => toggleDropdown(client.id)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors" title="More Actions">
+                              <MoreHorizontal size={16} className="text-gray-700" />
+                            </button>
+                            {dropdownOpen === client.id && (
+                              <div className="absolute right-0 mt-1 w-36 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
+                                <button onClick={() => handleDeleteClient(client)} className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 rounded-lg">
+                                  <Trash2 size={14} />
+                                  Delete Client
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="7" className="px-4 py-8 text-center text-gray-500">
+                      No clients found. {searchTerm && 'Try adjusting your search criteria.'}
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
-
-          {filteredClients.length === 0 && (
-            <div className="text-center py-12">
-              <p className="text-gray-500 text-sm">No clients found matching your search criteria.</p>
-            </div>
-          )}
         </main>
       </div>
 
@@ -324,7 +311,7 @@ const ClientManagement = () => {
       
       {/* ADDED: Delete Confirmation Modal */}
       {showDeleteConfirmModal && clientToDelete && (
-        <div className="fixed inset-0 black bg-opacity-50 modal-backdrop flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 modal-backdrop flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-sm mx-auto p-6">
             <div className="text-center">
               <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100">
@@ -355,7 +342,7 @@ const ClientManagement = () => {
 
       {/* Add Client Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 black bg-opacity-50 modal-backdrop flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 modal-backdrop flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-auto relative">
             <button onClick={handleCancel} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600" title="Close"><X size={18} /></button>
             <div className="p-6">
@@ -397,7 +384,7 @@ const ClientManagement = () => {
 
       {/* Edit Client Modal */}
       {showEditModal && selectedClient && (
-          <div className="fixed inset-0 black bg-opacity-50 modal-backdrop flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-black bg-opacity-50 modal-backdrop flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-auto relative">
             <button onClick={handleCancelEdit} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600" title="Close"><X size={18} /></button>
             <div className="p-6">
@@ -439,7 +426,7 @@ const ClientManagement = () => {
 
       {/* Client Details Modal */}
       {showDetailsModal && selectedClient && (
-        <div className="fixed inset-0 black bg-opacity-50 modal-backdrop flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 modal-backdrop flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-auto relative overflow-hidden my-8">
             <div className="bg-blue-50 px-4 py-4 flex items-center gap-3 relative">
               <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">

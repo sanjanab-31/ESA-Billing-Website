@@ -1,5 +1,7 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useContext } from 'react';
 import { Plus, Search, Eye, Edit, Trash2, X } from 'lucide-react';
+import { useProducts } from '../../hooks/useFirestore';
+import { AuthContext } from '../../context/AuthContext';
 
 // --- Mock Data for the Product Table ---
 const initialProducts = [
@@ -143,45 +145,76 @@ const ProductRow = ({ product, serialNumber, onView, onEdit, onDelete }) => (
 
 // --- Main App Component ---
 export default function App() {
-  const [products, setProducts] = useState(initialProducts);
   const [searchTerm, setSearchTerm] = useState('');
   const [modal, setModal] = useState({ isOpen: false, type: null, data: null });
 
-  const filteredProducts = useMemo(() => {
-    if (!searchTerm) return products;
-    return products.filter(product =>
-      product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      product.hsn.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [products, searchTerm]);
+  // Get authentication context
+  const { user, loading: authLoading } = useContext(AuthContext);
+
+  // Use Firestore hook
+  const { 
+    products, 
+    loading, 
+    error, 
+    addProduct, 
+    editProduct, 
+    removeProduct 
+  } = useProducts({ search: searchTerm });
+
+  // Debug logging
+  useEffect(() => {
+    console.log('ProductsList Debug:', {
+      user: user ? { uid: user.uid, email: user.email } : null,
+      authLoading,
+      products: products?.length || 0,
+      loading,
+      error
+    });
+  }, [user, authLoading, products, loading, error]);
 
   const closeModal = () => setModal({ isOpen: false, type: null, data: null });
 
-  const handleSaveProduct = (productData) => {
+  const handleSaveProduct = async (productData) => {
     if (modal.type === 'edit') {
-        setProducts(products.map(p => p.id === productData.id ? { ...p, ...productData, price: `₹${Number(productData.price).toLocaleString('en-IN')}` } : p));
+      const result = await editProduct(productData.id, {
+        name: productData.name,
+        hsn: productData.hsn,
+        price: parseFloat(productData.price)
+      });
+      
+      if (result.success) {
+        closeModal();
+      } else {
+        alert('Error updating product: ' + result.error);
+      }
     } else {
-        const newProduct = {
-            id: `PROD${Date.now()}`,
-            name: productData.name,
-            hsn: productData.hsn,
-            price: `₹${Number(productData.price).toLocaleString('en-IN')}`,
-            revenue: 'N/A',
-        };
-        setProducts([...products, newProduct]);
+      const result = await addProduct({
+        name: productData.name,
+        hsn: productData.hsn,
+        price: parseFloat(productData.price)
+      });
+      
+      if (result.success) {
+        closeModal();
+      } else {
+        alert('Error adding product: ' + result.error);
+      }
     }
-    closeModal();
   };
 
   const handleDeleteProduct = (product) => {
     setModal({ isOpen: true, type: 'delete', data: product });
   };
   
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (modal.data && modal.data.id) {
-        setProducts(products.filter(p => p.id !== modal.data.id));
+      const result = await removeProduct(modal.data.id);
+      if (result.success) {
+        closeModal();
+      } else {
+        alert('Error deleting product: ' + result.error);
+      }
     }
-    closeModal();
   };
 
   return (
@@ -192,6 +225,13 @@ export default function App() {
               <div>
                   <h1 className="text-2xl font-bold text-gray-900">Product Management</h1>
                   <p className="text-sm text-gray-500 mt-1">View all your products in one place</p>
+                  {/* Debug info */}
+                  <div className="mt-2 text-xs text-gray-500">
+                    Auth Status: {authLoading ? 'Loading...' : user ? `Signed in as ${user.email}` : 'Not signed in'} | 
+                    Data Loading: {loading ? 'Yes' : 'No'} | 
+                    Error: {error || 'None'} |
+                    Products: {products?.length || 0}
+                  </div>
               </div>
               <div className="flex items-center gap-4 w-full lg:w-auto mt-4 lg:mt-0">
                   {/* --- SEARCH BAR: Start of Changes --- */}
@@ -227,20 +267,49 @@ export default function App() {
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
-                        {filteredProducts.length > 0 ? (
-                            filteredProducts.map((product, index) => (
+                        {loading ? (
+                            <tr>
+                                <td colSpan="6" className="text-center text-sm text-gray-500 py-12">
+                                    <div className="flex items-center justify-center">
+                                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mr-2"></div>
+                                        <span>Loading products...</span>
+                                    </div>
+                                </td>
+                            </tr>
+                        ) : error ? (
+                            <tr>
+                                <td colSpan="6" className="text-center text-sm text-gray-500 py-12">
+                                    <div className="text-red-600">
+                                        <p>Error loading products: {error}</p>
+                                        <button 
+                                            onClick={() => window.location.reload()} 
+                                            className="mt-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                                        >
+                                            Retry
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        ) : products.length > 0 ? (
+                            products.map((product, index) => (
                                 <ProductRow 
                                     key={product.id}
-                                    product={product}
+                                    product={{
+                                        ...product,
+                                        price: `₹${Number(product.price).toLocaleString('en-IN')}`,
+                                        revenue: 'N/A'
+                                    }}
                                     serialNumber={String(index + 1).padStart(2, '0')}
                                     onView={(p) => setModal({ isOpen: true, type: 'view', data: { ...p, displayId: String(index + 1).padStart(2, '0') } })}
-                                    onEdit={(p) => setModal({ isOpen: true, type: 'edit', data: p })}
+                                    onEdit={(p) => setModal({ isOpen: true, type: 'edit', data: { ...p, price: product.price } })}
                                     onDelete={handleDeleteProduct}
                                 />
                             ))
                         ) : (
                             <tr>
-                                <td colSpan="6" className="text-center text-sm text-gray-500 py-12">No products found.</td>
+                                <td colSpan="6" className="text-center text-sm text-gray-500 py-12">
+                                    No products found. {searchTerm && 'Try adjusting your search criteria.'}
+                                </td>
                             </tr>
                         )}
                     </tbody>

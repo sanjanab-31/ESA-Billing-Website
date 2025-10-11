@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useContext } from "react";
 import { createPortal } from "react-dom";
 import {
   Search,
@@ -13,6 +13,10 @@ import {
   Trash2,
   Printer,
 } from "lucide-react";
+import { useInvoices } from "../../hooks/useFirestore";
+import { useCustomers } from "../../hooks/useFirestore";
+import { useProducts } from "../../hooks/useFirestore";
+import { AuthContext } from "../../context/AuthContext";
 
 const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, message }) => {
   if (!isOpen) return null;
@@ -83,7 +87,7 @@ const ClientAutocomplete = ({ clients, selectedClient, onSelect }) => {
   };
 
   const handleSelectSuggestion = (client) => {
-    onSelect(client.id.toString());
+    onSelect(client.id); // Pass the client ID directly
     setSearchTerm(client.name);
     setSuggestions([]);
     setIsFocused(false);
@@ -1528,13 +1532,52 @@ const InvoiceManagementComponent = ({
 const InvoiceManagementSystem = () => {
   const [currentPage, setCurrentPage] = useState("management");
   const [activeTab, setActiveTab] = useState("All Invoices");
-  const [invoices, setInvoices] = useState([]);
-  const [filteredInvoices, setFilteredInvoices] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [showPreview, setShowPreview] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState(null);
   const [invoiceToDelete, setInvoiceToDelete] = useState(null);
+
+  // Get authentication context
+  const { user, loading: authLoading } = useContext(AuthContext);
+
+  // Use Firestore hooks
+  const { 
+    invoices, 
+    loading: invoicesLoading, 
+    error: invoicesError, 
+    addInvoice, 
+    editInvoice 
+  , removeInvoice } = useInvoices();
+
+  const { 
+    customers, 
+    loading: customersLoading, 
+    error: customersError 
+  } = useCustomers();
+
+  const { 
+    products, 
+    loading: productsLoading, 
+    error: productsError 
+  } = useProducts();
+
+  // Debug logging
+  useEffect(() => {
+    console.log('InvoiceManagement Debug:', {
+      user: user ? { uid: user.uid, email: user.email } : null,
+      authLoading,
+      invoices: invoices?.length || 0,
+      customers: customers?.length || 0,
+      products: products?.length || 0,
+      invoicesLoading,
+      customersLoading,
+      productsLoading,
+      invoicesError,
+      customersError,
+      productsError
+    });
+  }, [user, authLoading, invoices, customers, products, invoicesLoading, customersLoading, productsLoading, invoicesError, customersError, productsError]);
 
   const generateNextInvoiceNumber = () => {
     const today = new Date();
@@ -1590,33 +1633,7 @@ const InvoiceManagementSystem = () => {
 
   const [invoiceData, setInvoiceData] = useState(getInitialInvoiceData);
 
-  const [clients] = useState([
-    {
-      id: 1,
-      name: "TechnoFab Industries",
-      address: "123 Industrial Area, Mumbai",
-      gst: "27ABCDE1234F1Z5",
-    },
-    {
-      id: 2,
-      name: "Digital Solutions Ltd",
-      address: "456 Tech Park, Bangalore",
-      gst: "29FGHIJ5678K2L6",
-    },
-    {
-      id: 3,
-      name: "Tech Innovators Pvt Ltd",
-      address: "789 Innovation Hub, Pune",
-      gst: "27MNOPQ9012R3S7",
-    },
-  ]);
-
-  const [products] = useState([
-    { id: 1, name: "Web Development Service", hsn: "998314", price: 125000 },
-    { id: 2, name: "Mobile App Development", hsn: "998314", price: 85000 },
-    { id: 3, name: "E-commerce Platform", hsn: "998314", price: 250000 },
-    { id: 4, name: "CNC Machining", hsn: "845610", price: 5000 },
-  ]);
+  // Mock data removed - now using Firestore data from hooks above
 
   const [calculations, setCalculations] = useState({
     subtotal: 0,
@@ -1627,105 +1644,7 @@ const InvoiceManagementSystem = () => {
     total: 0,
   });
 
-  const sampleInvoices = [
-    {
-      id: 1,
-      invoiceNumber: "001/2025-26",
-      invoiceDate: "2025-08-15",
-      client: {
-        id: 1,
-        name: "TechnoFab Industries",
-        address: "123 Industrial Area, Mumbai",
-        gst: "27ABCDE1234F1Z5",
-      },
-      amount: 147500,
-      dueDate: "2025-09-14",
-      status: "Paid",
-      items: [
-        {
-          id: 1,
-          description: "Web Development Service",
-          hsnCode: "998314",
-          quantity: 1,
-          rate: 125000,
-          amount: 125000,
-        },
-      ],
-      cgst: 9,
-      sgst: 9,
-      igst: 0,
-      poNumber: "PO-101",
-      poDate: "2025-08-01",
-      isRoundOff: false,
-      invoiceNotes: "Thank you for your business.",
-    },
-    {
-      id: 2,
-      invoiceNumber: "002/2025-26",
-      invoiceDate: "2025-08-16",
-      client: {
-        id: 2,
-        name: "Digital Solutions Ltd",
-        address: "456 Tech Park, Bangalore",
-        gst: "29FGHIJ5678K2L6",
-      },
-      amount: 100300,
-      dueDate: "2025-09-15",
-      status: "Draft",
-      items: [
-        {
-          id: 1,
-          description: "Mobile App Development",
-          hsnCode: "998314",
-          quantity: 1,
-          rate: 85000,
-          amount: 85000,
-        },
-      ],
-      cgst: 9,
-      sgst: 9,
-      igst: 0,
-      poNumber: "PO-102",
-      poDate: "2025-08-05",
-      isRoundOff: false,
-      invoiceNotes: "",
-    },
-    {
-      id: 3,
-      invoiceNumber: "003/2025-26",
-      invoiceDate: "2025-07-17",
-      client: {
-        id: 3,
-        name: "Tech Innovators Pvt Ltd",
-        address: "789 Innovation Hub, Pune",
-        gst: "27MNOPQ9012R3S7",
-      },
-      amount: 295000,
-      dueDate: "2025-08-16",
-      status: "Unpaid",
-      items: [
-        {
-          id: 1,
-          description: "E-commerce Platform",
-          hsnCode: "998314",
-          quantity: 1,
-          rate: 250000,
-          amount: 250000,
-        },
-      ],
-      cgst: 9,
-      sgst: 9,
-      igst: 0,
-      poNumber: "PO-103",
-      poDate: "2025-07-10",
-      isRoundOff: false,
-      invoiceNotes: "For labour charges only",
-    },
-  ];
-
-  useEffect(() => {
-    setInvoices(sampleInvoices);
-  }, []);
+  // Sample invoices removed - now using Firestore data
 
   const getDynamicStatus = (invoice) => {
     if (invoice.status === "Paid" || invoice.status === "Draft")
@@ -1738,8 +1657,15 @@ const InvoiceManagementSystem = () => {
     return "Unpaid";
   };
 
+  const [filteredInvoices, setFilteredInvoices] = useState([]);
+
+  // Filter invoices based on active tab and search term
   useEffect(() => {
+    if (!invoices) return;
+    
     let filtered = [...invoices];
+    
+    // Filter by tab
     if (activeTab !== "All Invoices") {
       filtered = filtered.filter((invoice) => {
         const dynamicStatus = getDynamicStatus(invoice);
@@ -1750,18 +1676,21 @@ const InvoiceManagementSystem = () => {
         return true;
       });
     }
+    
+    // Filter by search term
     if (searchTerm) {
       filtered = filtered.filter(
         (invoice) =>
           invoice.invoiceNumber
             .toLowerCase()
             .includes(searchTerm.toLowerCase()) ||
-          invoice.client.name
+          (invoice.client && invoice.client.name
             .toLowerCase()
-            .includes(searchTerm.toLowerCase()) ||
+            .includes(searchTerm.toLowerCase())) ||
           invoice.amount.toString().includes(searchTerm)
       );
     }
+    
     setFilteredInvoices(filtered);
   }, [searchTerm, activeTab, invoices]);
 
@@ -1853,7 +1782,7 @@ const InvoiceManagementSystem = () => {
       setInvoiceData((prev) => ({ ...prev, clientId: "", client: null }));
       return;
     }
-    const selectedClient = clients.find((c) => c.id === parseInt(clientId));
+    const selectedClient = customers.find((c) => c.id === clientId);
     setInvoiceData((prev) => ({
       ...prev,
       clientId: clientId,
@@ -1893,49 +1822,60 @@ const InvoiceManagementSystem = () => {
     return true;
   };
 
-  const saveDraft = () => {
+  const saveDraft = async () => {
     const draftInvoice = {
       ...invoiceData,
-      id: editingInvoice ? editingInvoice.id : Date.now(),
       status: "Draft",
       amount: calculations.total,
     };
-    if (editingInvoice) {
-      setInvoices((prev) =>
-        prev.map((inv) => (inv.id === editingInvoice.id ? draftInvoice : inv))
-      );
+    
+    const result = await addInvoice(draftInvoice);
+    if (result.success) {
+      alert("Invoice saved as draft!");
+      resetInvoiceForm();
+      setEditingInvoice(null);
+      setCurrentPage("management");
     } else {
-      setInvoices((prev) => [...prev, draftInvoice]);
+      alert("Error saving draft: " + result.error);
     }
-    alert("Invoice saved as draft!");
-    resetInvoiceForm();
-    setEditingInvoice(null);
-    setCurrentPage("management");
   };
 
-  const saveInvoice = () => {
+  const saveInvoice = async () => {
     if (!validateInvoice()) return;
+    
     const newInvoice = {
       ...invoiceData,
-      id: Date.now(),
       amount: calculations.total,
+      status: "sent", // Set as sent instead of Unpaid
     };
-    setInvoices((prev) => [...prev, newInvoice]);
-    alert("Invoice saved successfully!");
-    resetInvoiceForm();
-    setCurrentPage("management");
+    
+    const result = await addInvoice(newInvoice);
+    if (result.success) {
+      alert("Invoice saved successfully!");
+      resetInvoiceForm();
+      setCurrentPage("management");
+    } else {
+      alert("Error saving invoice: " + result.error);
+    }
   };
 
-  const updateInvoice = () => {
+  const updateInvoice = async () => {
     if (!validateInvoice()) return;
-    const updatedInvoice = { ...invoiceData, amount: calculations.total };
-    setInvoices((prev) =>
-      prev.map((inv) => (inv.id === editingInvoice.id ? updatedInvoice : inv))
-    );
-    alert("Invoice updated successfully!");
-    setEditingInvoice(null);
-    resetInvoiceForm();
-    setCurrentPage("management");
+    
+    const updatedInvoice = { 
+      ...invoiceData, 
+      amount: calculations.total 
+    };
+    
+    const result = await editInvoice(editingInvoice.id, updatedInvoice);
+    if (result.success) {
+      alert("Invoice updated successfully!");
+      setEditingInvoice(null);
+      resetInvoiceForm();
+      setCurrentPage("management");
+    } else {
+      alert("Error updating invoice: " + result.error);
+    }
   };
 
   const handleCreateInvoice = () => {
@@ -1961,18 +1901,31 @@ const InvoiceManagementSystem = () => {
     setInvoiceToDelete(invoiceId);
   };
 
-  const confirmDelete = () => {
-    if (invoiceToDelete) {
-      setInvoices((prev) =>
-        prev.filter((invoice) => invoice.id !== invoiceToDelete)
-      );
-      alert("Invoice deleted successfully!");
-      setInvoiceToDelete(null);
+  const confirmDelete = async () => {
+    if (!invoiceToDelete) return;
+    try {
+      const result = await removeInvoice(invoiceToDelete);
+      if (result.success) {
+        alert('Invoice deleted successfully!');
+        setInvoiceToDelete(null);
+      } else {
+        alert('Failed to delete invoice: ' + (result.error || 'Unknown'));
+      }
+    } catch (e) {
+      alert('Error deleting invoice: ' + e.message);
     }
   };
 
   return (
     <div>
+      {/* Debug info */}
+      <div className="fixed top-20 right-4 bg-white p-2 rounded shadow text-xs z-50">
+        Auth: {authLoading ? 'Loading...' : user ? user.email : 'Not signed in'} | 
+        Invoices: {invoicesLoading ? 'Loading...' : invoices?.length || 0} | 
+        Customers: {customersLoading ? 'Loading...' : customers?.length || 0} | 
+        Products: {productsLoading ? 'Loading...' : products?.length || 0}
+      </div>
+      
       <ConfirmationModal
         isOpen={!!invoiceToDelete}
         onClose={() => setInvoiceToDelete(null)}
@@ -2000,8 +1953,8 @@ const InvoiceManagementSystem = () => {
         <CreateInvoiceComponent
           editingInvoice={editingInvoice}
           invoiceData={invoiceData}
-          clients={clients}
-          products={products}
+          clients={customers || []}
+          products={products || []}
           calculations={calculations}
           setCurrentPage={setCurrentPage}
           saveDraft={saveDraft}
