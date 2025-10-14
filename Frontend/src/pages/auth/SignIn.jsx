@@ -1,14 +1,13 @@
-// frontend/src/pages/auth/SignIn.jsx
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { signInWithEmailAndPassword, setPersistence, browserSessionPersistence } from "firebase/auth";
-import { auth } from "../../firebase/firebaseClient";
-import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/outline"; // Heroicons v2
+import { auth } from "../../lib/firebase/config";
+import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/outline";
 
 export default function SignIn() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false); // Toggle state
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
@@ -16,13 +15,10 @@ export default function SignIn() {
     e.preventDefault();
     setError("");
     try {
-      // Ensure session-only persistence
       await setPersistence(auth, browserSessionPersistence);
 
-      // Sign in user
       await signInWithEmailAndPassword(auth, email, password);
 
-      // Navigate after successful login
       navigate("/dashboard", { replace: true });
     } catch (err) {
       setError(err.message);
@@ -62,7 +58,7 @@ export default function SignIn() {
             <input
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              type={showPassword ? "text" : "password"} // Toggle password visibility
+              type={showPassword ? "text" : "password"}
               className="w-full rounded-xl border border-gray-300 p-3 pr-10 focus:outline-none focus:ring-2 focus:ring-blue-100"
               placeholder="••••••••"
               required

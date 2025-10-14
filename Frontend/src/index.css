@@ -1,10 +1,135 @@
 @import "tailwindcss";
 
-/* Google Fonts */
+/* Import Poppins from Google Fonts for all devices */
+@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap");
+
+/* Toast animations */
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes shrink {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0%;
+  }
+}
+
+/* Global font settings for consistency */
+:root {
+  /* Font sizes */
+  --font-xs: 0.75rem; /* 12px - Small text, captions */
+  --font-sm: 0.875rem; /* 14px - Body text, labels */
+  --font-base: 1rem; /* 16px - Default body text */
+  --font-lg: 1.125rem; /* 18px - Section headers */
+  --font-xl: 1.25rem; /* 20px - Page sub-headers */
+  --font-2xl: 1.5rem; /* 24px - Page titles */
+  --font-3xl: 1.875rem; /* 30px - Large titles */
+
+  /* Font weights */
+  --font-light: 300;
+  --font-normal: 400;
+  --font-medium: 500;
+  --font-semibold: 600;
+  --font-bold: 700;
+}
+
+/* Apply Poppins globally for consistency */
 body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  font-family: "Poppins", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    "Roboto", sans-serif;
+  font-size: var(--font-base);
+  font-weight: var(--font-normal);
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Standardized typography classes */
+.text-consistent-xs {
+  font-size: var(--font-xs);
+  font-weight: var(--font-normal);
+}
+.text-consistent-sm {
+  font-size: var(--font-sm);
+  font-weight: var(--font-normal);
+}
+.text-consistent-base {
+  font-size: var(--font-base);
+  font-weight: var(--font-normal);
+}
+.text-consistent-lg {
+  font-size: var(--font-lg);
+  font-weight: var(--font-medium);
+}
+.text-consistent-xl {
+  font-size: var(--font-xl);
+  font-weight: var(--font-semibold);
+}
+.text-consistent-2xl {
+  font-size: var(--font-2xl);
+  font-weight: var(--font-bold);
+}
+
+/* Consistent heading styles */
+.heading-page-title {
+  font-size: var(--font-2xl);
+  font-weight: var(--font-bold);
+  color: #1f2937; /* gray-800 */
+  line-height: 1.2;
+}
+
+.heading-section {
+  font-size: var(--font-lg);
+  font-weight: var(--font-bold);
+  color: #1f2937; /* gray-800 */
+  line-height: 1.3;
+}
+
+.heading-subsection {
+  font-size: var(--font-base);
+  font-weight: var(--font-semibold);
+  color: #374151; /* gray-700 */
+  line-height: 1.4;
+}
+
+/* Consistent body text */
+.body-text {
+  font-size: var(--font-sm);
+  font-weight: var(--font-normal);
+  color: #4b5563; /* gray-600 */
+  line-height: 1.5;
+}
+
+.body-text-small {
+  font-size: var(--font-xs);
+  font-weight: var(--font-normal);
+  color: #6b7280; /* gray-500 */
+  line-height: 1.4;
+}
+
+/* Consistent label text */
+.label-text {
+  font-size: var(--font-sm);
+  font-weight: var(--font-medium);
+  color: #374151; /* gray-700 */
+  line-height: 1.4;
+}
+
+/* Consistent button text */
+.button-text {
+  font-size: var(--font-sm);
+  font-weight: var(--font-medium);
+  line-height: 1.4;
 }
 
 .modal-backdrop {

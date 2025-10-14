@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useContext } from "react";
+import React, { useState, useRef, useEffect, useContext, useMemo, useCallback } from "react";
 import {
   Plus,
   Eye,
@@ -14,7 +14,7 @@ import {
   Trash2,
   Search,
 } from "lucide-react";
-import { useCustomers } from "../../hooks/useFirestore";
+import { useCustomers, useInvoices } from "../../hooks/useFirestore";
 import { AuthContext } from "../../context/AuthContext";
 import { useToast } from "../../context/ToastContext";
 
@@ -34,9 +34,93 @@ const ClientManagement = () => {
   const { user } = useContext(AuthContext);
   const { success, error: showError } = useToast();
 
-  // Use Firestore hook
+  // Use Firestore hooks
   const { customers, error, addCustomer, editCustomer, removeCustomer } =
     useCustomers({ search: searchTerm });
+  
+  // Fetch all invoices for calculating client statistics
+  const { invoices } = useInvoices();
+
+  // Memoized function to calculate amount paid for a client
+  const calculateAmountPaid = useCallback((clientId) => {
+    if (!invoices || invoices.length === 0) {
+      return 0;
+    }
+
+    const clientInvoices = invoices.filter(invoice => 
+      invoice.customerId === clientId || invoice.clientId === clientId
+    );
+    
+    return clientInvoices.reduce((sum, invoice) => {
+      const invoiceAmount = parseFloat(invoice.totalAmount || invoice.amount || invoice.total) || 0;
+      
+      // Check if invoice is marked as paid by status
+      const isPaidByStatus = invoice.status === 'Paid' || invoice.status === 'paid';
+      
+      // Only count as paid if invoice status is 'Paid'
+      if (isPaidByStatus) {
+        return sum + invoiceAmount;
+      }
+      
+      // If not paid, contribute 0 to amount paid
+      return sum + 0;
+    }, 0);
+  }, [invoices]);
+
+  // Memoized function to calculate client statistics
+  const calculateClientStats = useCallback((clientId) => {
+    if (!invoices || invoices.length === 0) {
+      return {
+        totalInvoices: 0,
+        totalRevenue: 0,
+        outstanding: 0,
+      };
+    }
+
+    // Check both customerId and clientId fields since there might be inconsistency
+    const clientInvoices = invoices.filter(invoice => 
+      invoice.customerId === clientId || invoice.clientId === clientId
+    );
+    
+    const totalInvoices = clientInvoices.length;
+    const totalRevenue = clientInvoices.reduce((sum, invoice) => {
+      const invoiceAmount = parseFloat(invoice.totalAmount || invoice.amount || invoice.total) || 0;
+      
+      // Check if invoice is marked as paid by status
+      const isPaidByStatus = invoice.status === 'Paid' || invoice.status === 'paid';
+      
+      // Only add to revenue if invoice is paid
+      if (isPaidByStatus) {
+        return sum + invoiceAmount;
+      }
+      
+      // If not paid, contribute 0 to revenue
+      return sum + 0;
+    }, 0);
+    
+    const outstanding = clientInvoices.reduce((sum, invoice) => {
+      const invoiceAmount = parseFloat(invoice.totalAmount || invoice.amount || invoice.total) || 0;
+      const paidAmount = parseFloat(invoice.paidAmount || 0) || 0;
+      
+      // Check if invoice is marked as paid by status
+      const isPaidByStatus = invoice.status === 'Paid' || invoice.status === 'paid';
+      
+      // If invoice is marked as paid by status, outstanding is 0
+      if (isPaidByStatus) {
+        return sum + 0;
+      }
+      
+      // Otherwise, calculate unpaid amount
+      const unpaidAmount = invoiceAmount - paidAmount;
+      return sum + Math.max(0, unpaidAmount); // Ensure we don't go negative
+    }, 0);
+
+    return {
+      totalInvoices,
+      totalRevenue,
+      outstanding,
+    };
+  }, [invoices]);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -257,55 +341,66 @@ const ClientManagement = () => {
                     </td>
                   </tr>
                 ) : customers.length > 0 ? (
-                  customers.map((client) => (
-                    <tr
-                      key={client.id}
-                      className="text-sm transition-colors hover:bg-gray-50"
-                    >
-                      <td className="px-6 py-4">
-                        <div className="font-medium text-gray-900">
-                          {client.name}
-                        </div>
-                        <div className="text-gray-500 text-xs">
-                          {client.email}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-gray-700">
-                        {client.taxId || client.company || "-"}
-                      </td>
-                      <td className="px-6 py-4 text-gray-700">
-                        {client.phone || "-"}
-                      </td>
-                      <td className="px-6 py-4 text-gray-700">-</td>
-                      <td className="px-6 py-4 font-medium text-gray-900">-</td>
-                      <td className="px-6 py-4 text-gray-700">-</td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center space-x-3">
-                          <button
-                            onClick={() => handleViewClient(client)}
-                            className="p-1 text-gray-600 transition-colors hover:text-blue-600"
-                            title="View Details"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleEditClient(client)}
-                            className="p-1 text-gray-600 transition-colors hover:text-green-600"
-                            title="Edit Client"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteClient(client)}
-                            className="p-1 text-gray-600 transition-colors hover:text-red-600"
-                            title="Delete Client"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
+                  customers.map((client) => {
+                    const stats = calculateClientStats(client.id);
+                    return (
+                      <tr
+                        key={client.id}
+                        className="text-sm transition-colors hover:bg-gray-50"
+                      >
+                        <td className="px-6 py-4">
+                          <div className="font-medium text-gray-900">
+                            {client.name}
+                          </div>
+                          <div className="text-gray-500 text-xs">
+                            {client.email}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-gray-700">
+                          {client.taxId || client.company || "-"}
+                        </td>
+                        <td className="px-6 py-4 text-gray-700">
+                          {client.phone || "-"}
+                        </td>
+                        <td className="px-6 py-4 text-gray-700">
+                          {stats.totalInvoices}
+                        </td>
+                        <td className="px-6 py-4 font-medium text-gray-900">
+                          `₹${stats.totalRevenue.toLocaleString('en-IN')}`
+                        </td>
+                        <td className="px-6 py-4 text-gray-700">
+                          <span className={stats.outstanding > 0 ? "text-red-600 font-medium" : "text-green-600"}>
+                            ₹{stats.outstanding.toLocaleString('en-IN')}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center space-x-3">
+                            <button
+                              onClick={() => handleViewClient(client)}
+                              className="p-1 text-gray-600 transition-colors hover:text-blue-600"
+                              title="View Details"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleEditClient(client)}
+                              className="p-1 text-gray-600 transition-colors hover:text-green-600"
+                              title="Edit Client"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteClient(client)}
+                              className="p-1 text-gray-600 transition-colors hover:text-red-600"
+                              title="Delete Client"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
                 ) : (
                   <tr>
                     <td
@@ -568,8 +663,8 @@ const ClientManagement = () => {
       {/* Client Details Modal */}
       {showDetailsModal && selectedClient && (
         <div className="fixed inset-0 bg-black bg-opacity-50 modal-backdrop flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-auto relative overflow-hidden my-8">
-            <div className="bg-blue-50 px-4 py-4 flex items-center gap-3 relative">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl mx-auto relative overflow-hidden my-8">
+            <div className="bg-blue-50 px-6 py-4 flex items-center gap-3 relative">
               <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
                 <FileText size={16} className="text-white" />
               </div>
@@ -584,123 +679,135 @@ const ClientManagement = () => {
                 <X size={16} className="text-gray-600" />
               </button>
             </div>
-            <div className="p-4 space-y-4 max-h-[80vh] overflow-y-auto">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-gray-50 p-4 rounded-xl">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="text-2xl font-bold text-gray-900">
-                      {selectedClient.totalInvoices}
+            <div className="p-6 max-h-[80vh] overflow-y-auto">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* Left Column - Statistics Cards */}
+                <div className="space-y-6">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-gray-50 p-4 rounded-xl">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="text-2xl font-bold text-gray-900">
+                          {calculateClientStats(selectedClient.id).totalInvoices}
+                        </div>
+                        <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                          <FileText size={16} className="text-blue-600" />
+                        </div>
+                      </div>
+                      <div className="text-xs text-gray-500">Total Invoices</div>
                     </div>
-                    <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                      <FileText size={16} className="text-blue-600" />
+                    <div className="bg-gray-50 p-4 rounded-xl">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="text-2xl font-bold text-gray-900">
+                          `₹${calculateClientStats(selectedClient.id).totalRevenue.toLocaleString('en-IN')}`
+                        </div>
+                        <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                          <span className="text-green-600 font-bold text-lg">
+                            ₹
+                          </span>
+                        </div>
+                      </div>
+                      <div className="text-xs text-gray-500">Total Revenue</div>
+                    </div>
+                    <div className="bg-gray-50 p-4 rounded-xl">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="text-2xl font-bold text-gray-900">
+                          <span className={calculateClientStats(selectedClient.id).outstanding > 0 ? "text-red-600" : "text-green-600"}>
+                            ₹{calculateClientStats(selectedClient.id).outstanding.toLocaleString('en-IN')}
+                          </span>
+                        </div>
+                        <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
+                          <span className="text-red-600 font-bold text-lg">₹</span>
+                        </div>
+                      </div>
+                      <div className="text-xs text-gray-500">Outstanding</div>
+                    </div>
+                    <div className="bg-gray-50 p-4 rounded-xl">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="text-2xl font-bold text-gray-900">
+                          `₹${calculateAmountPaid(selectedClient.id).toLocaleString('en-IN')}`
+                        </div>
+                        <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                          <TrendingUp size={16} className="text-green-600" />
+                        </div>
+                      </div>
+                      <div className="text-xs text-gray-500">Amount Paid</div>
                     </div>
                   </div>
-                  <div className="text-xs text-gray-500">Total Invoices</div>
                 </div>
-                <div className="bg-gray-50 p-4 rounded-xl">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="text-2xl font-bold text-gray-900">
-                      {selectedClient.totalRevenue}
-                    </div>
-                    <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-                      <span className="text-green-600 font-bold text-lg">
-                        ₹
-                      </span>
-                    </div>
-                  </div>
-                  <div className="text-xs text-gray-500">Total Revenue</div>
-                </div>
-                <div className="bg-gray-50 p-4 rounded-xl">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="text-2xl font-bold text-gray-900">
-                      {selectedClient.outstanding}
-                    </div>
-                    <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
-                      <span className="text-red-600 font-bold text-lg">₹</span>
-                    </div>
-                  </div>
-                  <div className="text-xs text-gray-500">Outstanding</div>
-                </div>
-                <div className="bg-gray-50 p-4 rounded-xl">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="text-2xl font-bold text-gray-900">
-                      {selectedClient.amountPaid}
-                    </div>
-                    <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-                      <TrendingUp size={16} className="text-green-600" />
-                    </div>
-                  </div>
-                  <div className="text-xs text-gray-500">Amount Paid</div>
-                </div>
-              </div>
-              <div>
-                <h3 className="text-sm font-bold text-gray-900 mb-3">
-                  Contact Information
-                </h3>
-                <div className="space-y-3 text-sm text-gray-700">
-                  <div className="flex items-center gap-3">
-                    <FileText
-                      size={16}
-                      className="text-gray-400 flex-shrink-0"
-                    />
-                    <div>
-                      <div className="font-medium">{selectedClient.name}</div>
-                      <div className="text-xs text-gray-500">
-                        GSTIN: {selectedClient.gstin}
+                {/* Right Column - Contact Info and Business Statistics */}
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-sm font-bold text-gray-900 mb-3">
+                      Contact Information
+                    </h3>
+                    <div className="space-y-3 text-sm text-gray-700">
+                      <div className="flex items-center gap-3">
+                        <FileText
+                          size={16}
+                          className="text-gray-400 flex-shrink-0"
+                        />
+                        <div>
+                          <div className="font-medium">{selectedClient.name}</div>
+                          <div className="text-xs text-gray-500">
+                            GSTIN: {selectedClient.gstin}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Phone size={16} className="text-gray-400 flex-shrink-0" />
+                        <span>{selectedClient.phone}</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Mail size={16} className="text-gray-400 flex-shrink-0" />
+                        <span>{selectedClient.email}</span>
+                      </div>
+                      <div className="flex items-start gap-3">
+                        <MapPin
+                          size={16}
+                          className="text-gray-400 flex-shrink-0 mt-0.5"
+                        />
+                        <span>{selectedClient.address}</span>
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <Phone size={16} className="text-gray-400 flex-shrink-0" />
-                    <span>{selectedClient.phone}</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Mail size={16} className="text-gray-400 flex-shrink-0" />
-                    <span>{selectedClient.email}</span>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <MapPin
-                      size={16}
-                      className="text-gray-400 flex-shrink-0 mt-0.5"
-                    />
-                    <span>{selectedClient.address}</span>
-                  </div>
-                </div>
-              </div>
-              <div>
-                <h3 className="text-sm font-bold text-gray-900 mb-3">
-                  Business Statistics
-                </h3>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">First Invoice:</span>
-                    <span className="font-medium text-gray-900">
-                      {selectedClient.firstInvoice}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Last Invoice:</span>
-                    <span className="font-medium text-gray-900">
-                      {selectedClient.lastInvoice}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Avg Invoice:</span>
-                    <span className="font-medium text-gray-900">
-                      {selectedClient.avgInvoice}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Payment Rate:</span>
-                    <span className="font-medium text-green-600">
-                      {selectedClient.paymentRate}
-                    </span>
+                  <div>
+                    <h3 className="text-sm font-bold text-gray-900 mb-3">
+                      Business Statistics
+                    </h3>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">First Invoice:</span>
+                        <span className="font-medium text-gray-900">
+                          {selectedClient.firstInvoice}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Last Invoice:</span>
+                        <span className="font-medium text-gray-900">
+                          {selectedClient.lastInvoice}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Avg Invoice:</span>
+                        <span className="font-medium text-gray-900">
+                          {selectedClient.avgInvoice}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Payment Rate:</span>
+                        <span className="font-medium text-green-600">
+                          {selectedClient.paymentRate}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
+              
+              {/* Revenue Chart - Full Width */}
               {selectedClient.revenueData &&
                 selectedClient.revenueData.length > 0 && (
-                  <div>
+                  <div className="mt-8">
                     <h3 className="text-sm font-bold text-gray-900 mb-4">
                       Revenue Contribution (Last 4 Months)
                     </h3>

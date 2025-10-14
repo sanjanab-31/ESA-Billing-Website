@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useContext } from "react";
+import { useLocation } from "react-router-dom";
 import { createPortal } from "react-dom";
 import {
   Search,
@@ -13,10 +14,13 @@ import {
   Trash2,
   Printer,
 } from "lucide-react";
-import { useInvoices } from "../../hooks/useFirestore";
+import { useInvoices, useSettings } from "../../hooks/useFirestore";
 import { useCustomers } from "../../hooks/useFirestore";
 import { useProducts } from "../../hooks/useFirestore";
 import { AuthContext } from "../../context/AuthContext";
+import jsPDF from "jspdf";
+import "jspdf-autotable";
+import html2canvas from "html2canvas";
 
 const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, message }) => {
   if (!isOpen) return null;
@@ -24,18 +28,18 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, message }) => {
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
       <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-sm">
-        <h3 className="text-lg font-bold text-gray-900">{title}</h3>
-        <p className="text-sm text-gray-600 mt-2">{message}</p>
+        <h3 className="heading-section">{title}</h3>
+        <p className="body-text text-gray-600 mt-2">{message}</p>
         <div className="mt-6 flex justify-end space-x-3">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+            className="px-4 py-2 button-text text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
           >
             Cancel
           </button>
           <button
             onClick={onConfirm}
-            className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700"
+            className="px-4 py-2 button-text text-white bg-red-600 rounded-lg hover:bg-red-700"
           >
             Delete
           </button>
@@ -121,7 +125,14 @@ const ClientAutocomplete = ({ clients, selectedClient, onSelect }) => {
   );
 };
 
-const ProductAutocomplete = ({ products, value, onSelect, onChange }) => {
+const ProductAutocomplete = ({
+  products,
+  value,
+  onSelect,
+  onChange,
+  onAddNewProduct,
+  clientId,
+}) => {
   const [searchTerm, setSearchTerm] = useState(value || "");
   const [suggestions, setSuggestions] = useState([]);
   const [isFocused, setIsFocused] = useState(false);
@@ -182,6 +193,15 @@ const ProductAutocomplete = ({ products, value, onSelect, onChange }) => {
     }
   };
 
+  const handleAddNewProduct = () => {
+    if (onAddNewProduct && searchTerm.trim()) {
+      onAddNewProduct(searchTerm.trim(), clientId);
+      setSearchTerm("");
+      setSuggestions([]);
+      setIsFocused(false);
+    }
+  };
+
   const handleSelectSuggestion = (product) => {
     onSelect(product);
     setSearchTerm(product.name);
@@ -189,22 +209,37 @@ const ProductAutocomplete = ({ products, value, onSelect, onChange }) => {
     setIsFocused(false);
   };
 
-  const Dropdown = () => (
-    <ul
-      style={{ ...dropdownStyle, position: "fixed" }}
-      className="z-50 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-auto"
-    >
-      {suggestions.map((product) => (
-        <li
-          key={product.id}
-          onClick={() => handleSelectSuggestion(product)}
-          className="px-4 py-2 text-sm cursor-pointer hover:bg-gray-100"
-        >
-          {product.name}
-        </li>
-      ))}
-    </ul>
-  );
+  const Dropdown = () => {
+    const exactMatch = products.find(
+      (p) => p.name.toLowerCase() === searchTerm.toLowerCase()
+    );
+    const showAddOption = searchTerm.trim() && !exactMatch && onAddNewProduct;
+
+    return (
+      <ul
+        style={{ ...dropdownStyle, position: "fixed" }}
+        className="z-50 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-auto"
+      >
+        {suggestions.map((product) => (
+          <li
+            key={product.id}
+            onClick={() => handleSelectSuggestion(product)}
+            className="px-4 py-2 text-sm cursor-pointer hover:bg-gray-100"
+          >
+            {product.name} - ₹{product.price}
+          </li>
+        ))}
+        {showAddOption && (
+          <li
+            onClick={handleAddNewProduct}
+            className="px-4 py-2 text-sm cursor-pointer hover:bg-blue-100 border-t border-gray-200 text-blue-600 font-medium"
+          >
+            + Add "{searchTerm}" as new product
+          </li>
+        )}
+      </ul>
+    );
+  };
 
   return (
     <div ref={wrapperRef}>
@@ -228,7 +263,9 @@ const InvoicePreview = ({
   invoiceData,
   calculations,
   setShowPreview,
+  settings,
 }) => {
+
   const previewData = invoice || invoiceData;
   const previewCalcs = invoice
     ? {
@@ -332,11 +369,71 @@ const InvoicePreview = ({
 
   const amountInWords = convertToWords(previewCalcs.total);
 
-  const handleDownloadPdf = () => {
+  const handleDownloadPdf = async () => {
+    try {
+      // Create a temporary div for HTML to PDF conversion
+      const tempDiv = document.createElement("div");
+      tempDiv.innerHTML = generatePrintableHTML(settings);
+      tempDiv.style.position = "absolute";
+      tempDiv.style.left = "-9999px";
+      tempDiv.style.top = "-9999px";
+      tempDiv.style.width = "800px";
+      document.body.appendChild(tempDiv);
+
+      // Convert HTML to canvas
+      const canvas = await html2canvas(tempDiv, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: "#ffffff",
+        width: 800,
+        height: tempDiv.scrollHeight,
+      });
+
+      // Remove temporary div
+      document.body.removeChild(tempDiv);
+
+      // Create PDF
+      const pdf = new jsPDF("p", "mm", "a4");
+      const imgData = canvas.toDataURL("image/png");
+
+      // Calculate dimensions to fit A4
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = pdfWidth - 20; // 10mm margin on each side
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+      let heightLeft = imgHeight;
+      let position = 10; // 10mm top margin
+
+      // Add first page
+      pdf.addImage(imgData, "PNG", 10, position, imgWidth, imgHeight);
+      heightLeft -= pdfHeight - 20; // Account for margins
+
+      // Add additional pages if needed
+      while (heightLeft >= 0) {
+        position = heightLeft - imgHeight + 10;
+        pdf.addPage();
+        pdf.addImage(imgData, "PNG", 10, position, imgWidth, imgHeight);
+        heightLeft -= pdfHeight - 20;
+      }
+
+      // Download the PDF
+      const fileName = `Invoice_${previewData.invoiceNumber.replace(
+        /\//g,
+        "_"
+      )}.pdf`;
+      pdf.save(fileName);
+    } catch (error) {
+      alert("Error generating PDF. Please try again.");
+    }
+  };
+
+  const handlePrint = () => {
     const iframe = document.createElement("iframe");
     iframe.style.display = "none";
     document.body.appendChild(iframe);
-    const invoiceHTML = generatePrintableHTML();
+    const invoiceHTML = generatePrintableHTML(settings);
     iframe.contentDocument.write(invoiceHTML);
     iframe.contentDocument.close();
     iframe.onload = () => {
@@ -345,15 +442,7 @@ const InvoicePreview = ({
     };
   };
 
-  const handlePrint = () => handleDownloadPdf();
-
-  const generatePrintableHTML = () => {
-    const bankDetails = `Bank Name : ${
-      previewData.bankDetails || "State Bank Of India"
-    }<br>
-                                A/C No &nbsp;&nbsp;&nbsp;&nbsp;: 42455711572<br>
-                                IFSC Code : SBIN0015017<br>
-                                Branch &nbsp;&nbsp;&nbsp;&nbsp;: Malumichampatti`;
+  const generatePrintableHTML = (settings) => {
     return `
       <!DOCTYPE html>
       <html>
@@ -365,14 +454,18 @@ const InvoicePreview = ({
           table { width: 100%; border-collapse: collapse; }
           td, th { padding: 5px; }
           .header { text-align: center; }
-          .header .logo { float: left; }
-          .header .contact { float: right; }
-          .header .company-name { font-size: 24px; font-weight: bold; margin: 0; }
+          .header-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+          .header-top .phone-left { font-weight: bold; color: black; }
+          .header-top .phone-right { font-weight: bold; color: black; }
+          .header-main { display: flex; align-items: center; justify-content: center; margin-bottom: 10px; }
+          .header-main .logo { margin-right: 20px; }
+          .header-main .company-name { font-family: 'Times New Roman', serif; font-size: 28px; font-weight: bold; color: #8B0000; margin: 0; }
+          .header-details { text-align: center; }
+          .header-details p { margin: 3px 0; color: black; font-family: Arial, sans-serif; }
           .bordered-table, .bordered-table th, .bordered-table td { border: 1px solid black; }
           .text-right { text-align: right; }
           .text-center { text-align: center; }
           .font-bold { font-weight: bold; }
-          .clear { clear: both; }
           .items-table { min-height: 300px; }
           .items-table td { vertical-align: top; }
         </style>
@@ -380,20 +473,23 @@ const InvoicePreview = ({
       <body>
         <div class="container">
           <div class="header">
-            <div class="logo">
-                <p class="font-bold">ESA</p>
+            <div class="header-top">
+              <div class="phone-left">☎ 98432 94464</div>
+              <div class="phone-right">☎ 96984 87096</div>
             </div>
-            <div class="contact">
-                <div>☎ 98432 94464</div>
-                <div>☎ 96984 87096</div>
+            <div class="header-main">
+              <div class="logo">
+                <img src="https://res.cloudinary.com/dnmvriw3e/image/upload/v1756868204/ESA_uggt8u.png" alt="ESA Logo" style="height: 60px; max-width: 120px;">
+              </div>
+              <h1 class="company-name">ESA ENGINEERING WORKS</h1>
             </div>
-            <p class="company-name">ESA ENGINEERING WORKS</p>
-            <p>All Kinds of Lathe and Milling Works</p>
-            <p>Specialist in : Press Tools, Die Casting Tools, Precision Components</p>
-            <p>1/100, Chettipalayam Road, E.B. Compound, Malumichampatti, CBE - 641 050.</p>
-            <p>E-Mail : esaengineeringworks@gmail.com | GSTIN : 33AMWPB2116Q1ZS</p>
+            <div class="header-details">
+              <p>All Kinds of Lathe and Milling Works</p>
+              <p>Specialist in : Press Tools, Die Casting Tools, Precision Components</p>
+              <p>1/100, Chettipalayam Road, E.B. Compound, Malumichampatti, CBE - 641 050.</p>
+              <p>E-Mail : esaengineeringworks@gmail.com | GSTIN : 33AMWPB2116Q1ZS</p>
+            </div>
           </div>
-          <div class="clear"></div>
           <h2 class="text-center font-bold" style="background-color: #ccc; margin: 10px -15px; padding: 5px;">INVOICE</h2>
           <table style="margin-bottom: 10px;">
             <tr>
@@ -408,9 +504,9 @@ const InvoicePreview = ({
               </td>
               <td style="width: 30%; vertical-align: top;">
                 <table class="bordered-table">
-                  <tr><td>NO : ${
-                    previewData.invoiceNumber
-                  }</td><td>DATE : ${previewData.invoiceDate}</td></tr>
+                  <tr><td>NO : ${previewData.invoiceNumber}</td><td>DATE : ${
+      previewData.invoiceDate
+    }</td></tr>
                   <tr><td colspan="2">P.O. No : ${
                     previewData.poNumber
                   }</td></tr>
@@ -472,8 +568,8 @@ const InvoicePreview = ({
           <table class="bordered-table">
             <tr>
               <td style="width: 60%;" rowspan="3">
-                <div class="font-bold">Bank Details :</div>
-                <div>${bankDetails}</div>
+                <div class="font-bold">Declaration</div>
+                <div>${previewData.declaration}</div>
               </td>
               <td style="padding-left: 10px;">SUB TOTAL</td>
               <td class="text-right">${previewCalcs.subtotal.toLocaleString(
@@ -520,11 +616,9 @@ const InvoicePreview = ({
             </tr>
             <tr>
               <td style="height: 80px; vertical-align: top;">
-                <div class="font-bold">Declaration</div>
-                <div>${previewData.declaration}</div>
+                <div class="font-bold">Authorized Signatory</div>
               </td>
               <td colspan="2" class="text-right" style="vertical-align: bottom;">
-                <div>For ESA Engineering Works</div>
                 <div style="margin-top: 40px;">Authorized Signatory</div>
               </td>
             </tr>
@@ -570,30 +664,46 @@ const InvoicePreview = ({
             style={{ maxWidth: "800px" }}
           >
             <div className="text-center">
-              <div className="flex justify-between items-start">
-                <img
-                  src="https://i.imgur.com/your-logo.png"
-                  alt="ESA Logo"
-                  className="h-16"
-                />
-                <div className="text-right text-sm">
-                  <p>☎ 98432 94464</p>
-                  <p>☎ 96984 87096</p>
-                </div>
+              {/* Top section with phone numbers spread wide */}
+              <div className="flex justify-between items-center mb-4">
+                <div className="font-bold text-black">☎ 98432 94464</div>
+                <div className="font-bold text-black">☎ 96984 87096</div>
               </div>
-              <p className="text-2xl font-bold mt-2">ESA ENGINEERING WORKS</p>
-              <p className="text-sm">All Kinds of Lathe and Milling Works</p>
-              <p className="text-sm">
-                Specialist in : Press Tools, Die Casting Tools, Precision
-                Components
-              </p>
-              <p className="text-sm">
-                1/100, Chettipalayam Road, E.B. Compound, Malumichampatti, CBE -
-                641 050.
-              </p>
-              <p className="text-sm">
-                E-Mail : esaengineeringworks@gmail.com | GSTIN : 33AMWPB2116Q1ZS
-              </p>
+              
+              {/* Main section with logo and company name */}
+              <div className="flex items-center justify-center mb-3">
+                <img
+                  src="https://res.cloudinary.com/dnmvriw3e/image/upload/v1756868204/ESA_uggt8u.png"
+                  alt="ESA Logo"
+                  className="h-16 mr-5"
+                />
+                <h1 
+                  className="text-3xl font-bold"
+                  style={{ 
+                    fontFamily: 'Times New Roman, serif',
+                    color: '#8B0000',
+                    margin: 0
+                  }}
+                >
+                  ESA ENGINEERING WORKS
+                </h1>
+              </div>
+              
+              {/* Details section */}
+              <div className="text-center">
+                <p className="text-sm text-black mb-1">
+                  All Kinds of Lathe and Milling Works
+                </p>
+                <p className="text-sm text-black mb-1">
+                  Specialist in : Press Tools, Die Casting Tools, Precision Components
+                </p>
+                <p className="text-sm text-black mb-1">
+                  1/100, Chettipalayam Road, E.B. Compound, Malumichampatti, CBE - 641 050.
+                </p>
+                <p className="text-sm text-black">
+                  E-Mail : esaengineeringworks@gmail.com | GSTIN : 33AMWPB2116Q1ZS
+                </p>
+              </div>
             </div>
             <div className="text-center font-bold bg-gray-200 my-2 p-1 text-xl">
               INVOICE
@@ -727,14 +837,8 @@ const InvoicePreview = ({
                     className="w-[60%] border-r border-black p-1 align-top"
                     rowSpan="3"
                   >
-                    <p className="font-bold">Bank Details:</p>
-                    <p>
-                      Bank Name:{" "}
-                      {previewData.bankDetails || "State Bank Of India"}
-                    </p>
-                    <p>A/C No: 42455711572</p>
-                    <p>IFSC Code: SBIN0015017</p>
-                    <p>Branch: Malumichampatti</p>
+                    <p className="font-bold">Declaration</p>
+                    <p>{previewData.declaration}</p>
                   </td>
                   <td className="border-b border-black p-1">SUB TOTAL</td>
                   <td className="border-b border-black p-1 text-right">
@@ -803,7 +907,6 @@ const InvoicePreview = ({
                     <p>{previewData.declaration}</p>
                   </td>
                   <td colSpan="2" className="p-1 align-bottom text-right">
-                    <p>For ESA Engineering Works</p>
                     <p className="mt-12">Authorized Signatory</p>
                   </td>
                 </tr>
@@ -832,13 +935,14 @@ const CreateInvoiceComponent = ({
   saveInvoice,
   setInvoiceData,
   handleClientSelect,
+  handleAddNewProduct,
   addItem,
   updateItem,
   removeItem,
 }) => (
-  <div className="min-h-screen bg-white">
-    <div className="max-w-7xl mx-auto px-8 pb-8 pt-32">
-      <div className="flex justify-between items-center">
+  <div className="min-h-screen text-slate-800 font-sans">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-8 pt-28">
+      <div className="flex justify-between items-center mb-2">
         <div className="flex items-center">
           <button
             onClick={() => setCurrentPage("management")}
@@ -887,10 +991,10 @@ const CreateInvoiceComponent = ({
           </button>
         </div>
       </div>
-      <main className="mt-8 grid grid-cols-3 gap-8">
-        <div className="col-span-2 space-y-8">
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">
+      <main className="mt-6 grid grid-cols-3 gap-6">
+        <div className="col-span-2 space-y-6">
+          <div className="bg-white p-3 lg:p-4 rounded-lg border border-gray-200 shadow-sm">
+            <h3 className="text-lg font-semibold text-gray-900 mb-3">
               Invoice Details
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -993,8 +1097,8 @@ const CreateInvoiceComponent = ({
               </div>
             </div>
           </div>
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">
+          <div className="bg-white p-3 lg:p-4 rounded-lg border border-gray-200 shadow-sm">
+            <h3 className="text-lg font-semibold text-gray-900 mb-3">
               Client Information <span className="text-red-500">*</span>
             </h3>
             <ClientAutocomplete
@@ -1003,9 +1107,9 @@ const CreateInvoiceComponent = ({
               onSelect={handleClientSelect}
             />
           </div>
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold text-gray-900">
+          <div className="bg-white p-3 lg:p-4 rounded-lg border border-gray-200 shadow-sm">
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="text-lg font-semibold text-gray-900">
                 Items & Services <span className="text-red-500">*</span>
               </h3>
               <button
@@ -1044,6 +1148,8 @@ const CreateInvoiceComponent = ({
                           onChange={(val) =>
                             updateItem(item.id, "description", val)
                           }
+                          onAddNewProduct={handleAddNewProduct}
+                          clientId={invoiceData.clientId}
                         />
                       </td>
                       <td className="p-2 align-top">
@@ -1374,23 +1480,21 @@ const InvoiceManagementComponent = ({
   const tabs = ["All Invoices", "Paid", "Unpaid", "Drafts", "Overdue"];
 
   return (
-    <div className="min-h-screen bg-white">
-      <div className="px-8 pt-32 pb-8 mx-auto max-w-7xl">
-        <header>
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">
-                Invoice Management
-              </h1>
-              <p className="mt-1 text-sm text-gray-600">
-                Manage all your invoices in one place
-              </p>
-            </div>
+    <div className="min-h-screen text-slate-800 font-sans">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-8 pt-28">
+        <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-2">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">
+              Invoice Management
+            </h1>
+            <p className="text-sm text-gray-600 mt-1">
+              Manage all your invoices in one place
+            </p>
           </div>
         </header>
-        <main className="mt-8">
-          <div className="flex justify-between items-center mb-8">
-            <div className="flex p-1 bg-gray-100 rounded-xl">
+        <main className="mt-6 flex flex-col gap-6">
+          <div className="flex justify-between items-center">
+            <div className="flex p-1 bg-gray-100 rounded-lg">
               {tabs.map((tab) => (
                 <button
                   key={tab}
@@ -1530,6 +1634,7 @@ const InvoiceManagementComponent = ({
 };
 
 const InvoiceManagementSystem = () => {
+  const location = useLocation();
   const [currentPage, setCurrentPage] = useState("management");
   const [activeTab, setActiveTab] = useState("All Invoices");
   const [searchTerm, setSearchTerm] = useState("");
@@ -1539,45 +1644,33 @@ const InvoiceManagementSystem = () => {
   const [invoiceToDelete, setInvoiceToDelete] = useState(null);
 
   // Get authentication context
-  const { user, loading: authLoading } = useContext(AuthContext);
+  const { user } = useContext(AuthContext);
+
+  // Handle navigation from dashboard
+  useEffect(() => {
+    if (location.state?.action === "create") {
+      setCurrentPage("create");
+      setEditingInvoice(null);
+      // Clear the state to prevent repeated triggers
+      window.history.replaceState({}, document.title);
+    }
+  }, [location]);
 
   // Use Firestore hooks
-  const { 
-    invoices, 
-    loading: invoicesLoading, 
-    error: invoicesError, 
-    addInvoice, 
-    editInvoice 
-  , removeInvoice } = useInvoices();
+  const {
+    invoices,
+    error: invoicesError,
+    addInvoice,
+    editInvoice,
+    removeInvoice,
+  } = useInvoices();
 
-  const { 
-    customers, 
-    loading: customersLoading, 
-    error: customersError 
-  } = useCustomers();
+  const { customers, error: customersError } = useCustomers();
 
-  const { 
-    products, 
-    loading: productsLoading, 
-    error: productsError 
-  } = useProducts();
+  const { products, error: productsError } = useProducts();
 
-  // Debug logging
-  useEffect(() => {
-    console.log('InvoiceManagement Debug:', {
-      user: user ? { uid: user.uid, email: user.email } : null,
-      authLoading,
-      invoices: invoices?.length || 0,
-      customers: customers?.length || 0,
-      products: products?.length || 0,
-      invoicesLoading,
-      customersLoading,
-      productsLoading,
-      invoicesError,
-      customersError,
-      productsError
-    });
-  }, [user, authLoading, invoices, customers, products, invoicesLoading, customersLoading, productsLoading, invoicesError, customersError, productsError]);
+  // Use Settings hook to fetch company info
+  const { settings, loading: settingsLoading, error: settingsError } = useSettings();
 
   const generateNextInvoiceNumber = () => {
     const today = new Date();
@@ -1603,10 +1696,7 @@ const InvoiceManagementSystem = () => {
       return num > max ? num : max;
     }, 0);
 
-    return `${String(maxNumber + 1).padStart(
-      3,
-      "0"
-    )}/${financialYearString}`;
+    return `${String(maxNumber + 1).padStart(3, "0")}/${financialYearString}`;
   };
 
   const getInitialInvoiceData = () => ({
@@ -1623,7 +1713,7 @@ const InvoiceManagementSystem = () => {
     cgst: 9,
     sgst: 9,
     igst: 0,
-    bankDetails: "State Bank Of India",
+    bankDetails: "",
     status: "Unpaid",
     declaration:
       "We declare that this invoice shows the actual price of the goods Described and that all Particulars are true and correct.",
@@ -1647,12 +1737,15 @@ const InvoiceManagementSystem = () => {
   // Sample invoices removed - now using Firestore data
 
   const getDynamicStatus = (invoice) => {
-    if (invoice.status === "Paid" || invoice.status === "Draft")
-      return invoice.status;
+    if (invoice.status === "Paid" || invoice.status === "paid") return "Paid";
+    if (invoice.status === "Draft" || invoice.status === "draft")
+      return "Draft";
+
     const today = new Date();
     const dueDate = new Date(invoice.dueDate);
     today.setHours(0, 0, 0, 0);
     dueDate.setHours(0, 0, 0, 0);
+
     if (invoice.dueDate && today > dueDate) return "Overdue";
     return "Unpaid";
   };
@@ -1662,13 +1755,19 @@ const InvoiceManagementSystem = () => {
   // Filter invoices based on active tab and search term
   useEffect(() => {
     if (!invoices) return;
-    
+
     let filtered = [...invoices];
-    
+
     // Filter by tab
     if (activeTab !== "All Invoices") {
       filtered = filtered.filter((invoice) => {
         const dynamicStatus = getDynamicStatus(invoice);
+
+        // Status synchronization logic
+        if (invoice.invoiceNumber) {
+          // Status is already synchronized
+        }
+
         if (activeTab === "Paid") return dynamicStatus === "Paid";
         if (activeTab === "Unpaid") return dynamicStatus === "Unpaid";
         if (activeTab === "Drafts") return dynamicStatus === "Draft";
@@ -1676,7 +1775,7 @@ const InvoiceManagementSystem = () => {
         return true;
       });
     }
-    
+
     // Filter by search term
     if (searchTerm) {
       filtered = filtered.filter(
@@ -1684,13 +1783,14 @@ const InvoiceManagementSystem = () => {
           invoice.invoiceNumber
             .toLowerCase()
             .includes(searchTerm.toLowerCase()) ||
-          (invoice.client && invoice.client.name
-            .toLowerCase()
-            .includes(searchTerm.toLowerCase())) ||
+          (invoice.client &&
+            invoice.client.name
+              .toLowerCase()
+              .includes(searchTerm.toLowerCase())) ||
           invoice.amount.toString().includes(searchTerm)
       );
     }
-    
+
     setFilteredInvoices(filtered);
   }, [searchTerm, activeTab, invoices]);
 
@@ -1790,6 +1890,31 @@ const InvoiceManagementSystem = () => {
     }));
   };
 
+  const handleAddNewProduct = async (productName, clientId) => {
+    try {
+      // For now, we'll add a basic product structure
+      // This would ideally be connected to a proper addProduct function from useProducts hook
+      const newProduct = {
+        name: productName,
+        description: productName,
+        hsnCode: "",
+        rate: 0,
+        unit: "Nos",
+        associatedClients: clientId ? [clientId] : [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      // For now, return a mock product with an ID for immediate use
+      return {
+        id: Date.now().toString(),
+        ...newProduct,
+      };
+    } catch (error) {
+      throw error;
+    }
+  };
+
   const resetInvoiceForm = () => {
     setInvoiceData(getInitialInvoiceData());
   };
@@ -1828,7 +1953,7 @@ const InvoiceManagementSystem = () => {
       status: "Draft",
       amount: calculations.total,
     };
-    
+
     const result = await addInvoice(draftInvoice);
     if (result.success) {
       alert("Invoice saved as draft!");
@@ -1842,13 +1967,13 @@ const InvoiceManagementSystem = () => {
 
   const saveInvoice = async () => {
     if (!validateInvoice()) return;
-    
+
     const newInvoice = {
       ...invoiceData,
       amount: calculations.total,
       status: "sent", // Set as sent instead of Unpaid
     };
-    
+
     const result = await addInvoice(newInvoice);
     if (result.success) {
       alert("Invoice saved successfully!");
@@ -1861,12 +1986,12 @@ const InvoiceManagementSystem = () => {
 
   const updateInvoice = async () => {
     if (!validateInvoice()) return;
-    
-    const updatedInvoice = { 
-      ...invoiceData, 
-      amount: calculations.total 
+
+    const updatedInvoice = {
+      ...invoiceData,
+      amount: calculations.total,
     };
-    
+
     const result = await editInvoice(editingInvoice.id, updatedInvoice);
     if (result.success) {
       alert("Invoice updated successfully!");
@@ -1893,9 +2018,383 @@ const InvoiceManagementSystem = () => {
     setEditingInvoice(invoiceToEdit);
     setCurrentPage("edit");
   };
-  const handleDownloadInvoice = (invoice) => {
-    setSelectedInvoice(invoice);
-    setShowPreview(true);
+  const handleDownloadInvoice = async (invoice) => {
+    try {
+      // Generate PDF for existing invoice
+      await generateInvoicePDF(invoice, settings);
+    } catch (error) {
+      alert("Error generating PDF. Please try again.");
+    }
+  };
+
+  const generateInvoicePDF = async (invoiceData, settings) => {
+    try {
+      // Calculate totals for the invoice
+      const invoiceCalcs = calculateInvoiceTotals(invoiceData);
+
+      // Generate HTML for the invoice
+      const invoiceHTML = generateInvoiceHTML(
+        invoiceData,
+        invoiceCalcs,
+        settings
+      );
+
+      // Create a temporary div for HTML to PDF conversion
+      const tempDiv = document.createElement("div");
+      tempDiv.innerHTML = invoiceHTML;
+      tempDiv.style.position = "absolute";
+      tempDiv.style.left = "-9999px";
+      tempDiv.style.top = "-9999px";
+      tempDiv.style.width = "800px";
+      document.body.appendChild(tempDiv);
+
+      // Convert HTML to canvas
+      const canvas = await html2canvas(tempDiv, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: "#ffffff",
+        width: 800,
+        height: tempDiv.scrollHeight,
+      });
+
+      // Remove temporary div
+      document.body.removeChild(tempDiv);
+
+      // Create PDF
+      const pdf = new jsPDF("p", "mm", "a4");
+      const imgData = canvas.toDataURL("image/png");
+
+      // Calculate dimensions to fit A4
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = pdfWidth - 20; // 10mm margin on each side
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+      let heightLeft = imgHeight;
+      let position = 10; // 10mm top margin
+
+      // Add first page
+      pdf.addImage(imgData, "PNG", 10, position, imgWidth, imgHeight);
+      heightLeft -= pdfHeight - 20; // Account for margins
+
+      // Add additional pages if needed
+      while (heightLeft >= 0) {
+        position = heightLeft - imgHeight + 10;
+        pdf.addPage();
+        pdf.addImage(imgData, "PNG", 10, position, imgWidth, imgHeight);
+        heightLeft -= pdfHeight - 20;
+      }
+
+      // Download the PDF
+      const fileName = `Invoice_${invoiceData.invoiceNumber.replace(
+        /\//g,
+        "_"
+      )}.pdf`;
+      pdf.save(fileName);
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  const calculateInvoiceTotals = (invoice) => {
+    const subtotal = invoice.items.reduce(
+      (sum, item) => sum + item.quantity * item.rate,
+      0
+    );
+    const cgstAmount = (subtotal * invoice.cgst) / 100;
+    const sgstAmount = (subtotal * invoice.sgst) / 100;
+    const igstAmount = (subtotal * invoice.igst) / 100;
+    const total = subtotal + cgstAmount + sgstAmount + igstAmount;
+    const roundOffAmount = invoice.isRoundOff ? Math.round(total) - total : 0;
+    const finalTotal = total + roundOffAmount;
+
+    return {
+      subtotal,
+      cgstAmount,
+      sgstAmount,
+      igstAmount,
+      roundOffAmount,
+      total: finalTotal,
+    };
+  };
+
+  const generateInvoiceHTML = (invoice, calculations, settings) => {
+    // Convert amount to words
+    const convertToWords = (amount) => {
+      // Simple number to words conversion (you can enhance this)
+      const ones = [
+        "",
+        "One",
+        "Two",
+        "Three",
+        "Four",
+        "Five",
+        "Six",
+        "Seven",
+        "Eight",
+        "Nine",
+      ];
+      const tens = [
+        "",
+        "",
+        "Twenty",
+        "Thirty",
+        "Forty",
+        "Fifty",
+        "Sixty",
+        "Seventy",
+        "Eighty",
+        "Ninety",
+      ];
+      const teens = [
+        "Ten",
+        "Eleven",
+        "Twelve",
+        "Thirteen",
+        "Fourteen",
+        "Fifteen",
+        "Sixteen",
+        "Seventeen",
+        "Eighteen",
+        "Nineteen",
+      ];
+
+      const convertHundreds = (num) => {
+        let result = "";
+        if (num >= 100) {
+          result += ones[Math.floor(num / 100)] + " Hundred ";
+          num %= 100;
+        }
+        if (num >= 20) {
+          result += tens[Math.floor(num / 10)] + " ";
+          num %= 10;
+        } else if (num >= 10) {
+          result += teens[num - 10] + " ";
+          return result;
+        }
+        if (num > 0) {
+          result += ones[num] + " ";
+        }
+        return result;
+      };
+
+      const crores = Math.floor(amount / 10000000);
+      const lakhs = Math.floor((amount % 10000000) / 100000);
+      const thousands = Math.floor((amount % 100000) / 1000);
+      const hundreds = amount % 1000;
+
+      let words = "";
+      if (crores > 0) words += convertHundreds(crores) + "Crore ";
+      if (lakhs > 0) words += convertHundreds(lakhs) + "Lakh ";
+      if (thousands > 0) words += convertHundreds(thousands) + "Thousand ";
+      if (hundreds > 0) words += convertHundreds(hundreds);
+
+      return "Indian Rupees " + words.trim() + " Only";
+    };
+
+    const amountInWords = convertToWords(Math.floor(calculations.total));
+
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Invoice ${invoice.invoiceNumber}</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #fff; font-size: 14px; }
+          .container { border: 2px solid black; padding: 15px; width: 100%; max-width: 800px; margin: auto; }
+          table { width: 100%; border-collapse: collapse; }
+          td, th { padding: 5px; }
+          .header { text-align: center; }
+          .header-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+          .header-top .phone-left { font-weight: bold; color: black; }
+          .header-top .phone-right { font-weight: bold; color: black; }
+          .header-main { display: flex; align-items: center; justify-content: center; margin-bottom: 10px; }
+          .header-main .logo { margin-right: 20px; }
+          .header-main .company-name { font-family: 'Times New Roman', serif; font-size: 28px; font-weight: bold; color: #8B0000; margin: 0; }
+          .header-details { text-align: center; }
+          .header-details p { margin: 3px 0; color: black; font-family: Arial, sans-serif; }
+          .bordered-table, .bordered-table th, .bordered-table td { border: 1px solid black; }
+          .text-right { text-align: right; }
+          .text-center { text-align: center; }
+          .font-bold { font-weight: bold; }
+          .items-table { min-height: 300px; }
+          .items-table td { vertical-align: top; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <div class="header-top">
+              <div class="phone-left">☎ 98432 94464</div>
+              <div class="phone-right">☎ 96984 87096</div>
+            </div>
+            <div class="header-main">
+              <div class="logo">
+                <img src="https://res.cloudinary.com/dnmvriw3e/image/upload/v1756868204/ESA_uggt8u.png" alt="ESA Logo" style="height: 60px; max-width: 120px;">
+              </div>
+              <h1 class="company-name">ESA ENGINEERING WORKS</h1>
+            </div>
+            <div class="header-details">
+              <p>All Kinds of Lathe and Milling Works</p>
+              <p>Specialist in : Press Tools, Die Casting Tools, Precision Components</p>
+              <p>1/100, Chettipalayam Road, E.B. Compound, Malumichampatti, CBE - 641 050.</p>
+              <p>E-Mail : esaengineeringworks@gmail.com | GSTIN : 33AMWPB2116Q1ZS</p>
+            </div>
+          </div>
+          <h2 class="text-center font-bold" style="background-color: #ccc; margin: 10px -15px; padding: 5px;">INVOICE</h2>
+          <table style="margin-bottom: 10px;">
+            <tr>
+              <td style="width: 70%; vertical-align: top;">
+                <table class="bordered-table">
+                  <tr><td>To, M/s. ${invoice.client?.name || ""}</td></tr>
+                  <tr><td style="height: 60px;">${
+                    invoice.client?.address || ""
+                  }</td></tr>
+                  <tr><td>GSTIN : ${invoice.client?.gst || ""}</td></tr>
+                </table>
+              </td>
+              <td style="width: 30%; vertical-align: top;">
+                <table class="bordered-table">
+                  <tr><td>NO : ${invoice.invoiceNumber}</td><td>DATE : ${
+      invoice.invoiceDate
+    }</td></tr>
+                  <tr><td colspan="2">P.O. No : ${invoice.poNumber}</td></tr>
+                  <tr><td colspan="2">P.O. Date : ${invoice.poDate}</td></tr>
+                  <tr><td colspan="2">D.C. No : ${invoice.dcNumber}</td></tr>
+                  <tr><td colspan="2">D.C. Date : ${invoice.dcDate}</td></tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+          <table class="bordered-table items-table">
+            <thead>
+              <tr style="background-color: #ccc;">
+                <th style="width: 5%;">S.No</th>
+                <th style="width: 45%;">Description of Goods</th>
+                <th style="width: 10%;">HSN/SAC</th>
+                <th style="width: 10%;">Qty</th>
+                <th style="width: 15%;">Rate</th>
+                <th style="width: 15%;">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${invoice.items
+                .map(
+                  (item, index) => `
+                <tr>
+                  <td class="text-center">${index + 1}</td>
+                  <td>${item.description}</td>
+                  <td class="text-center">${item.hsnCode}</td>
+                  <td class="text-center">${item.quantity}</td>
+                  <td class="text-right">₹${item.rate.toFixed(2)}</td>
+                  <td class="text-right">₹${(item.quantity * item.rate).toFixed(
+                    2
+                  )}</td>
+                </tr>
+              `
+                )
+                .join("")}
+              <tr style="height: 120px;">
+                <td colspan="6">&nbsp;</td>
+              </tr>
+              <tr>
+                <td colspan="5" class="text-right font-bold">Sub Total</td>
+                <td class="text-right font-bold">₹${calculations.subtotal.toFixed(
+                  2
+                )}</td>
+              </tr>
+              ${
+                invoice.cgst > 0
+                  ? `
+                <tr>
+                  <td colspan="5" class="text-right">CGST @ ${
+                    invoice.cgst
+                  }%</td>
+                  <td class="text-right">₹${calculations.cgstAmount.toFixed(
+                    2
+                  )}</td>
+                </tr>
+              `
+                  : ""
+              }
+              ${
+                invoice.sgst > 0
+                  ? `
+                <tr>
+                  <td colspan="5" class="text-right">SGST @ ${
+                    invoice.sgst
+                  }%</td>
+                  <td class="text-right">₹${calculations.sgstAmount.toFixed(
+                    2
+                  )}</td>
+                </tr>
+              `
+                  : ""
+              }
+              ${
+                invoice.igst > 0
+                  ? `
+                <tr>
+                  <td colspan="5" class="text-right">IGST @ ${
+                    invoice.igst
+                  }%</td>
+                  <td class="text-right">₹${calculations.igstAmount.toFixed(
+                    2
+                  )}</td>
+                </tr>
+              `
+                  : ""
+              }
+              ${
+                invoice.isRoundOff && calculations.roundOffAmount !== 0
+                  ? `
+                <tr>
+                  <td colspan="5" class="text-right">Round Off</td>
+                  <td class="text-right">₹${calculations.roundOffAmount.toFixed(
+                    2
+                  )}</td>
+                </tr>
+              `
+                  : ""
+              }
+              <tr style="background-color: #ccc;">
+                <td colspan="5" class="text-right font-bold">Total</td>
+                <td class="text-right font-bold">₹${calculations.total.toFixed(
+                  2
+                )}</td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="font-bold">Amount in Words: ${amountInWords}</p>
+          <table style="margin-top: 20px;">
+            <tr>
+              <td style="width: 50%; vertical-align: top;">
+                <table class="bordered-table">
+                  <tr><td class="text-center font-bold">Declaration</td></tr>
+                  <tr><td style="height: 60px;">${
+                    invoice.declaration ||
+                    "We declare that this invoice shows the actual price of the goods Described and that all Particulars are true and correct."
+                  }</td></tr>
+                </table>
+              </td>
+              <td style="width: 50%; vertical-align: top;">
+                <table class="bordered-table">
+                  <tr><td class="text-center font-bold">Authorised Signatory</td></tr>
+                  <tr><td style="height: 60px;">&nbsp;</td></tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+          ${
+            invoice.invoiceNotes
+              ? `<p style="margin-top: 10px; font-size: 12px;"><strong>Notes:</strong> ${invoice.invoiceNotes}</p>`
+              : ""
+          }
+        </div>
+      </body>
+      </html>
+    `;
   };
   const promptDelete = (invoiceId) => {
     setInvoiceToDelete(invoiceId);
@@ -1906,26 +2405,20 @@ const InvoiceManagementSystem = () => {
     try {
       const result = await removeInvoice(invoiceToDelete);
       if (result.success) {
-        alert('Invoice deleted successfully!');
+        alert("Invoice deleted successfully!");
         setInvoiceToDelete(null);
       } else {
-        alert('Failed to delete invoice: ' + (result.error || 'Unknown'));
+        alert("Failed to delete invoice: " + (result.error || "Unknown"));
       }
     } catch (e) {
-      alert('Error deleting invoice: ' + e.message);
+      alert("Error deleting invoice: " + e.message);
     }
   };
 
   return (
     <div>
-      {/* Debug info */}
-      <div className="fixed top-20 right-4 bg-white p-2 rounded shadow text-xs z-50">
-        Auth: {authLoading ? 'Loading...' : user ? user.email : 'Not signed in'} | 
-        Invoices: {invoicesLoading ? 'Loading...' : invoices?.length || 0} | 
-        Customers: {customersLoading ? 'Loading...' : customers?.length || 0} | 
-        Products: {productsLoading ? 'Loading...' : products?.length || 0}
-      </div>
-      
+      {/* debug overlay removed */}
+
       <ConfirmationModal
         isOpen={!!invoiceToDelete}
         onClose={() => setInvoiceToDelete(null)}
@@ -1963,6 +2456,7 @@ const InvoiceManagementSystem = () => {
           saveInvoice={saveInvoice}
           setInvoiceData={setInvoiceData}
           handleClientSelect={handleClientSelect}
+          handleAddNewProduct={handleAddNewProduct}
           addItem={addItem}
           updateItem={updateItem}
           removeItem={removeItem}
@@ -1974,6 +2468,7 @@ const InvoiceManagementSystem = () => {
           invoiceData={currentPage !== "management" ? invoiceData : null}
           calculations={calculations}
           setShowPreview={setShowPreview}
+          settings={settings}
         />
       )}
     </div>

@@ -18,12 +18,11 @@ const ModalWrapper = ({ children, onClose }) => (
   </div>
 );
 
-// --- CHANGED: ProductFormModal now accepts clients and handles client selection ---
-const ProductFormModal = ({ onClose, onSave, productToEdit, clients }) => {
+// --- ProductFormModal for adding/editing products ---
+const ProductFormModal = ({ onClose, onSave, productToEdit }) => {
   const [name, setName] = useState("");
   const [hsn, setHsn] = useState("");
   const [price, setPrice] = useState("");
-  const [selectedClientId, setSelectedClientId] = useState(""); // State for the dropdown
 
   useEffect(() => {
     if (productToEdit) {
@@ -31,19 +30,17 @@ const ProductFormModal = ({ onClose, onSave, productToEdit, clients }) => {
       setHsn(productToEdit.hsn);
       const priceValue = productToEdit.price.replace(/[^0-9.-]+/g, "");
       setPrice(priceValue);
-      setSelectedClientId(productToEdit.clientId || ""); // Set client on edit
     } else {
       // Reset form for adding new product
       setName("");
       setHsn("");
       setPrice("");
-      setSelectedClientId("");
     }
   }, [productToEdit]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSave({ ...productToEdit, name, hsn, price, clientId: selectedClientId }); // Pass clientId on save
+    onSave({ ...productToEdit, name, hsn, price });
   };
 
   const modalTitle = productToEdit ? "Edit Product" : "Add New Product";
@@ -61,31 +58,6 @@ const ProductFormModal = ({ onClose, onSave, productToEdit, clients }) => {
       <div className="p-6">
         <h2 className="text-lg font-bold text-gray-900 mb-4">{modalTitle}</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* CHANGED: Added Client Selector Dropdown */}
-          <div>
-            <label
-              htmlFor="client"
-              className="block text-sm text-gray-700 mb-1"
-            >
-              Client *
-            </label>
-            <select
-              id="client"
-              value={selectedClientId}
-              onChange={(e) => setSelectedClientId(Number(e.target.value))}
-              className="w-full px-3 py-2 bg-gray-100 border-0 rounded-lg text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-            >
-              <option value="" disabled>
-                Select a client
-              </option>
-              {clients.map((client) => (
-                <option key={client.id} value={client.id}>
-                  {client.name}
-                </option>
-              ))}
-            </select>
-          </div>
           <div>
             <label
               htmlFor="productName"
@@ -160,8 +132,8 @@ const ProductFormModal = ({ onClose, onSave, productToEdit, clients }) => {
   );
 };
 
-// --- CHANGED: ProductViewModal now displays the client's name ---
-const ProductViewModal = ({ product, onClose, clientName }) => {
+// --- ProductViewModal for viewing product details ---
+const ProductViewModal = ({ product, onClose }) => {
   if (!product) return null;
   return (
     <ModalWrapper onClose={onClose}>
@@ -181,13 +153,6 @@ const ProductViewModal = ({ product, onClose, clientName }) => {
             <span className="text-gray-600">S.No:</span>{" "}
             <span className="font-medium text-gray-800">
               {product.displayId}
-            </span>
-          </div>
-          {/* Added Client Name display */}
-          <div className="flex justify-between border-b pb-2">
-            <span className="text-gray-600">Client:</span>{" "}
-            <span className="font-medium text-gray-800 text-right">
-              {clientName}
             </span>
           </div>
           <div className="flex justify-between border-b pb-2">
@@ -259,7 +224,6 @@ const DeleteConfirmationModal = ({ onClose, onConfirm, productName }) => {
 const ProductRow = ({
   product,
   serialNumber,
-  clientName,
   onView,
   onEdit,
   onDelete,
@@ -269,7 +233,6 @@ const ProductRow = ({
     <td className="px-6 py-4">
       <div className="font-medium text-gray-900">{product.name}</div>
     </td>
-    <td className="px-6 py-4 text-gray-700">{clientName}</td>
     <td className="px-6 py-4 text-gray-700">{product.hsn}</td>
     <td className="px-6 py-4 font-medium text-gray-900">{product.price}</td>
     <td className="px-6 py-4">
@@ -304,8 +267,6 @@ const ProductRow = ({
 export default function ProductManagement() {
   const [searchTerm, setSearchTerm] = useState("");
   const [modal, setModal] = useState({ isOpen: false, type: null, data: null });
-  // CHANGED: Client data is now part of the state
-  const [clients, setClients] = useState([]);
 
   const { user } = useContext(AuthContext);
   const { success, error: showError } = useToast();
@@ -339,7 +300,6 @@ export default function ProductManagement() {
         name: productData.name,
         hsn: productData.hsn,
         price: parseFloat(productData.price),
-        clientId: productData.clientId,
       });
       
       if (result.success) {
@@ -353,7 +313,6 @@ export default function ProductManagement() {
         name: productData.name,
         hsn: productData.hsn,
         price: parseFloat(productData.price),
-        clientId: productData.clientId,
       });
       
       if (result.success) {
@@ -424,25 +383,15 @@ export default function ProductManagement() {
                   <tr>
                     <th className="px-6 py-3 text-left">S.No</th>
                     <th className="px-6 py-3 text-left">Product Name</th>
-                    <th className="px-6 py-3 text-left">Client Name</th>
                     <th className="px-6 py-3 text-left">HSN Code</th>
                     <th className="px-6 py-3 text-left">Price</th>
                     <th className="px-6 py-3 text-left">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {loading ? (
+                  {error ? (
                     <tr>
-                      <td colSpan="6" className="text-center text-sm text-gray-500 py-12">
-                        <div className="flex items-center justify-center">
-                          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mr-2"></div>
-                          <span>Loading products...</span>
-                        </div>
-                      </td>
-                    </tr>
-                  ) : error ? (
-                    <tr>
-                      <td colSpan="6" className="text-center text-sm text-gray-500 py-12">
+                      <td colSpan="5" className="text-center text-sm text-gray-500 py-12">
                         <div className="text-red-600">
                           <p>Error loading products: {error}</p>
                           <button 
@@ -456,13 +405,6 @@ export default function ProductManagement() {
                     </tr>
                   ) : filteredProducts.length > 0 ? (
                     filteredProducts.map((product, index) => {
-                      // Find the client name corresponding to the product's clientId
-                      const client = clients.find(
-                        (c) => c.id === product.clientId
-                      );
-                      const clientName = client
-                        ? client.name
-                        : "Unknown Client";
                       return (
                         <ProductRow
                           key={product.id}
@@ -472,7 +414,6 @@ export default function ProductManagement() {
                             revenue: 'N/A'
                           }}
                           serialNumber={String(index + 1).padStart(2, '0')}
-                          clientName={clientName} // Pass client name to the row
                           onView={(p) =>
                             setModal({
                               isOpen: true,
@@ -493,7 +434,7 @@ export default function ProductManagement() {
                   ) : (
                     <tr>
                       <td
-                        colSpan="6"
+                        colSpan="5"
                         className="text-center text-sm text-gray-500 py-12"
                       >
                         No products found.{" "}
@@ -515,11 +456,6 @@ export default function ProductManagement() {
             <ProductViewModal
               product={modal.data}
               onClose={closeModal}
-              // Pass the client name to the view modal
-              clientName={
-                clients.find((c) => c.id === modal.data.clientId)?.name ||
-                "Unknown Client"
-              }
             />
           )}
           {(modal.type === "add" || modal.type === "edit") && (
@@ -527,7 +463,6 @@ export default function ProductManagement() {
               onClose={closeModal}
               onSave={handleSaveProduct}
               productToEdit={modal.type === "edit" ? modal.data : null}
-              clients={clients} // Pass clients list to the form modal
             />
           )}
           {modal.type === "delete" && (

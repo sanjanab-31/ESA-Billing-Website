@@ -1,27 +1,23 @@
 import React, { createContext, useEffect, useState } from "react";
 import { onAuthStateChanged, signOut as firebaseSignOut, updateEmail, updatePassword, updateProfile, EmailAuthProvider, reauthenticateWithCredential } from "firebase/auth";
 import axios from "axios";
-import { auth } from "../firebase/firebaseClient";
+import { auth } from "../lib/firebase/config";
 
 export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [authInitialized, setAuthInitialized] = useState(false);
 
-  // ✅ ADDED: State to manage the session timeout feature
   const [isSessionTimeoutEnabled, setIsSessionTimeoutEnabled] = useState(() => {
     const saved = localStorage.getItem('sessionTimeoutEnabled');
-    // Default to true if no setting is saved
     return saved !== null ? JSON.parse(saved) : true;
   });
 
-  // ✅ ADDED: Effect to save the user's preference to localStorage
   useEffect(() => {
     localStorage.setItem('sessionTimeoutEnabled', JSON.stringify(isSessionTimeoutEnabled));
   }, [isSessionTimeoutEnabled]);
 
-  // ✅ ADDED: Function to be called by the toggle switch
   const toggleSessionTimeout = () => {
     setIsSessionTimeoutEnabled(prev => !prev);
   };
@@ -39,7 +35,7 @@ export const AuthProvider = ({ children }) => {
 
     const unsubscribe = onAuthStateChanged(auth, (u) => {
       setUser(u ? { ...u } : null);
-      setLoading(false);
+      setAuthInitialized(true);
     });
 
     return () => {
@@ -68,7 +64,6 @@ export const AuthProvider = ({ children }) => {
       setUser({ ...user, email: newEmail });
       return { success: true };
     } catch (error) {
-      console.error('Error updating email:', error);
       return { success: false, error: error.message };
     }
   };
@@ -84,7 +79,6 @@ export const AuthProvider = ({ children }) => {
       await updatePassword(user, newPassword);
       return { success: true };
     } catch (error) {
-      console.error('Error updating password:', error);
       return { success: false, error: error.message };
     }
   };
@@ -100,7 +94,6 @@ export const AuthProvider = ({ children }) => {
       
       return { success: true };
     } catch (error) {
-      console.error('Error updating profile:', error);
       return { success: false, error: error.message };
     }
   };
@@ -108,12 +101,11 @@ export const AuthProvider = ({ children }) => {
   return (
     <AuthContext.Provider value={{
       user,
-      loading,
+      authInitialized,
       signOut,
       updateUserEmail,
       updateUserPassword,
       updateUserProfile,
-      // ✅ ADDED: Expose the state and function to other components
       isSessionTimeoutEnabled,
       toggleSessionTimeout
     }}>

@@ -1,4 +1,3 @@
-// firebaseClient.js (or wherever you initialize Firebase)
 import { initializeApp } from "firebase/app";
 import { getAuth, setPersistence, browserSessionPersistence } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
@@ -22,11 +21,11 @@ const storage = getStorage(app);
 // Force session persistence
 setPersistence(auth, browserSessionPersistence)
   .then(() => {
-    console.log("Auth persistence set to session only ✅");
   })
   .catch((error) => {
-    console.error("Failed to set persistence:", error);
   });
 
 // Export all Firebase services
-export { auth, db, storage };
+export { auth, db, storage, app };
+export default { auth, db, storage, app };
+

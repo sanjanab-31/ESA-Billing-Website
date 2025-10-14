@@ -1,13 +1,10 @@
 import { useContext, useEffect, useState, useRef } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { signOut as firebaseSignOut } from "firebase/auth";
-import { auth } from "../firebase/firebaseClient";
+import { auth } from "../lib/firebase/config";
 import { AuthContext } from "../context/AuthContext";
-// IMPROVEMENT: Import icons for the mobile menu
 import { Bars3Icon, XMarkIcon, UserCircleIcon, Cog6ToothIcon, ArrowRightStartOnRectangleIcon } from "@heroicons/react/24/outline";
 
-// IMPROVEMENT: Moved navItems array outside the component
-// This prevents it from being recreated on every render.
 const navItems = [
   { name: "Dashboard", path: "/dashboard" },
   { name: "Invoices", path: "/invoices" },
@@ -21,13 +18,11 @@ const navItems = [
 export default function Header() {
   const { user, signOut } = useContext(AuthContext);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  // IMPROVEMENT: State for mobile navigation
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const navigate = useNavigate();
   const dropdownRef = useRef(null);
 
-  // Effect to handle clicks outside the user dropdown
   useEffect(() => {
     function handleClickOutside(event) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -40,7 +35,6 @@ export default function Header() {
     };
   }, [dropdownRef]);
 
-  // IMPROVEMENT: Effect to close modals on 'Escape' key press for accessibility
   useEffect(() => {
     const handleKeyDown = (event) => {
       if (event.key === 'Escape') {
@@ -55,25 +49,20 @@ export default function Header() {
   const handleLogout = async () => {
     try {
       await signOut();
-      setIsDropdownOpen(false); // Close dropdown on logout
+      setIsDropdownOpen(false);
       navigate("/login");
     } catch (error) {
-      console.error("Failed to log out", error);
     }
   };
 
-  // A helper function to generate NavLink styles
   const getNavLinkClass = ({ isActive }) =>
     `px-4 py-2 rounded-lg text-sm font-medium ${
       isActive ? "bg-blue-600 text-white" : "text-gray-700 hover:text-blue-600"
     }`;
 
   return (
-    // FIX: Added 'fixed top-0 left-0 z-50' to make the header sticky
     <header className="fixed top-0 left-0 z-50 flex w-full items-center justify-between bg-white px-6 py-3 shadow-md">
-      {/* Left: Logo + Desktop Nav */}
       <div className="flex items-center gap-8 md:gap-20">
-        {/* Logo */}
         <div className="flex items-center gap-3">
           <img
             src="https://res.cloudinary.com/dnmvriw3e/image/upload/v1756868204/ESA_uggt8u.png"
@@ -83,7 +72,6 @@ export default function Header() {
           <span className="text-lg font-semibold text-gray-700">ESA</span>
         </div>
 
-        {/* Desktop Navigation */}
         <nav className="hidden gap-6 md:flex">
           {navItems.map((item) => (
             <NavLink key={item.path} to={item.path} className={getNavLinkClass}>
@@ -93,14 +81,12 @@ export default function Header() {
         </nav>
       </div>
 
-      {/* Right: User Profile & Mobile Menu Button */}
       <div className="flex items-center gap-4">
         {user && (
           <div className="relative" ref={dropdownRef}>
             <button
               onClick={() => setIsDropdownOpen((prev) => !prev)}
               className="flex items-center gap-4 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-full"
-              // ACCESSIBILITY: Add ARIA attributes for screen readers
               aria-haspopup="true"
               aria-expanded={isDropdownOpen}
             >
@@ -119,7 +105,6 @@ export default function Header() {
               </div>
             </button>
 
-            {/* Dropdown Menu */}
             {isDropdownOpen && (
               <div className="absolute right-0 mt-2 w-64 rounded-lg bg-white shadow-xl z-50 overflow-hidden border border-gray-100">
                 <div className="p-3 border-b border-gray-100">
@@ -178,7 +163,6 @@ export default function Header() {
           </div>
         )}
 
-        {/* IMPROVEMENT: Hamburger Menu Button */}
         <div className="flex items-center md:hidden">
           <button 
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
@@ -196,7 +180,6 @@ export default function Header() {
         </div>
       </div>
       
-      {/* IMPROVEMENT: Mobile Navigation Menu */}
       {isMobileMenuOpen && (
         <div className="absolute top-full left-0 w-full bg-white shadow-md md:hidden" id="mobile-menu">
           <nav className="flex flex-col gap-1 px-2 pt-2 pb-3">
@@ -205,7 +188,7 @@ export default function Header() {
                   key={item.path} 
                   to={item.path} 
                   className={getNavLinkClass}
-                  onClick={() => setIsMobileMenuOpen(false)} // Close menu on navigation
+                  onClick={() => setIsMobileMenuOpen(false)}
                 >
                   {item.name}
                 </NavLink>
