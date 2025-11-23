@@ -29,14 +29,12 @@ import { useSettings } from "../../hooks/useFirestore";
 const ToggleSwitch = ({ enabled, setEnabled }) => (
   <button
     onClick={() => setEnabled(!enabled)}
-    className={`relative inline-flex items-center h-6 rounded-full w-11 transition-colors duration-200 ease-in-out ${
-      enabled ? "bg-blue-600" : "bg-gray-300"
-    }`}
+    className={`relative inline-flex items-center h-6 rounded-full w-11 transition-colors duration-200 ease-in-out ${enabled ? "bg-blue-600" : "bg-gray-300"
+      }`}
   >
     <span
-      className={`inline-block w-4 h-4 transform bg-white rounded-full transition-transform duration-200 ease-in-out ${
-        enabled ? "translate-x-6" : "translate-x-1"
-      }`}
+      className={`inline-block w-4 h-4 transform bg-white rounded-full transition-transform duration-200 ease-in-out ${enabled ? "translate-x-6" : "translate-x-1"
+        }`}
     />
   </button>
 );
@@ -179,13 +177,12 @@ const ProfileSettings = () => {
       {/* Message Display */}
       {message.text && (
         <div
-          className={`p-4 rounded-md ${
-            message.type === "error"
-              ? "bg-red-50 text-red-700"
-              : message.type === "success"
+          className={`p-4 rounded-md ${message.type === "error"
+            ? "bg-red-50 text-red-700"
+            : message.type === "success"
               ? "bg-green-50 text-green-700"
               : "bg-blue-50 text-blue-700"
-          }`}
+            }`}
         >
           {message.text}
         </div>
@@ -399,14 +396,13 @@ const ProfileSettings = () => {
                 !password.new ||
                 !password.confirm
               }
-              className={`flex items-center gap-2 px-5 py-2 text-white rounded-md text-sm font-medium ${
-                isUpdating ||
+              className={`flex items-center gap-2 px-5 py-2 text-white rounded-md text-sm font-medium ${isUpdating ||
                 !password.current ||
                 !password.new ||
                 !password.confirm
-                  ? "bg-blue-400 cursor-not-allowed"
-                  : "bg-blue-600 hover:bg-blue-700"
-              }`}
+                ? "bg-blue-400 cursor-not-allowed"
+                : "bg-blue-600 hover:bg-blue-700"
+                }`}
             >
               {isUpdating ? (
                 "Updating..."
@@ -519,11 +515,10 @@ const SystemSettings = () => {
       {/* Success/Error Messages */}
       {systemMessage.text && (
         <div
-          className={`mb-6 p-4 rounded-lg border text-sm ${
-            systemMessage.type === "error"
-              ? "bg-red-50 text-red-700 border-red-200"
-              : "bg-green-50 text-green-700 border-green-200"
-          }`}
+          className={`mb-6 p-4 rounded-lg border text-sm ${systemMessage.type === "error"
+            ? "bg-red-50 text-red-700 border-red-200"
+            : "bg-green-50 text-green-700 border-green-200"
+            }`}
         >
           {systemMessage.text}
         </div>
@@ -661,15 +656,15 @@ const SecuritySettings = () => {
   };
 
   const SecurityItem = ({ icon: Icon, title, description, control }) => (
-    <div className="p-4 border border-gray-200 rounded-lg flex items-center justify-between">
+    <div className="p-4 border border-gray-200 rounded-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
       <div className="flex items-center gap-4">
-        <Icon size={20} className="text-gray-500" />
+        <Icon size={20} className="text-gray-500 flex-shrink-0" />
         <div>
           <h4 className="font-medium text-gray-900 text-sm">{title}</h4>
           <p className="text-xs text-gray-500">{description}</p>
         </div>
       </div>
-      {control && <div>{control}</div>}
+      {control && <div className="w-full sm:w-auto">{control}</div>}
     </div>
   );
 
@@ -682,11 +677,10 @@ const SecuritySettings = () => {
       <div className="space-y-6">
         {message.text && (
           <div
-            className={`p-3 rounded-md text-sm ${
-              message.type === "error"
-                ? "bg-red-50 text-red-700 border border-red-200"
-                : "bg-green-50 text-green-700 border border-green-200"
-            }`}
+            className={`p-3 rounded-md text-sm ${message.type === "error"
+              ? "bg-red-50 text-red-700 border border-red-200"
+              : "bg-green-50 text-green-700 border border-green-200"
+              }`}
           >
             {message.text}
           </div>
@@ -786,25 +780,24 @@ const SettingsPage = () => {
 
         <main className="mt-6 flex flex-col gap-6">
           <div>
-            <div className="bg-gray-100 rounded-lg p-1 flex items-center space-x-1 max-w-max overflow-x-auto">
+            <div className="bg-gray-100 rounded-lg p-1 flex items-center space-x-1 max-w-full overflow-x-auto scrollbar-hide">
               {tabs.map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
-                  // FONT/STYLE CHANGE: Added font-medium
-                  className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors whitespace-nowrap ${
-                    activeTab === tab
-                      ? "bg-white text-gray-900 shadow-sm"
-                      : "bg-transparent text-gray-600 hover:bg-gray-200"
-                  }`}
+                  className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors whitespace-nowrap flex-shrink-0 ${activeTab === tab
+                    ? "bg-white text-gray-900 shadow-sm"
+                    : "bg-transparent text-gray-600 hover:bg-gray-200"
+                    }`}
                 >
                   {tab}
                 </button>
               ))}
             </div>
           </div>
-
-          {renderContent()}
+          <div className="bg-white rounded-xl shadow-sm">
+            {renderContent()}
+          </div>
         </main>
       </div>
     </div>

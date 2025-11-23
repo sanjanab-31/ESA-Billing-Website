@@ -272,13 +272,13 @@ export default function ProductManagement() {
   const { success, error: showError } = useToast();
 
   // Use Firestore hook
-  const { 
-    products, 
-    loading, 
-    error, 
-    addProduct, 
-    editProduct, 
-    removeProduct 
+  const {
+    products,
+    loading,
+    error,
+    addProduct,
+    editProduct,
+    removeProduct
   } = useProducts({ search: searchTerm });
 
   const filteredProducts = useMemo(() => {
@@ -301,7 +301,7 @@ export default function ProductManagement() {
         hsn: productData.hsn,
         price: parseFloat(productData.price),
       });
-      
+
       if (result.success) {
         success(`Product "${productData.name}" updated successfully!`);
         closeModal();
@@ -314,7 +314,7 @@ export default function ProductManagement() {
         hsn: productData.hsn,
         price: parseFloat(productData.price),
       });
-      
+
       if (result.success) {
         success(`Product "${productData.name}" added successfully!`);
         closeModal();
@@ -377,8 +377,8 @@ export default function ProductManagement() {
           </header>
 
           <main className="mt-6 flex flex-col gap-6">
-            <div className="overflow-hidden bg-white rounded-xl border border-gray-200 shadow-sm">
-              <table className="w-full">
+            <div className="overflow-x-auto bg-white rounded-xl border border-gray-200 shadow-sm">
+              <table className="w-full min-w-[600px]">
                 <thead className="text-xs font-semibold text-gray-500 uppercase bg-gray-50">
                   <tr>
                     <th className="px-6 py-3 text-left">S.No</th>
@@ -394,8 +394,8 @@ export default function ProductManagement() {
                       <td colSpan="5" className="text-center text-sm text-gray-500 py-12">
                         <div className="text-red-600">
                           <p>Error loading products: {error}</p>
-                          <button 
-                            onClick={() => window.location.reload()} 
+                          <button
+                            onClick={() => window.location.reload()}
                             className="mt-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                           >
                             Retry

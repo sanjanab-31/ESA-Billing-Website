@@ -1,23 +1,3 @@
-import React, { useState, useRef, useEffect, useContext, useMemo, useCallback } from "react";
-import {
-  Plus,
-  Eye,
-  Edit,
-  MoreHorizontal,
-  X,
-  FileText,
-  TrendingUp,
-  AlertCircle,
-  MapPin,
-  Phone,
-  Mail,
-  Trash2,
-  Search,
-} from "lucide-react";
-import { useCustomers, useInvoices } from "../../hooks/useFirestore";
-import { AuthContext } from "../../context/AuthContext";
-import { useToast } from "../../context/ToastContext";
-
 const ClientManagement = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
@@ -37,90 +17,58 @@ const ClientManagement = () => {
   // Use Firestore hooks
   const { customers, error, addCustomer, editCustomer, removeCustomer } =
     useCustomers({ search: searchTerm });
-  
+
   // Fetch all invoices for calculating client statistics
   const { invoices } = useInvoices();
 
-  // Memoized function to calculate amount paid for a client
-  const calculateAmountPaid = useCallback((clientId) => {
-    if (!invoices || invoices.length === 0) {
-      return 0;
-    }
+  // Memoized calculation of all client statistics to avoid re-calculation on every render
+  const clientStatsMap = useMemo(() => {
+    if (!invoices || invoices.length === 0) return {};
 
-    const clientInvoices = invoices.filter(invoice => 
-      invoice.customerId === clientId || invoice.clientId === clientId
-    );
-    
-    return clientInvoices.reduce((sum, invoice) => {
-      const invoiceAmount = parseFloat(invoice.totalAmount || invoice.amount || invoice.total) || 0;
-      
-      // Check if invoice is marked as paid by status
-      const isPaidByStatus = invoice.status === 'Paid' || invoice.status === 'paid';
-      
-      // Only count as paid if invoice status is 'Paid'
-      if (isPaidByStatus) {
-        return sum + invoiceAmount;
+    const stats = {};
+
+    invoices.forEach(invoice => {
+      // Handle both customerId and clientId
+      const clientId = invoice.customerId || invoice.clientId;
+      if (!clientId) return;
+
+      if (!stats[clientId]) {
+        stats[clientId] = {
+          totalInvoices: 0,
+          totalRevenue: 0,
+          outstanding: 0,
+          amountPaid: 0
+        };
       }
-      
-      // If not paid, contribute 0 to amount paid
-      return sum + 0;
-    }, 0);
-  }, [invoices]);
 
-  // Memoized function to calculate client statistics
-  const calculateClientStats = useCallback((clientId) => {
-    if (!invoices || invoices.length === 0) {
-      return {
-        totalInvoices: 0,
-        totalRevenue: 0,
-        outstanding: 0,
-      };
-    }
-
-    // Check both customerId and clientId fields since there might be inconsistency
-    const clientInvoices = invoices.filter(invoice => 
-      invoice.customerId === clientId || invoice.clientId === clientId
-    );
-    
-    const totalInvoices = clientInvoices.length;
-    const totalRevenue = clientInvoices.reduce((sum, invoice) => {
-      const invoiceAmount = parseFloat(invoice.totalAmount || invoice.amount || invoice.total) || 0;
-      
-      // Check if invoice is marked as paid by status
-      const isPaidByStatus = invoice.status === 'Paid' || invoice.status === 'paid';
-      
-      // Only add to revenue if invoice is paid
-      if (isPaidByStatus) {
-        return sum + invoiceAmount;
-      }
-      
-      // If not paid, contribute 0 to revenue
-      return sum + 0;
-    }, 0);
-    
-    const outstanding = clientInvoices.reduce((sum, invoice) => {
       const invoiceAmount = parseFloat(invoice.totalAmount || invoice.amount || invoice.total) || 0;
       const paidAmount = parseFloat(invoice.paidAmount || 0) || 0;
-      
-      // Check if invoice is marked as paid by status
       const isPaidByStatus = invoice.status === 'Paid' || invoice.status === 'paid';
-      
-      // If invoice is marked as paid by status, outstanding is 0
-      if (isPaidByStatus) {
-        return sum + 0;
-      }
-      
-      // Otherwise, calculate unpaid amount
-      const unpaidAmount = invoiceAmount - paidAmount;
-      return sum + Math.max(0, unpaidAmount); // Ensure we don't go negative
-    }, 0);
 
-    return {
-      totalInvoices,
-      totalRevenue,
-      outstanding,
-    };
+      stats[clientId].totalInvoices += 1;
+
+      if (isPaidByStatus) {
+        stats[clientId].totalRevenue += invoiceAmount;
+        stats[clientId].amountPaid += invoiceAmount;
+      } else {
+        // Calculate outstanding for non-paid invoices
+        const unpaid = Math.max(0, invoiceAmount - paidAmount);
+        stats[clientId].outstanding += unpaid;
+      }
+    });
+
+    return stats;
   }, [invoices]);
+
+  // Helper to safely get stats for a client
+  const getClientStats = (clientId) => {
+    return clientStatsMap[clientId] || {
+      totalInvoices: 0,
+      totalRevenue: 0,
+      outstanding: 0,
+      amountPaid: 0
+    };
+  };
 
   const [formData, setFormData] = useState({
     name: "",
@@ -288,22 +236,21 @@ const ClientManagement = () => {
             <p className="text-sm text-gray-600 mt-1">
               Manage your client relationships and track business performance
             </p>
-            {/* debug overlay removed */}
           </div>
-          <div className="flex items-center gap-4 w-full lg:w-auto mt-4 lg:mt-0">
-            <div className="relative">
+          <div className="flex flex-col sm:flex-row items-center gap-4 w-full lg:w-auto mt-4 lg:mt-0">
+            <div className="relative w-full sm:w-auto">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
                 type="text"
                 placeholder="Search clients..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-80 bg-gray-100 rounded-lg pl-9 pr-4 py-2 text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full sm:w-80 bg-gray-100 rounded-lg pl-9 pr-4 py-2 text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
             <button
               onClick={() => setShowAddModal(true)}
-              className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+              className="w-full sm:w-auto flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
             >
               <Plus size={16} />
               Add Client
@@ -312,8 +259,8 @@ const ClientManagement = () => {
         </header>
 
         <main className="mt-6 flex flex-col gap-6">
-          <div className="overflow-hidden bg-white rounded-xl border border-gray-200 shadow-sm">
-            <table className="w-full">
+          <div className="overflow-x-auto bg-white rounded-xl border border-gray-200 shadow-sm">
+            <table className="w-full min-w-[800px]">
               <thead className="text-xs font-semibold text-gray-500 uppercase bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left">Client Name</th>
@@ -342,7 +289,7 @@ const ClientManagement = () => {
                   </tr>
                 ) : customers.length > 0 ? (
                   customers.map((client) => {
-                    const stats = calculateClientStats(client.id);
+                    const stats = getClientStats(client.id);
                     return (
                       <tr
                         key={client.id}
@@ -366,7 +313,7 @@ const ClientManagement = () => {
                           {stats.totalInvoices}
                         </td>
                         <td className="px-6 py-4 font-medium text-gray-900">
-                          `₹${stats.totalRevenue.toLocaleString('en-IN')}`
+                          ₹{stats.totalRevenue.toLocaleString('en-IN')}
                         </td>
                         <td className="px-6 py-4 text-gray-700">
                           <span className={stats.outstanding > 0 ? "text-red-600 font-medium" : "text-green-600"}>
@@ -418,7 +365,7 @@ const ClientManagement = () => {
         </main>
       </div>
 
-      {/* --- MODALS (No changes needed below this line) --- */}
+      {/* --- MODALS --- */}
 
       {showDeleteConfirmModal && clientToDelete && (
         <div className="fixed inset-0 bg-black bg-opacity-50 modal-backdrop flex items-center justify-center z-50 p-4">
@@ -687,7 +634,7 @@ const ClientManagement = () => {
                     <div className="bg-gray-50 p-4 rounded-xl">
                       <div className="flex items-center justify-between mb-2">
                         <div className="text-2xl font-bold text-gray-900">
-                          {calculateClientStats(selectedClient.id).totalInvoices}
+                          {getClientStats(selectedClient.id).totalInvoices}
                         </div>
                         <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
                           <FileText size={16} className="text-blue-600" />
@@ -698,7 +645,7 @@ const ClientManagement = () => {
                     <div className="bg-gray-50 p-4 rounded-xl">
                       <div className="flex items-center justify-between mb-2">
                         <div className="text-2xl font-bold text-gray-900">
-                          `₹${calculateClientStats(selectedClient.id).totalRevenue.toLocaleString('en-IN')}`
+                          ₹{getClientStats(selectedClient.id).totalRevenue.toLocaleString('en-IN')}
                         </div>
                         <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
                           <span className="text-green-600 font-bold text-lg">
@@ -711,8 +658,8 @@ const ClientManagement = () => {
                     <div className="bg-gray-50 p-4 rounded-xl">
                       <div className="flex items-center justify-between mb-2">
                         <div className="text-2xl font-bold text-gray-900">
-                          <span className={calculateClientStats(selectedClient.id).outstanding > 0 ? "text-red-600" : "text-green-600"}>
-                            ₹{calculateClientStats(selectedClient.id).outstanding.toLocaleString('en-IN')}
+                          <span className={getClientStats(selectedClient.id).outstanding > 0 ? "text-red-600" : "text-green-600"}>
+                            ₹{getClientStats(selectedClient.id).outstanding.toLocaleString('en-IN')}
                           </span>
                         </div>
                         <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
@@ -724,7 +671,7 @@ const ClientManagement = () => {
                     <div className="bg-gray-50 p-4 rounded-xl">
                       <div className="flex items-center justify-between mb-2">
                         <div className="text-2xl font-bold text-gray-900">
-                          `₹${calculateAmountPaid(selectedClient.id).toLocaleString('en-IN')}`
+                          ₹{getClientStats(selectedClient.id).amountPaid.toLocaleString('en-IN')}
                         </div>
                         <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
                           <TrendingUp size={16} className="text-green-600" />
@@ -803,7 +750,7 @@ const ClientManagement = () => {
                   </div>
                 </div>
               </div>
-              
+
               {/* Revenue Chart - Full Width */}
               {selectedClient.revenueData &&
                 selectedClient.revenueData.length > 0 && (

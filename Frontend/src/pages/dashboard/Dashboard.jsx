@@ -51,7 +51,7 @@ const Dashboard = () => {
   return (
     <div className="min-h-screen text-slate-800 font-sans">
       {/* Optimized container for laptop/desktop view */}
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-8 pt-28">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-8 pt-20 md:pt-28">
         <Header />
         <main className="mt-6 flex flex-col gap-6">
           {/* Stats Grid */}
@@ -243,9 +243,8 @@ const StatCard = ({
           <p className="text-xl font-bold text-gray-900">{value}</p>
           {valueLabel && (
             <p
-              className={`text-xs mt-0.5 ${
-                valueLabel.includes("Paid") ? "text-green-600" : "text-gray-500"
-              }`}
+              className={`text-xs mt-0.5 ${valueLabel.includes("Paid") ? "text-green-600" : "text-gray-500"
+                }`}
             >
               {valueLabel}
             </p>
@@ -254,9 +253,8 @@ const StatCard = ({
         {secondaryValue && (
           <div className="text-right">
             <p
-              className={`text-xl font-bold ${
-                isSecondaryValueRed ? "text-red-600" : "text-gray-900"
-              }`}
+              className={`text-xl font-bold ${isSecondaryValueRed ? "text-red-600" : "text-gray-900"
+                }`}
             >
               {secondaryValue}
             </p>
@@ -271,9 +269,8 @@ const StatCard = ({
       {change && (
         <div className="flex items-center text-xs mt-2">
           <span
-            className={`flex items-center font-semibold ${
-              changeType === "increase" ? "text-green-600" : "text-red-600"
-            }`}
+            className={`flex items-center font-semibold ${changeType === "increase" ? "text-green-600" : "text-red-600"
+              }`}
           >
             {changeType === "increase" ? (
               <ArrowUpRight className="w-3 h-3" />
@@ -334,9 +331,8 @@ const RecentActivity = memo(({ invoices = [], payments = [] }) => {
       }
 
       activities.push({
-        text: `Invoice #${inv.invoiceNumber} ${action}${
-          inv.client?.name ? ` for ${inv.client.name}` : ""
-        }`,
+        text: `Invoice #${inv.invoiceNumber} ${action}${inv.client?.name ? ` for ${inv.client.name}` : ""
+          }`,
         time: timeAgo,
         color: color,
         timestamp: createdDate,
@@ -360,19 +356,17 @@ const RecentActivity = memo(({ invoices = [], payments = [] }) => {
     recentPayments.forEach((payment) => {
       const paymentDate = new Date(
         payment.createdAt?.toDate?.() ||
-          payment.createdAt ||
-          payment.paymentDate ||
-          new Date()
+        payment.createdAt ||
+        payment.paymentDate ||
+        new Date()
       );
       const timeAgo = getTimeAgo(paymentDate);
       const invoice = safeInvoices.find((inv) => inv.id === payment.invoiceId);
 
       activities.push({
-        text: `Payment ₹${
-          payment.amount?.toLocaleString("en-IN") || "0"
-        } received${invoice ? ` for Invoice #${invoice.invoiceNumber}` : ""}${
-          payment.method ? ` via ${payment.method}` : ""
-        }`,
+        text: `Payment ₹${payment.amount?.toLocaleString("en-IN") || "0"
+          } received${invoice ? ` for Invoice #${invoice.invoiceNumber}` : ""}${payment.method ? ` via ${payment.method}` : ""
+          }`,
         time: timeAgo,
         color: "bg-green-500",
         timestamp: paymentDate,

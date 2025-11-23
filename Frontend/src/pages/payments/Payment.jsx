@@ -11,6 +11,7 @@ import {
   Save,
   X,
   Edit,
+  Eye,
 } from "lucide-react";
 import { useInvoices, useAllPayments } from "../../hooks/useFirestore";
 import { paymentService, invoiceService } from "../../lib/firestore/services";
@@ -62,11 +63,10 @@ const PaymentMethodModal = ({ isOpen, onClose, onConfirm }) => {
         {/* Payment method options */}
         <div className="mt-4 space-y-2">
           <label
-            className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer ${
-              method === "UPI"
-                ? "border-blue-500 bg-blue-50"
-                : "border-gray-300"
-            }`}
+            className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer ${method === "UPI"
+              ? "border-blue-500 bg-blue-50"
+              : "border-gray-300"
+              }`}
           >
             <input
               type="radio"
@@ -79,11 +79,10 @@ const PaymentMethodModal = ({ isOpen, onClose, onConfirm }) => {
             <span className="heading-subsection">UPI</span>
           </label>
           <label
-            className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer ${
-              method === "Bank Transfer"
-                ? "border-blue-500 bg-blue-50"
-                : "border-gray-300"
-            }`}
+            className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer ${method === "Bank Transfer"
+              ? "border-blue-500 bg-blue-50"
+              : "border-gray-300"
+              }`}
           >
             <input
               type="radio"
@@ -96,11 +95,10 @@ const PaymentMethodModal = ({ isOpen, onClose, onConfirm }) => {
             <span className="heading-subsection">Bank Transfer</span>
           </label>
           <label
-            className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer ${
-              method === "Cash"
-                ? "border-blue-500 bg-blue-50"
-                : "border-gray-300"
-            }`}
+            className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer ${method === "Cash"
+              ? "border-blue-500 bg-blue-50"
+              : "border-gray-300"
+              }`}
           >
             <input
               type="radio"
@@ -197,9 +195,8 @@ const EditPaymentModal = ({ isOpen, onClose, onSave, payment }) => {
             Payment Status
           </label>
           <div className="space-y-2">
-            <label className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer ${
-              status === "Paid" ? "border-green-500 bg-green-50" : "border-gray-300"
-            }`}>
+            <label className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer ${status === "Paid" ? "border-green-500 bg-green-50" : "border-gray-300"
+              }`}>
               <input
                 type="radio"
                 name="status"
@@ -210,9 +207,8 @@ const EditPaymentModal = ({ isOpen, onClose, onSave, payment }) => {
               />
               <span className="heading-subsection">Paid</span>
             </label>
-            <label className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer ${
-              status === "Unpaid" ? "border-yellow-500 bg-yellow-50" : "border-gray-300"
-            }`}>
+            <label className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer ${status === "Unpaid" ? "border-yellow-500 bg-yellow-50" : "border-gray-300"
+              }`}>
               <input
                 type="radio"
                 name="status"
@@ -223,9 +219,8 @@ const EditPaymentModal = ({ isOpen, onClose, onSave, payment }) => {
               />
               <span className="heading-subsection">Unpaid</span>
             </label>
-            <label className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer ${
-              status === "Partial" ? "border-purple-500 bg-purple-50" : "border-gray-300"
-            }`}>
+            <label className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer ${status === "Partial" ? "border-purple-500 bg-purple-50" : "border-gray-300"
+              }`}>
               <input
                 type="radio"
                 name="status"
@@ -245,9 +240,8 @@ const EditPaymentModal = ({ isOpen, onClose, onSave, payment }) => {
             Payment Method
           </label>
           <div className="space-y-2">
-            <label className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer ${
-              method === "UPI" ? "border-blue-500 bg-blue-50" : "border-gray-300"
-            }`}>
+            <label className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer ${method === "UPI" ? "border-blue-500 bg-blue-50" : "border-gray-300"
+              }`}>
               <input
                 type="radio"
                 name="paymentMethod"
@@ -258,9 +252,8 @@ const EditPaymentModal = ({ isOpen, onClose, onSave, payment }) => {
               />
               <span className="heading-subsection">UPI</span>
             </label>
-            <label className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer ${
-              method === "Bank Transfer" ? "border-blue-500 bg-blue-50" : "border-gray-300"
-            }`}>
+            <label className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer ${method === "Bank Transfer" ? "border-blue-500 bg-blue-50" : "border-gray-300"
+              }`}>
               <input
                 type="radio"
                 name="paymentMethod"
@@ -271,9 +264,8 @@ const EditPaymentModal = ({ isOpen, onClose, onSave, payment }) => {
               />
               <span className="heading-subsection">Bank Transfer</span>
             </label>
-            <label className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer ${
-              method === "Cash" ? "border-blue-500 bg-blue-50" : "border-gray-300"
-            }`}>
+            <label className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer ${method === "Cash" ? "border-blue-500 bg-blue-50" : "border-gray-300"
+              }`}>
               <input
                 type="radio"
                 name="paymentMethod"
@@ -393,9 +385,8 @@ const PaymentRow = ({
         )}
       </td>
       <td
-        className={`py-3 px-4 text-sm ${
-          isOverdue ? "text-red-500" : "text-gray-600"
-        }`}
+        className={`py-3 px-4 text-sm ${isOverdue ? "text-red-500" : "text-gray-600"
+          }`}
       >
         {dueDate}
       </td>
@@ -423,18 +414,18 @@ const PendingPaymentCard = ({
   const { invoiceNo, client, amount, received, dueDate, status } = invoice;
   const [paidAmount, setPaidAmount] = useState("");
   const isEditing = editingPaymentId === invoiceNo;
-  
+
   // Calculate remaining amount more accurately
   const currentPaidAmount = parseFloat(received || 0) || 0;
   const invoiceAmount = parseFloat(amount || 0) || 0;
   const remainingAmount = invoiceAmount - currentPaidAmount;
-  
+
   const iconBgColor =
     status === "Overdue"
       ? "bg-red-500"
       : status === "Partial"
-      ? "bg-purple-500"
-      : "bg-yellow-500";
+        ? "bg-purple-500"
+        : "bg-yellow-500";
   const Icon = status === "Overdue" ? AlertCircle : Clock;
 
   const handleEnterAmountClick = () => {
@@ -461,11 +452,10 @@ const PendingPaymentCard = ({
           <p className="font-bold text-gray-900">{invoiceNo}</p>
           <p className="text-sm text-gray-600">{client}</p>
           <p
-            className={`text-sm ${
-              status === "Overdue"
-                ? "text-red-600 font-medium"
-                : "text-gray-500"
-            }`}
+            className={`text-sm ${status === "Overdue"
+              ? "text-red-600 font-medium"
+              : "text-gray-500"
+              }`}
           >
             Due: {dueDate}
           </p>
@@ -664,15 +654,15 @@ const PaymentsPage = () => {
   const handleSaveEditedPayment = async (updatedPayment) => {
     try {
       const today = new Date().toLocaleDateString("en-GB");
-      
+
       // Find the invoice to update
       const invoiceToUpdate = allInvoices.find(
         (inv) => inv.invoiceNumber === updatedPayment.invoiceNo
       );
-      
+
       if (invoiceToUpdate) {
         const invoiceAmount = parseFloat(invoiceToUpdate.total || invoiceToUpdate.amount || invoiceToUpdate.totalAmount) || 0;
-        
+
         // Determine paid amount based on status
         let paidAmount;
         if (updatedPayment.status === "Paid") {
@@ -683,7 +673,7 @@ const PaymentsPage = () => {
         } else {
           paidAmount = 0; // No amount paid if unpaid
         }
-        
+
         // Update invoice with new payment details
         const updateData = {
           status: updatedPayment.status,
@@ -691,12 +681,12 @@ const PaymentsPage = () => {
           paymentMethod: updatedPayment.method,
           transactionId: updatedPayment.transactionId,
         };
-        
+
         // Only set paymentDate if invoice is fully paid
         if (updatedPayment.status === "Paid") {
           updateData.paymentDate = today;
         }
-        
+
         await invoiceService.updateInvoice(invoiceToUpdate.id, updateData);
 
         alert("Payment updated successfully!");
@@ -718,7 +708,7 @@ const PaymentsPage = () => {
       );
       if (invoiceToUpdate) {
         const invoiceAmount = parseFloat(invoiceToUpdate.total || invoiceToUpdate.amount || invoiceToUpdate.totalAmount) || 0;
-        
+
         // Update invoice status to paid with full amount
         await invoiceService.updateInvoice(invoiceToUpdate.id, {
           status: "Paid",
@@ -756,12 +746,12 @@ const PaymentsPage = () => {
 
     try {
       const today = new Date().toLocaleDateString("en-GB");
-      
+
       // Find the invoice to update
       const invoiceToUpdate = allInvoices.find(
         (inv) => inv.invoiceNumber === invoiceNo
       );
-      
+
       if (!invoiceToUpdate) {
         alert("Invoice not found.");
         return;
@@ -770,7 +760,7 @@ const PaymentsPage = () => {
       const invoiceAmount = parseFloat(invoiceToUpdate.total || invoiceToUpdate.amount || invoiceToUpdate.totalAmount) || 0;
       const currentPaidAmount = parseFloat(invoiceToUpdate.paidAmount || 0) || 0;
       const newTotalPaidAmount = currentPaidAmount + paidAmount;
-      
+
       // Determine new status based on payment amount
       let newStatus;
       if (newTotalPaidAmount >= invoiceAmount) {
@@ -786,12 +776,12 @@ const PaymentsPage = () => {
         paidAmount: newTotalPaidAmount,
         status: newStatus,
       };
-      
+
       // Only set paymentDate if invoice is fully paid
       if (newStatus === "Paid") {
         updateData.paymentDate = today;
       }
-      
+
       await invoiceService.updateInvoice(invoiceToUpdate.id, updateData);
 
       // Create a payment record for this partial payment
@@ -806,7 +796,7 @@ const PaymentsPage = () => {
 
       alert(`Payment of ₹${paidAmount.toLocaleString('en-IN')} recorded successfully!`);
       setEditingPaymentId(null);
-      
+
     } catch (error) {
       alert("Error recording payment: " + error.message);
     }
@@ -1067,11 +1057,10 @@ const PaymentsPage = () => {
                   <StatCard
                     title="Amount Received"
                     amount={`₹${amountReceived.toLocaleString()}`}
-                    subtitle={`${
-                      totalAmount > 0
-                        ? Math.round((amountReceived / totalAmount) * 100)
-                        : 0
-                    }% of total`}
+                    subtitle={`${totalAmount > 0
+                      ? Math.round((amountReceived / totalAmount) * 100)
+                      : 0
+                      }% of total`}
                     icon={CheckCircle2}
                     iconBgColor="bg-green-500"
                   />
@@ -1107,17 +1096,16 @@ const PaymentsPage = () => {
                 className="w-full bg-white border border-gray-300 rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
-            <div className="flex items-center gap-4">
-              <div className="bg-gray-100 rounded-lg p-1 flex items-center space-x-1 max-w-max overflow-x-auto">
+            <div className="flex items-center gap-4 w-full md:w-auto overflow-hidden">
+              <div className="bg-gray-100 rounded-lg p-1 flex items-center space-x-1 w-full md:w-auto overflow-x-auto">
                 {tabs.map((tab) => (
                   <button
                     key={tab}
                     onClick={() => setActiveTab(tab)}
-                    className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors whitespace-nowrap flex items-center gap-2 ${
-                      activeTab === tab
-                        ? "bg-white text-gray-900 shadow-sm"
-                        : "bg-transparent text-gray-600 hover:bg-gray-200"
-                    }`}
+                    className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors whitespace-nowrap flex items-center gap-2 ${activeTab === tab
+                      ? "bg-white text-gray-900 shadow-sm"
+                      : "bg-transparent text-gray-600 hover:bg-gray-200"
+                      }`}
                   >
                     {tab}
                     {tab === "Overdue" && overdueCount > 0 && (

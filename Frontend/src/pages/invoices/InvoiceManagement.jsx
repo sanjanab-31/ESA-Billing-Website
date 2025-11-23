@@ -269,24 +269,24 @@ const InvoicePreview = ({
   const previewData = invoice || invoiceData;
   const previewCalcs = invoice
     ? {
-        subtotal: invoice.items.reduce((sum, item) => sum + item.amount, 0),
-        cgstAmount:
-          (invoice.items.reduce((sum, item) => sum + item.amount, 0) *
-            (invoice.cgst || 0)) /
-          100,
-        sgstAmount:
-          (invoice.items.reduce((sum, item) => sum + item.amount, 0) *
-            (invoice.sgst || 0)) /
-          100,
-        igstAmount:
-          (invoice.items.reduce((sum, item) => sum + item.amount, 0) *
-            (invoice.igst || 0)) /
-          100,
-        roundOffAmount: invoice.isRoundOff
-          ? Math.round(invoice.amount) - invoice.amount
-          : 0,
-        total: invoice.isRoundOff ? Math.round(invoice.amount) : invoice.amount,
-      }
+      subtotal: invoice.items.reduce((sum, item) => sum + item.amount, 0),
+      cgstAmount:
+        (invoice.items.reduce((sum, item) => sum + item.amount, 0) *
+          (invoice.cgst || 0)) /
+        100,
+      sgstAmount:
+        (invoice.items.reduce((sum, item) => sum + item.amount, 0) *
+          (invoice.sgst || 0)) /
+        100,
+      igstAmount:
+        (invoice.items.reduce((sum, item) => sum + item.amount, 0) *
+          (invoice.igst || 0)) /
+        100,
+      roundOffAmount: invoice.isRoundOff
+        ? Math.round(invoice.amount) - invoice.amount
+        : 0,
+      total: invoice.isRoundOff ? Math.round(invoice.amount) : invoice.amount,
+    }
     : calculations;
 
   const convertToWords = (num) => {
@@ -496,29 +496,23 @@ const InvoicePreview = ({
               <td style="width: 70%; vertical-align: top;">
                 <table class="bordered-table">
                   <tr><td>To, M/s. ${previewData.client?.name || ""}</td></tr>
-                  <tr><td style="height: 60px;">${
-                    previewData.client?.address || ""
-                  }</td></tr>
+                  <tr><td style="height: 60px;">${previewData.client?.address || ""
+      }</td></tr>
                   <tr><td>GSTIN : ${previewData.client?.gst || ""}</td></tr>
                 </table>
               </td>
               <td style="width: 30%; vertical-align: top;">
                 <table class="bordered-table">
-                  <tr><td>NO : ${previewData.invoiceNumber}</td><td>DATE : ${
-      previewData.invoiceDate
-    }</td></tr>
-                  <tr><td colspan="2">P.O. No : ${
-                    previewData.poNumber
-                  }</td></tr>
-                  <tr><td colspan="2">P.O. Date : ${
-                    previewData.poDate
-                  }</td></tr>
-                  <tr><td colspan="2">D.C. No : ${
-                    previewData.dcNumber
-                  }</td></tr>
-                  <tr><td colspan="2">D.C. Date : ${
-                    previewData.dcDate
-                  }</td></tr>
+                  <tr><td>NO : ${previewData.invoiceNumber}</td><td>DATE : ${previewData.invoiceDate
+      }</td></tr>
+                  <tr><td colspan="2">P.O. No : ${previewData.poNumber
+      }</td></tr>
+                  <tr><td colspan="2">P.O. Date : ${previewData.poDate
+      }</td></tr>
+                  <tr><td colspan="2">D.C. No : ${previewData.dcNumber
+      }</td></tr>
+                  <tr><td colspan="2">D.C. Date : ${previewData.dcDate
+      }</td></tr>
                 </table>
               </td>
             </tr>
@@ -536,35 +530,34 @@ const InvoicePreview = ({
             </thead>
             <tbody>
               ${previewData.items
-                .map(
-                  (item, index) => `
+        .map(
+          (item, index) => `
                 <tr>
                   <td class="text-center">${index + 1}</td>
                   <td>${item.description}</td>
                   <td class="text-center">${item.hsnCode}</td>
                   <td class="text-center">${item.quantity}</td>
                   <td class="text-right">${item.rate.toLocaleString(
-                    "en-IN"
-                  )}</td>
+            "en-IN"
+          )}</td>
                   <td class="text-right">${item.amount.toLocaleString(
-                    "en-IN"
-                  )}</td>
+            "en-IN"
+          )}</td>
                 </tr>
               `
-                )
-                .join("")}
+        )
+        .join("")}
               ${Array(12 - previewData.items.length)
-                .fill(
-                  "<tr><td>&nbsp;</td><td></td><td></td><td></td><td></td><td></td></tr>"
-                )
-                .join("")}
+        .fill(
+          "<tr><td>&nbsp;</td><td></td><td></td><td></td><td></td><td></td></tr>"
+        )
+        .join("")}
             </tbody>
           </table>
-          ${
-            previewData.invoiceNotes
-              ? `<div style="padding: 5px 0; font-style: italic;"><strong>Notes:</strong> ${previewData.invoiceNotes}</div>`
-              : ""
-          }
+          ${previewData.invoiceNotes
+        ? `<div style="padding: 5px 0; font-style: italic;"><strong>Notes:</strong> ${previewData.invoiceNotes}</div>`
+        : ""
+      }
           <table class="bordered-table">
             <tr>
               <td style="width: 60%;" rowspan="3">
@@ -573,23 +566,23 @@ const InvoicePreview = ({
               </td>
               <td style="padding-left: 10px;">SUB TOTAL</td>
               <td class="text-right">${previewCalcs.subtotal.toLocaleString(
-                "en-IN",
-                { minimumFractionDigits: 2 }
-              )}</td>
+        "en-IN",
+        { minimumFractionDigits: 2 }
+      )}</td>
             </tr>
             <tr>
               <td style="padding-left: 10px;">CGST ${previewData.cgst}%</td>
               <td class="text-right">${previewCalcs.cgstAmount.toLocaleString(
-                "en-IN",
-                { minimumFractionDigits: 2 }
-              )}</td>
+        "en-IN",
+        { minimumFractionDigits: 2 }
+      )}</td>
             </tr>
             <tr>
               <td style="padding-left: 10px;">SGST ${previewData.sgst}%</td>
               <td class="text-right">${previewCalcs.sgstAmount.toLocaleString(
-                "en-IN",
-                { minimumFractionDigits: 2 }
-              )}</td>
+        "en-IN",
+        { minimumFractionDigits: 2 }
+      )}</td>
             </tr>
             <tr>
               <td rowspan="3">
@@ -597,22 +590,22 @@ const InvoicePreview = ({
               </td>
               <td style="padding-left: 10px;">IGST ${previewData.igst}%</td>
               <td class="text-right">${previewCalcs.igstAmount.toLocaleString(
-                "en-IN",
-                { minimumFractionDigits: 2 }
-              )}</td>
+        "en-IN",
+        { minimumFractionDigits: 2 }
+      )}</td>
             </tr>
             <tr>
               <td style="padding-left: 10px;">ROUND OFF</td>
               <td class="text-right">${(
-                previewCalcs.roundOffAmount || 0
-              ).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
+        previewCalcs.roundOffAmount || 0
+      ).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
             </tr>
             <tr class="font-bold">
               <td style="padding-left: 10px;">NET TOTAL</td>
               <td class="text-right">₹${previewCalcs.total.toLocaleString(
-                "en-IN",
-                { minimumFractionDigits: 2 }
-              )}</td>
+        "en-IN",
+        { minimumFractionDigits: 2 }
+      )}</td>
             </tr>
             <tr>
               <td style="height: 80px; vertical-align: top;">
@@ -669,7 +662,7 @@ const InvoicePreview = ({
                 <div className="font-bold text-black">☎ 98432 94464</div>
                 <div className="font-bold text-black">☎ 96984 87096</div>
               </div>
-              
+
               {/* Main section with logo and company name */}
               <div className="flex items-center justify-center mb-3">
                 <img
@@ -677,9 +670,9 @@ const InvoicePreview = ({
                   alt="ESA Logo"
                   className="h-16 mr-5"
                 />
-                <h1 
+                <h1
                   className="text-3xl font-bold"
-                  style={{ 
+                  style={{
                     fontFamily: 'Times New Roman, serif',
                     color: '#8B0000',
                     margin: 0
@@ -688,7 +681,7 @@ const InvoicePreview = ({
                   ESA ENGINEERING WORKS
                 </h1>
               </div>
-              
+
               {/* Details section */}
               <div className="text-center">
                 <p className="text-sm text-black mb-1">
@@ -991,13 +984,13 @@ const CreateInvoiceComponent = ({
           </button>
         </div>
       </div>
-      <main className="mt-6 grid grid-cols-3 gap-6">
-        <div className="col-span-2 space-y-6">
+      <main className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="col-span-1 lg:col-span-2 space-y-6">
           <div className="bg-white p-3 lg:p-4 rounded-lg border border-gray-200 shadow-sm">
             <h3 className="text-lg font-semibold text-gray-900 mb-3">
               Invoice Details
             </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm text-gray-700 mb-1">
                   Invoice Number <span className="text-red-500">*</span>
@@ -1120,7 +1113,7 @@ const CreateInvoiceComponent = ({
               </button>
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full">
+              <table className="w-full min-w-[600px]">
                 <thead className="text-xs uppercase font-semibold text-gray-500">
                   <tr>
                     <th className="p-2 text-left w-10">#</th>
@@ -1301,9 +1294,8 @@ const CreateInvoiceComponent = ({
               </span>
               <button
                 type="button"
-                className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2 ${
-                  invoiceData.isRoundOff ? "bg-blue-600" : "bg-gray-200"
-                }`}
+                className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2 ${invoiceData.isRoundOff ? "bg-blue-600" : "bg-gray-200"
+                  }`}
                 onClick={() =>
                   setInvoiceData((prev) => ({
                     ...prev,
@@ -1314,9 +1306,8 @@ const CreateInvoiceComponent = ({
                 <span className="sr-only">Enable Round Off</span>
                 <span
                   aria-hidden="true"
-                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                    invoiceData.isRoundOff ? "translate-x-5" : "translate-x-0"
-                  }`}
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${invoiceData.isRoundOff ? "translate-x-5" : "translate-x-0"
+                    }`}
                 />
               </button>
             </div>
@@ -1493,44 +1484,45 @@ const InvoiceManagementComponent = ({
           </div>
         </header>
         <main className="mt-6 flex flex-col gap-6">
-          <div className="flex justify-between items-center">
-            <div className="flex p-1 bg-gray-100 rounded-lg">
-              {tabs.map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                    activeTab === tab
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+            <div className="w-full lg:w-auto overflow-x-auto pb-1">
+              <div className="flex p-1 bg-gray-100 rounded-lg whitespace-nowrap">
+                {tabs.map((tab) => (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${activeTab === tab
                       ? "bg-white text-gray-900 shadow-sm"
                       : "text-gray-600 hover:text-gray-800"
-                  }`}
-                >
-                  {tab}
-                </button>
-              ))}
+                      }`}
+                  >
+                    {tab}
+                  </button>
+                ))}
+              </div>
             </div>
-            <div className="flex items-center gap-4 w-full lg:w-auto mt-4 lg:mt-0">
-              <div className="relative flex-1 lg:flex-none">
+            <div className="flex flex-col sm:flex-row items-center gap-4 w-full lg:w-auto">
+              <div className="relative w-full sm:w-auto flex-1 lg:flex-none">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
                   type="text"
                   placeholder="Search invoices..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full lg:w-80 bg-gray-100 rounded-lg pl-9 pr-4 py-2 text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full sm:w-80 bg-gray-100 rounded-lg pl-9 pr-4 py-2 text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <button
                 onClick={handleCreateInvoice}
-                className="flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg transition-colors hover:bg-blue-700"
+                className="w-full sm:w-auto flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg transition-colors hover:bg-blue-700"
               >
                 <Plus className="w-4 h-4 mr-2" />
                 Create Invoice
               </button>
             </div>
           </div>
-          <div className="overflow-hidden bg-white rounded-xl border border-gray-200 shadow-sm">
-            <table className="w-full">
+          <div className="overflow-x-auto bg-white rounded-xl border border-gray-200 shadow-sm">
+            <table className="w-full min-w-[800px]">
               <thead className="text-xs font-semibold text-gray-500 uppercase bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left">Invoice No</th>
@@ -2248,17 +2240,15 @@ const InvoiceManagementSystem = () => {
               <td style="width: 70%; vertical-align: top;">
                 <table class="bordered-table">
                   <tr><td>To, M/s. ${invoice.client?.name || ""}</td></tr>
-                  <tr><td style="height: 60px;">${
-                    invoice.client?.address || ""
-                  }</td></tr>
+                  <tr><td style="height: 60px;">${invoice.client?.address || ""
+      }</td></tr>
                   <tr><td>GSTIN : ${invoice.client?.gst || ""}</td></tr>
                 </table>
               </td>
               <td style="width: 30%; vertical-align: top;">
                 <table class="bordered-table">
-                  <tr><td>NO : ${invoice.invoiceNumber}</td><td>DATE : ${
-      invoice.invoiceDate
-    }</td></tr>
+                  <tr><td>NO : ${invoice.invoiceNumber}</td><td>DATE : ${invoice.invoiceDate
+      }</td></tr>
                   <tr><td colspan="2">P.O. No : ${invoice.poNumber}</td></tr>
                   <tr><td colspan="2">P.O. Date : ${invoice.poDate}</td></tr>
                   <tr><td colspan="2">D.C. No : ${invoice.dcNumber}</td></tr>
@@ -2280,8 +2270,8 @@ const InvoiceManagementSystem = () => {
             </thead>
             <tbody>
               ${invoice.items
-                .map(
-                  (item, index) => `
+        .map(
+          (item, index) => `
                 <tr>
                   <td class="text-center">${index + 1}</td>
                   <td>${item.description}</td>
@@ -2289,80 +2279,73 @@ const InvoiceManagementSystem = () => {
                   <td class="text-center">${item.quantity}</td>
                   <td class="text-right">₹${item.rate.toFixed(2)}</td>
                   <td class="text-right">₹${(item.quantity * item.rate).toFixed(
-                    2
-                  )}</td>
+            2
+          )}</td>
                 </tr>
               `
-                )
-                .join("")}
+        )
+        .join("")}
               <tr style="height: 120px;">
                 <td colspan="6">&nbsp;</td>
               </tr>
               <tr>
                 <td colspan="5" class="text-right font-bold">Sub Total</td>
                 <td class="text-right font-bold">₹${calculations.subtotal.toFixed(
-                  2
-                )}</td>
+          2
+        )}</td>
               </tr>
-              ${
-                invoice.cgst > 0
-                  ? `
+              ${invoice.cgst > 0
+        ? `
                 <tr>
-                  <td colspan="5" class="text-right">CGST @ ${
-                    invoice.cgst
-                  }%</td>
+                  <td colspan="5" class="text-right">CGST @ ${invoice.cgst
+        }%</td>
                   <td class="text-right">₹${calculations.cgstAmount.toFixed(
-                    2
-                  )}</td>
+          2
+        )}</td>
                 </tr>
               `
-                  : ""
-              }
-              ${
-                invoice.sgst > 0
-                  ? `
+        : ""
+      }
+              ${invoice.sgst > 0
+        ? `
                 <tr>
-                  <td colspan="5" class="text-right">SGST @ ${
-                    invoice.sgst
-                  }%</td>
+                  <td colspan="5" class="text-right">SGST @ ${invoice.sgst
+        }%</td>
                   <td class="text-right">₹${calculations.sgstAmount.toFixed(
-                    2
-                  )}</td>
+          2
+        )}</td>
                 </tr>
               `
-                  : ""
-              }
-              ${
-                invoice.igst > 0
-                  ? `
+        : ""
+      }
+              ${invoice.igst > 0
+        ? `
                 <tr>
-                  <td colspan="5" class="text-right">IGST @ ${
-                    invoice.igst
-                  }%</td>
+                  <td colspan="5" class="text-right">IGST @ ${invoice.igst
+        }%</td>
                   <td class="text-right">₹${calculations.igstAmount.toFixed(
-                    2
-                  )}</td>
+          2
+        )}</td>
                 </tr>
               `
-                  : ""
-              }
-              ${
-                invoice.isRoundOff && calculations.roundOffAmount !== 0
-                  ? `
+        : ""
+      }
+              ${invoice.isRoundOff && calculations.roundOffAmount !== 0
+        ? `
                 <tr>
                   <td colspan="5" class="text-right">Round Off</td>
                   <td class="text-right">₹${calculations.roundOffAmount.toFixed(
-                    2
-                  )}</td>
+          2
+        )}</td>
                 </tr>
               `
-                  : ""
-              }
+        : ""
+      }
               <tr style="background-color: #ccc;">
                 <td colspan="5" class="text-right font-bold">Total</td>
                 <td class="text-right font-bold">₹${calculations.total.toFixed(
-                  2
-                )}</td>
+        2
+      )}</td>
               </tr>
             </tbody>
           </table>
@@ -2372,10 +2355,9 @@ const InvoiceManagementSystem = () => {
               <td style="width: 50%; vertical-align: top;">
                 <table class="bordered-table">
                   <tr><td class="text-center font-bold">Declaration</td></tr>
-                  <tr><td style="height: 60px;">${
-                    invoice.declaration ||
-                    "We declare that this invoice shows the actual price of the goods Described and that all Particulars are true and correct."
-                  }</td></tr>
+                  <tr><td style="height: 60px;">${invoice.declaration ||
+      "We declare that this invoice shows the actual price of the goods Described and that all Particulars are true and correct."
+      }</td></tr>
                 </table>
               </td>
               <td style="width: 50%; vertical-align: top;">
@@ -2386,11 +2368,10 @@ const InvoiceManagementSystem = () => {
               </td>
             </tr>
           </table>
-          ${
-            invoice.invoiceNotes
-              ? `<p style="margin-top: 10px; font-size: 12px;"><strong>Notes:</strong> ${invoice.invoiceNotes}</p>`
-              : ""
-          }
+          ${invoice.invoiceNotes
+        ? `<p style="margin-top: 10px; font-size: 12px;"><strong>Notes:</strong> ${invoice.invoiceNotes}</p>`
+        : ""
+      }
         </div>
       </body>
       </html>
