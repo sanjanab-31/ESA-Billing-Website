@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useContext } from "react";
+import React, { useState, useMemo, useEffect, useContext, memo, useCallback } from "react";
 import { Plus, Search, Eye, Edit, Trash2, X } from "lucide-react";
 import { useProducts } from "../../hooks/useFirestore";
 import { AuthContext } from "../../context/AuthContext";
@@ -220,8 +220,8 @@ const DeleteConfirmationModal = ({ onClose, onConfirm, productName }) => {
   );
 };
 
-// --- CHANGED: ProductRow now accepts and displays the client's name ---
-const ProductRow = ({
+// PERFORMANCE: Memoized ProductRow to prevent unnecessary re-renders
+const ProductRow = memo(({
   product,
   serialNumber,
   onView,
@@ -238,7 +238,7 @@ const ProductRow = ({
     <td className="px-6 py-4">
       <div className="flex items-center space-x-3">
         <button
-          onClick={() => onView(product)}
+          onClick={() => onView(product, serialNumber)}
           className="p-1 text-gray-600 transition-colors hover:text-blue-600"
           title="View Details"
         >
@@ -261,7 +261,9 @@ const ProductRow = ({
       </div>
     </td>
   </tr>
-);
+));
+
+ProductRow.displayName = 'ProductRow';
 
 // --- Main App Component ---
 export default function ProductManagement() {
@@ -269,7 +271,7 @@ export default function ProductManagement() {
   const [modal, setModal] = useState({ isOpen: false, type: null, data: null });
 
   const { user } = useContext(AuthContext);
-  const { success, error: showError } = useToast();
+  const { success, error: showError, warning } = useToast();
 
   // Use Firestore hook
   const {
@@ -280,61 +282,114 @@ export default function ProductManagement() {
     editProduct,
     removeProduct
   } = useProducts({ search: searchTerm });
-
+  // PERFORMANCE: Filter and sort products with secondary sorting for stability
   const filteredProducts = useMemo(() => {
     if (!products) return [];
-    if (!searchTerm) return products;
-    return products.filter(
-      (product) =>
-        product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        product.hsn.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+
+    // 1. Assign stable Serial Numbers based on the original list order
+    // This ensures S.No is fixed to the product's position in the full list
+    const productsWithStableIndex = products.map((p, i) => ({
+      ...p,
+      originalSerialNumber: String(i + 1).padStart(2, '0')
+    }));
+
+    let filtered = productsWithStableIndex;
+    if (searchTerm) {
+      filtered = productsWithStableIndex.filter(
+        (product) =>
+          product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          product.hsn.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    // Sort with secondary sorting for stable ordering
+    return [...filtered].sort((a, b) => {
+      // Primary sort by name (case-insensitive)
+      const nameCompare = (a.name || '').toLowerCase().localeCompare((b.name || '').toLowerCase());
+      if (nameCompare !== 0) return nameCompare;
+
+      // Secondary sort by createdAt for stability
+      const aTime = a.createdAt?.toMillis?.() || 0;
+      const bTime = b.createdAt?.toMillis?.() || 0;
+      return bTime - aTime;
+    });
   }, [products, searchTerm]);
 
-  const closeModal = () => setModal({ isOpen: false, type: null, data: null });
+  // Stable handlers for actions
+  const closeModal = useCallback(() => setModal({ isOpen: false, type: null, data: null }), []);
+
+  const handleViewProduct = useCallback((product, serialNumber) => {
+    setModal({
+      isOpen: true,
+      type: "view",
+      data: {
+        ...product,
+        displayId: serialNumber,
+      },
+    });
+  }, []);
+
+  const handleEditProduct = useCallback((product) => {
+    setModal({ isOpen: true, type: "edit", data: product });
+  }, []);
+
+  const handleDeleteProduct = useCallback((product) => {
+    setModal({ isOpen: true, type: "delete", data: product });
+  }, []);
 
   // handle save (add or edit) using Firestore
   const handleSaveProduct = async (productData) => {
-    if (modal.type === "edit" && productData?.id) {
-      const result = await editProduct(productData.id, {
-        name: productData.name,
-        hsn: productData.hsn,
-        price: parseFloat(productData.price),
-      });
+    const isEdit = modal.type === "edit" && productData?.id;
+    const productName = productData.name;
 
-      if (result.success) {
-        success(`Product "${productData.name}" updated successfully!`);
-        closeModal();
-      } else {
-        showError(`Failed to update product: ${result.error}`);
-      }
+    // Optimistic UI: Close modal and show notification immediately
+    closeModal();
+
+    if (isEdit) {
+      // Update = Yellow (Warning style)
+      warning(`Product "${productName}" updated successfully!`, "Updated");
     } else {
-      const result = await addProduct({
+      // Create = Green (Success style)
+      success(`Product "${productName}" added successfully!`, "Added");
+    }
+
+    let result;
+    if (isEdit) {
+      result = await editProduct(productData.id, {
         name: productData.name,
         hsn: productData.hsn,
         price: parseFloat(productData.price),
       });
+    } else {
+      result = await addProduct({
+        name: productData.name,
+        hsn: productData.hsn,
+        price: parseFloat(productData.price),
+      });
+    }
 
-      if (result.success) {
-        success(`Product "${productData.name}" added successfully!`);
-        closeModal();
-      } else {
-        showError(`Failed to add product: ${result.error}`);
-      }
+    // Handle failure
+    if (!result.success) {
+      showError(`Failed to ${isEdit ? "update" : "add"} product: ${result.error}`, "Error");
     }
   };
 
-  const handleDeleteProduct = (product) =>
-    setModal({ isOpen: true, type: "delete", data: product });
-
   const confirmDelete = async () => {
     if (modal.data && modal.data.id) {
-      const result = await removeProduct(modal.data.id);
-      if (result.success) {
-        success(`Product "${modal.data.name}" deleted successfully!`);
-        closeModal();
-      } else {
-        showError(`Failed to delete product: ${result.error}`);
+      const productName = modal.data.name;
+      const productId = modal.data.id;
+
+      // Optimistic UI: Close modal and show notification immediately
+      closeModal();
+
+      // Delete = Red (Error style)
+      showError(`Product "${productName}" deleted successfully!`, "Deleted");
+
+      const result = await removeProduct(productId);
+
+      // Handle failure
+      if (!result.success) {
+        showError(`Failed to delete product: ${result.error}`, "Error");
       }
     }
   };
@@ -351,7 +406,6 @@ export default function ProductManagement() {
               <p className="text-sm text-gray-600 mt-1">
                 View all your products in one place
               </p>
-              {/* debug overlay removed */}
             </div>
             <div className="flex items-center gap-2 mt-3 sm:mt-0">
               <div className="relative">
@@ -404,7 +458,7 @@ export default function ProductManagement() {
                       </td>
                     </tr>
                   ) : filteredProducts.length > 0 ? (
-                    filteredProducts.map((product, index) => {
+                    filteredProducts.map((product) => {
                       return (
                         <ProductRow
                           key={product.id}
@@ -413,20 +467,9 @@ export default function ProductManagement() {
                             price: `₹${Number(product.price).toLocaleString('en-IN')}`,
                             revenue: 'N/A'
                           }}
-                          serialNumber={String(index + 1).padStart(2, '0')}
-                          onView={(p) =>
-                            setModal({
-                              isOpen: true,
-                              type: "view",
-                              data: {
-                                ...p,
-                                displayId: String(index + 1).padStart(2, "0"),
-                              },
-                            })
-                          }
-                          onEdit={(p) =>
-                            setModal({ isOpen: true, type: "edit", data: p })
-                          }
+                          serialNumber={product.originalSerialNumber}
+                          onView={handleViewProduct}
+                          onEdit={handleEditProduct}
                           onDelete={handleDeleteProduct}
                         />
                       );

@@ -15,16 +15,19 @@ let productsCache = null;
 let invoicesCache = null;
 let paymentsCache = {};
 let settingsCache = null;
+let dashboardStatsCache = null; // ADDED: Cache for dashboard stats
 
-// Dashboard Hook with real-time updates
+// Dashboard Hook with real-time updates and instant cache loading
 export const useDashboard = () => {
-  const [stats, setStats] = useState(null);
+  // CHANGED: Initialize with cached data for instant display
+  const [stats, setStats] = useState(dashboardStatsCache);
   const [error, setError] = useState(null);
 
   const fetchStats = useCallback(async () => {
     try {
       const data = await dashboardService.getDashboardStats();
       setStats(data);
+      dashboardStatsCache = data; // ADDED: Update cache
       setError(null);
     } catch (err) {
       setError(err.message);
@@ -350,7 +353,7 @@ export const useInvoices = (options = {}) => {
           : docs;
         invoicesCache = data;
         setInvoices(data);
-      } catch (e) {}
+      } catch (e) { }
     });
 
     return () => {
@@ -420,7 +423,7 @@ export const usePayments = (invoiceId) => {
               (p) => p.invoiceId === invoiceId
             );
             setPayments(paymentsCache[invoiceId]);
-          } catch (e) {}
+          } catch (e) { }
         },
         { where: { field: "invoiceId", operator: "==", value: invoiceId } }
       );
@@ -467,7 +470,7 @@ export const useAllPayments = () => {
     };
   }, []);
 
-  return { payments,  error };
+  return { payments, error };
 };
 
 // Product Management Hook
@@ -592,7 +595,7 @@ export const useProducts = (options = {}) => {
           : docs;
         productsCache = data;
         setProducts(data);
-      } catch (e) {}
+      } catch (e) { }
     });
 
     return () => {

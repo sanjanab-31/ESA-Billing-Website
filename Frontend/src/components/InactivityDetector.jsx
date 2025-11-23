@@ -1,50 +1,98 @@
-import React, { useEffect, useContext, useRef } from 'react';
+import { useEffect, useContext, useCallback, useRef } from 'react';
 import { AuthContext } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
+/**
+ * InactivityDetector Component
+ * Monitors user activity and automatically logs out after a period of inactivity
+ * based on the session timeout settings configured in the Settings page
+ */
 const InactivityDetector = () => {
-    const { signOut, isSessionTimeoutEnabled } = useContext(AuthContext);
+    const {
+        isSessionTimeoutEnabled,
+        sessionTimeoutMinutes,
+        signOut
+    } = useContext(AuthContext);
+
+    const navigate = useNavigate();
     const timeoutRef = useRef(null);
+    const lastActivityRef = useRef(Date.now());
 
-    const INACTIVITY_TIMEOUT = 15 * 60 * 1000;
+    // Reset the inactivity timer
+    const resetTimer = useCallback(() => {
+        lastActivityRef.current = Date.now();
 
-    const handleLogout = () => {
-        signOut();
-    };
-
-    const resetTimeout = () => {
+        // Clear existing timeout
         if (timeoutRef.current) {
             clearTimeout(timeoutRef.current);
         }
-        timeoutRef.current = setTimeout(handleLogout, INACTIVITY_TIMEOUT);
-    };
+
+        // Only set new timeout if session timeout is enabled
+        if (isSessionTimeoutEnabled && sessionTimeoutMinutes > 0) {
+            const timeoutDuration = sessionTimeoutMinutes * 60 * 1000; // Convert minutes to milliseconds
+
+            timeoutRef.current = setTimeout(async () => {
+                try {
+                    await signOut();
+                    navigate('/login', {
+                        state: {
+                            message: `You were logged out due to ${sessionTimeoutMinutes} minutes of inactivity.`
+                        }
+                    });
+                } catch (error) {
+                    console.error('Error during auto-logout:', error);
+                }
+            }, timeoutDuration);
+        }
+    }, [isSessionTimeoutEnabled, sessionTimeoutMinutes, signOut, navigate]);
+
+    // Activity event handler
+    const handleActivity = useCallback(() => {
+        resetTimer();
+    }, [resetTimer]);
 
     useEffect(() => {
+        // Only attach listeners if session timeout is enabled
         if (!isSessionTimeoutEnabled) {
-            clearTimeout(timeoutRef.current);
+            // Clear any existing timeout
+            if (timeoutRef.current) {
+                clearTimeout(timeoutRef.current);
+                timeoutRef.current = null;
+            }
             return;
         }
 
-        const activityEvents = [
-            'mousemove',
+        // Events that indicate user activity
+        const events = [
             'mousedown',
+            'mousemove',
             'keypress',
             'scroll',
-            'touchstart'
+            'touchstart',
+            'click',
         ];
-        
-        resetTimeout();
-        activityEvents.forEach(event => {
-            window.addEventListener(event, resetTimeout);
+
+        // Attach event listeners
+        events.forEach(event => {
+            document.addEventListener(event, handleActivity, true);
         });
 
-        return () => {
-            clearTimeout(timeoutRef.current);
-            activityEvents.forEach(event => {
-                window.removeEventListener(event, resetTimeout);
-            });
-        };
-    }, [isSessionTimeoutEnabled]);
+        // Initialize timer
+        resetTimer();
 
+        // Cleanup function
+        return () => {
+            events.forEach(event => {
+                document.removeEventListener(event, handleActivity, true);
+            });
+
+            if (timeoutRef.current) {
+                clearTimeout(timeoutRef.current);
+            }
+        };
+    }, [isSessionTimeoutEnabled, handleActivity, resetTimer]);
+
+    // This component doesn't render anything
     return null;
 };
 

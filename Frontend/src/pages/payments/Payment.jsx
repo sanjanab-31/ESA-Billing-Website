@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useContext, useCallback } from "react";
+import React, { useState, useMemo, useEffect, useContext, useCallback, memo } from "react";
 import {
   IndianRupee,
   CheckCircle2,
@@ -329,7 +329,8 @@ const StatCard = ({ title, amount, subtitle, icon: Icon, iconBgColor }) => (
   </div>
 );
 
-const PaymentRow = ({
+// PERFORMANCE: Memoized PaymentRow to prevent unnecessary re-renders
+const PaymentRow = memo(({
   invoiceNo,
   client,
   amount,
@@ -402,9 +403,12 @@ const PaymentRow = ({
       </td>
     </tr>
   );
-};
+});
 
-const PendingPaymentCard = ({
+PaymentRow.displayName = 'PaymentRow';
+
+// PERFORMANCE: Memoized PendingPaymentCard to prevent unnecessary re-renders
+const PendingPaymentCard = memo(({
   invoice,
   onMarkPaid,
   editingPaymentId,
@@ -517,10 +521,12 @@ const PendingPaymentCard = ({
       </div>
     </div>
   );
-};
+});
 
-// CHANGE: Re-added transactionId prop and column
-const PaidPaymentRow = ({
+PendingPaymentCard.displayName = 'PendingPaymentCard';
+
+// PERFORMANCE: Memoized PaidPaymentRow to prevent unnecessary re-renders
+const PaidPaymentRow = memo(({
   invoiceNo,
   client,
   amount,
@@ -548,7 +554,9 @@ const PaidPaymentRow = ({
       </button>
     </td>
   </tr>
-);
+));
+
+PaidPaymentRow.displayName = 'PaidPaymentRow';
 
 const PaymentsPage = () => {
   const [activeTab, setActiveTab] = useState("All Payments");
@@ -806,8 +814,9 @@ const PaymentsPage = () => {
     return paymentsState.map(getDynamicStatus);
   }, [paymentsState]);
 
+  // PERFORMANCE: Filter and sort payments with secondary sorting for stability
   const filteredPayments = useMemo(() => {
-    return paymentsWithDynamicStatus.filter((payment) => {
+    const filtered = paymentsWithDynamicStatus.filter((payment) => {
       const matchesSearch =
         payment.invoiceNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
         payment.client.toLowerCase().includes(searchTerm.toLowerCase());
@@ -821,6 +830,18 @@ const PaymentsPage = () => {
         );
       if (activeTab === "Paid") return payment.status === "Paid" && matchesSearch;
       return false;
+    });
+
+    // Sort with secondary sorting for stable ordering
+    return [...filtered].sort((a, b) => {
+      // Primary sort by invoice number (descending - newest first)
+      const invoiceCompare = (b.invoiceNo || '').localeCompare(a.invoiceNo || '');
+      if (invoiceCompare !== 0) return invoiceCompare;
+
+      // Secondary sort by due date for stability
+      const aDate = a.dueDate || '';
+      const bDate = b.dueDate || '';
+      return bDate.localeCompare(aDate);
     });
   }, [paymentsWithDynamicStatus, searchTerm, activeTab]);
 

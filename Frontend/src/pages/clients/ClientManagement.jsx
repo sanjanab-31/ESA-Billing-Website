@@ -1,3 +1,21 @@
+import React, { useState, useRef, useEffect, useContext, useMemo, memo, useCallback } from "react";
+import {
+  Search,
+  Plus,
+  Eye,
+  Edit,
+  Trash2,
+  X,
+  FileText,
+  Phone,
+  Mail,
+  MapPin,
+  TrendingUp,
+  AlertCircle,
+} from "lucide-react";
+import { AuthContext } from "../../context/AuthContext";
+import { useCustomers, useInvoices } from "../../hooks/useFirestore";
+import { useToast } from "../../context/ToastContext";
 const ClientManagement = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
@@ -60,6 +78,7 @@ const ClientManagement = () => {
     return stats;
   }, [invoices]);
 
+
   // Helper to safely get stats for a client
   const getClientStats = (clientId) => {
     return clientStatsMap[clientId] || {
@@ -69,6 +88,23 @@ const ClientManagement = () => {
       amountPaid: 0
     };
   };
+
+  // PERFORMANCE: Sort customers with secondary sorting for stable ordering
+  const sortedCustomers = useMemo(() => {
+    if (!customers || customers.length === 0) return [];
+
+    return [...customers].sort((a, b) => {
+      // Primary sort by name (case-insensitive)
+      const nameCompare = (a.name || '').toLowerCase().localeCompare((b.name || '').toLowerCase());
+      if (nameCompare !== 0) return nameCompare;
+
+      // Secondary sort by createdAt for stability
+      const aTime = a.createdAt?.toMillis?.() || 0;
+      const bTime = b.createdAt?.toMillis?.() || 0;
+      return bTime - aTime;
+    });
+  }, [customers]);
+
 
   const [formData, setFormData] = useState({
     name: "",
@@ -212,6 +248,7 @@ const ClientManagement = () => {
     setDropdownOpen(dropdownOpen === clientId ? null : clientId);
   };
 
+
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -224,6 +261,70 @@ const ClientManagement = () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
+
+  // PERFORMANCE: Memoized ClientRow component to prevent unnecessary re-renders
+  const ClientRow = memo(({ client, stats }) => {
+    return (
+      <tr
+        key={client.id}
+        className="text-sm transition-colors hover:bg-gray-50"
+      >
+        <td className="px-6 py-4">
+          <div className="font-medium text-gray-900">
+            {client.name}
+          </div>
+          <div className="text-gray-500 text-xs">
+            {client.email}
+          </div>
+        </td>
+        <td className="px-6 py-4 text-gray-700">
+          {client.taxId || client.company || "-"}
+        </td>
+        <td className="px-6 py-4 text-gray-700">
+          {client.phone || "-"}
+        </td>
+        <td className="px-6 py-4 text-gray-700">
+          {stats.totalInvoices}
+        </td>
+        <td className="px-6 py-4 font-medium text-gray-900">
+          ₹{stats.totalRevenue.toLocaleString('en-IN')}
+        </td>
+        <td className="px-6 py-4 text-gray-700">
+          <span className={stats.outstanding > 0 ? "text-red-600 font-medium" : "text-green-600"}>
+            ₹{stats.outstanding.toLocaleString('en-IN')}
+          </span>
+        </td>
+        <td className="px-6 py-4">
+          <div className="flex items-center space-x-3">
+            <button
+              onClick={() => handleViewClient(client)}
+              className="p-1 text-gray-600 transition-colors hover:text-blue-600"
+              title="View Details"
+            >
+              <Eye className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => handleEditClient(client)}
+              className="p-1 text-gray-600 transition-colors hover:text-green-600"
+              title="Edit Client"
+            >
+              <Edit className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => handleDeleteClient(client)}
+              className="p-1 text-gray-600 transition-colors hover:text-red-600"
+              title="Delete Client"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          </div>
+        </td>
+      </tr>
+    );
+  });
+
+  ClientRow.displayName = 'ClientRow';
+
 
   return (
     <div className="min-h-screen text-slate-800 font-sans">
@@ -287,65 +388,15 @@ const ClientManagement = () => {
                       </div>
                     </td>
                   </tr>
-                ) : customers.length > 0 ? (
-                  customers.map((client) => {
+                ) : sortedCustomers.length > 0 ? (
+                  sortedCustomers.map((client) => {
                     const stats = getClientStats(client.id);
                     return (
-                      <tr
+                      <ClientRow
                         key={client.id}
-                        className="text-sm transition-colors hover:bg-gray-50"
-                      >
-                        <td className="px-6 py-4">
-                          <div className="font-medium text-gray-900">
-                            {client.name}
-                          </div>
-                          <div className="text-gray-500 text-xs">
-                            {client.email}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-gray-700">
-                          {client.taxId || client.company || "-"}
-                        </td>
-                        <td className="px-6 py-4 text-gray-700">
-                          {client.phone || "-"}
-                        </td>
-                        <td className="px-6 py-4 text-gray-700">
-                          {stats.totalInvoices}
-                        </td>
-                        <td className="px-6 py-4 font-medium text-gray-900">
-                          ₹{stats.totalRevenue.toLocaleString('en-IN')}
-                        </td>
-                        <td className="px-6 py-4 text-gray-700">
-                          <span className={stats.outstanding > 0 ? "text-red-600 font-medium" : "text-green-600"}>
-                            ₹{stats.outstanding.toLocaleString('en-IN')}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center space-x-3">
-                            <button
-                              onClick={() => handleViewClient(client)}
-                              className="p-1 text-gray-600 transition-colors hover:text-blue-600"
-                              title="View Details"
-                            >
-                              <Eye className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => handleEditClient(client)}
-                              className="p-1 text-gray-600 transition-colors hover:text-green-600"
-                              title="Edit Client"
-                            >
-                              <Edit className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteClient(client)}
-                              className="p-1 text-gray-600 transition-colors hover:text-red-600"
-                              title="Delete Client"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
+                        client={client}
+                        stats={stats}
+                      />
                     );
                   })
                 ) : (

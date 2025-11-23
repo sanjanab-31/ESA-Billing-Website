@@ -1,5 +1,4 @@
 import React, { useState, useRef, useEffect, useContext } from "react";
-// Added 'Clock' to the import list for the new session timeout display
 import {
   Upload,
   Save,
@@ -7,19 +6,9 @@ import {
   Lock,
   Eye,
   EyeOff,
-  Bell,
-  Mail,
-  MessageSquare,
-  Monitor,
-  FileText,
-  TrendingUp,
-  AlertTriangle,
-  UserCheck,
   SlidersHorizontal,
   ShieldCheck,
-  ShieldAlert,
   LogOut,
-  Package,
   Clock,
 } from "lucide-react";
 import { AuthContext } from "../../context/AuthContext";
@@ -39,10 +28,10 @@ const ToggleSwitch = ({ enabled, setEnabled }) => (
   </button>
 );
 
-
 const ProfileSettings = () => {
   const { user, updateUserEmail, updateUserPassword, updateUserProfile } =
     useContext(AuthContext);
+  const { settings, updateSettings } = useSettings();
   const [profileInfo, setProfileInfo] = useState({
     fullName: "",
     email: "",
@@ -59,6 +48,9 @@ const ProfileSettings = () => {
   const [isUpdating, setIsUpdating] = useState(false);
   const [message, setMessage] = useState({ text: "", type: "" });
 
+  // ESA Logo URL (same as used in invoices)
+  const logoURL = "https://res.cloudinary.com/dnmvriw3e/image/upload/v1756868204/ESA_uggt8u.png";
+
   useEffect(() => {
     if (user) {
       setProfileInfo((prev) => ({
@@ -69,7 +61,15 @@ const ProfileSettings = () => {
         role: user.role || "",
       }));
     }
-  }, [user]);
+    // Load additional profile data from settings
+    if (settings?.userProfile) {
+      setProfileInfo((prev) => ({
+        ...prev,
+        phone: settings.userProfile.value?.phone || prev.phone,
+        role: settings.userProfile.value?.role || prev.role,
+      }));
+    }
+  }, [user, settings]);
 
   const handleProfileChange = (e) => {
     setProfileInfo({ ...profileInfo, [e.target.name]: e.target.value });
@@ -112,6 +112,16 @@ const ProfileSettings = () => {
           throw new Error(emailResult.error || "Failed to update email");
         }
       }
+
+      // Save phone and role to Firestore (no photo)
+      await updateSettings(
+        "userProfile",
+        {
+          phone: profileInfo.phone,
+          role: profileInfo.role,
+        },
+        "User profile information"
+      );
 
       setMessage({ text: "Profile updated successfully!", type: "success" });
       setIsEditing(false);
@@ -224,23 +234,16 @@ const ProfileSettings = () => {
 
         <div className="space-y-4">
           <div className="flex items-center gap-4">
-            <div className="w-20 h-20 bg-blue-600 rounded-full flex items-center justify-center text-white text-3xl font-bold">
-              {profileInfo.fullName
-                .split(" ")
-                .map((n) => n[0])
-                .join("")}
-            </div>
+            <img
+              src={logoURL}
+              alt="ESA Logo"
+              className="w-20 h-20 object-contain"
+            />
             <div className="space-y-1">
-              <button
-                className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-md text-sm font-medium hover:bg-gray-50 disabled:opacity-50"
-                disabled={isUpdating}
-              >
-                <Upload size={16} />
-                Change Photo
-              </button>
-              <p className="text-xs text-gray-500">
-                JPG, PNG or GIF. Max size 2MB.
-              </p>
+              <h3 className="text-lg font-bold text-gray-900">
+                {profileInfo.fullName}
+              </h3>
+              <p className="text-sm text-gray-600">{profileInfo.role || "Administrator"}</p>
             </div>
           </div>
 
@@ -316,9 +319,11 @@ const ProfileSettings = () => {
               <label className="text-sm text-gray-800 mb-1 block">Role</label>
               <input
                 type="text"
+                name="role"
                 value={profileInfo.role}
-                readOnly
-                className="w-full bg-gray-100 border-0 rounded-md text-sm p-2.5 text-gray-500"
+                onChange={handleProfileChange}
+                className="w-full bg-gray-100 border-0 rounded-md text-sm p-2.5 disabled:bg-gray-200 disabled:text-gray-500"
+                disabled={!isEditing || isUpdating}
               />
             </div>
           </div>
@@ -434,20 +439,22 @@ const SystemSettings = () => {
   });
 
   // Use Firestore settings hook
-  const {
-    settings,
-    error: settingsError,
-    updateSettings,
-  } = useSettings();
+  const { settings, error: settingsError, updateSettings } = useSettings();
 
   // Load settings from Firestore
   useEffect(() => {
     if (settings) {
-      if (settings.systemConfig) {
-        setConfig((prev) => ({ ...prev, ...settings.systemConfig }));
+      if (settings.systemSettings?.value?.systemConfig) {
+        setConfig((prev) => ({
+          ...prev,
+          ...settings.systemSettings.value.systemConfig,
+        }));
       }
-      if (settings.systemFeatures) {
-        setFeatures((prev) => ({ ...prev, ...settings.systemFeatures }));
+      if (settings.systemSettings?.value?.systemFeatures) {
+        setFeatures((prev) => ({
+          ...prev,
+          ...settings.systemSettings.value.systemFeatures,
+        }));
       }
     }
   }, [settings]);
@@ -621,9 +628,25 @@ const SystemSettings = () => {
 };
 
 const SecuritySettings = () => {
-  const { signOut, isSessionTimeoutEnabled, toggleSessionTimeout } = useContext(AuthContext);
-  const [sessionTimeoutMinutes, setSessionTimeoutMinutes] = useState(15);
+  const {
+    signOut,
+    isSessionTimeoutEnabled,
+    toggleSessionTimeout,
+    sessionTimeoutMinutes,
+    setSessionTimeoutMinutes,
+  } = useContext(AuthContext);
+  const { settings, updateSettings } = useSettings();
+  const [localTimeoutMinutes, setLocalTimeoutMinutes] = useState(15);
   const [message, setMessage] = useState({ text: "", type: "" });
+
+  useEffect(() => {
+    // Load session timeout settings from Firestore
+    if (settings?.securitySettings?.value?.sessionTimeoutMinutes) {
+      setLocalTimeoutMinutes(
+        settings.securitySettings.value.sessionTimeoutMinutes
+      );
+    }
+  }, [settings]);
 
   const handleLogout = async () => {
     try {
@@ -640,18 +663,55 @@ const SecuritySettings = () => {
     }
   };
 
-  const handleSessionTimeoutToggle = () => {
+  const handleSessionTimeoutToggle = async () => {
     toggleSessionTimeout();
-    if (!isSessionTimeoutEnabled) {
+    const newState = !isSessionTimeoutEnabled;
+
+    // Save to Firestore
+    try {
+      await updateSettings(
+        "securitySettings",
+        {
+          sessionTimeoutEnabled: newState,
+          sessionTimeoutMinutes: localTimeoutMinutes,
+        },
+        "Security settings"
+      );
+
+      if (newState) {
+        setMessage({
+          text: `Session timeout enabled. You will be logged out after ${localTimeoutMinutes} minutes of inactivity.`,
+          type: "success",
+        });
+      } else {
+        setMessage({
+          text: "Session timeout disabled.",
+          type: "success",
+        });
+      }
+    } catch (error) {
       setMessage({
-        text: `Session timeout enabled. You will be logged out after ${sessionTimeoutMinutes} minutes of inactivity.`,
-        type: "success",
+        text: "Failed to update security settings.",
+        type: "error",
       });
-    } else {
-      setMessage({
-        text: "Session timeout disabled.",
-        type: "success",
-      });
+    }
+  };
+
+  const handleTimeoutChange = async (newMinutes) => {
+    setLocalTimeoutMinutes(newMinutes);
+
+    // Save to Firestore
+    try {
+      await updateSettings(
+        "securitySettings",
+        {
+          sessionTimeoutEnabled: isSessionTimeoutEnabled,
+          sessionTimeoutMinutes: newMinutes,
+        },
+        "Security settings"
+      );
+    } catch (error) {
+      console.error("Failed to save timeout settings:", error);
     }
   };
 
@@ -689,14 +749,12 @@ const SecuritySettings = () => {
           <SecurityItem
             icon={Clock}
             title="Session Timeout"
-            description={`Automatically log out after ${sessionTimeoutMinutes} minutes of inactivity`}
+            description={`Automatically log out after ${localTimeoutMinutes} minutes of inactivity`}
             control={
               <div className="flex items-center gap-3">
                 <select
-                  value={sessionTimeoutMinutes}
-                  onChange={(e) =>
-                    setSessionTimeoutMinutes(Number(e.target.value))
-                  }
+                  value={localTimeoutMinutes}
+                  onChange={(e) => handleTimeoutChange(Number(e.target.value))}
                   className="px-2 py-1 border border-gray-300 rounded text-sm"
                   disabled={!isSessionTimeoutEnabled}
                 >
@@ -728,7 +786,8 @@ const SecuritySettings = () => {
                 End Current Session
               </p>
               <p className="text-xs text-gray-500 mt-1">
-                You will be securely logged out and redirected to the login page
+                You will be securely logged out and redirected to the login
+                page
               </p>
             </div>
           </div>
@@ -766,10 +825,7 @@ const SettingsPage = () => {
   };
 
   return (
-    // LAYOUT CHANGE: Applying consistent page structure
     <div className="min-h-screen text-slate-800 font-sans">
-      {/* debug overlay removed */}
-
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-8 pt-28">
         <header className="mb-2">
           <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
@@ -795,9 +851,7 @@ const SettingsPage = () => {
               ))}
             </div>
           </div>
-          <div className="bg-white rounded-xl shadow-sm">
-            {renderContent()}
-          </div>
+          <div className="bg-white rounded-xl shadow-sm">{renderContent()}</div>
         </main>
       </div>
     </div>

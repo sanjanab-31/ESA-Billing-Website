@@ -14,9 +14,18 @@ export const AuthProvider = ({ children }) => {
     return saved !== null ? JSON.parse(saved) : true;
   });
 
+  const [sessionTimeoutMinutes, setSessionTimeoutMinutes] = useState(() => {
+    const saved = localStorage.getItem('sessionTimeoutMinutes');
+    return saved !== null ? JSON.parse(saved) : 15;
+  });
+
   useEffect(() => {
     localStorage.setItem('sessionTimeoutEnabled', JSON.stringify(isSessionTimeoutEnabled));
   }, [isSessionTimeoutEnabled]);
+
+  useEffect(() => {
+    localStorage.setItem('sessionTimeoutMinutes', JSON.stringify(sessionTimeoutMinutes));
+  }, [sessionTimeoutMinutes]);
 
   const toggleSessionTimeout = () => {
     setIsSessionTimeoutEnabled(prev => !prev);
@@ -49,18 +58,16 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
   };
 
-  // ... all your other functions (updateUserEmail, updateUserPassword, etc.) remain here
-
   const updateUserEmail = async (newEmail, currentPassword) => {
     try {
       const user = auth.currentUser;
       if (!user) throw new Error('No user is signed in');
-      
+
       const credential = EmailAuthProvider.credential(user.email, currentPassword);
       await reauthenticateWithCredential(user, credential);
-      
+
       await updateEmail(user, newEmail);
-      
+
       setUser({ ...user, email: newEmail });
       return { success: true };
     } catch (error) {
@@ -72,10 +79,10 @@ export const AuthProvider = ({ children }) => {
     try {
       const user = auth.currentUser;
       if (!user) throw new Error('No user is signed in');
-      
+
       const credential = EmailAuthProvider.credential(user.email, currentPassword);
       await reauthenticateWithCredential(user, credential);
-      
+
       await updatePassword(user, newPassword);
       return { success: true };
     } catch (error) {
@@ -87,11 +94,11 @@ export const AuthProvider = ({ children }) => {
     try {
       const user = auth.currentUser;
       if (!user) throw new Error('No user is signed in');
-      
+
       await updateProfile(user, { displayName });
-      
+
       setUser({ ...user, displayName });
-      
+
       return { success: true };
     } catch (error) {
       return { success: false, error: error.message };
@@ -107,7 +114,9 @@ export const AuthProvider = ({ children }) => {
       updateUserPassword,
       updateUserProfile,
       isSessionTimeoutEnabled,
-      toggleSessionTimeout
+      toggleSessionTimeout,
+      sessionTimeoutMinutes,
+      setSessionTimeoutMinutes
     }}>
       {children}
     </AuthContext.Provider>

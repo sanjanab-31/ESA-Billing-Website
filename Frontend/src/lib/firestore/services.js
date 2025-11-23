@@ -24,34 +24,34 @@ const customerService = {
   getCustomers: async (options = {}) => {
     try {
       const { search = "", page = 1, limit: limitCount = 20, status, sortBy, sortDirection } = options;
-      
+
       let q = customersCollection;
-      
+
       // Apply filters
       if (status) {
         q = query(q, where("status", "==", status));
       }
-      
+
       if (sortBy) {
         q = query(q, orderBy(sortBy, sortDirection || "asc"));
       }
-      
+
       q = query(q, limit(limitCount));
-      
+
       const snapshot = await getDocs(q);
       const customers = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       }));
-      
+
       // Apply search filter
-      const filteredCustomers = search 
-        ? customers.filter(customer => 
-            customer.name?.toLowerCase().includes(search.toLowerCase()) ||
-            customer.email?.toLowerCase().includes(search.toLowerCase())
-          )
+      const filteredCustomers = search
+        ? customers.filter(customer =>
+          customer.name?.toLowerCase().includes(search.toLowerCase()) ||
+          customer.email?.toLowerCase().includes(search.toLowerCase())
+        )
         : customers;
-      
+
       return {
         data: filteredCustomers,
         total: filteredCustomers.length,
@@ -108,34 +108,34 @@ const invoiceService = {
   getInvoices: async (options = {}) => {
     try {
       const { search = "", page = 1, limit: limitCount = 20, status, customerId } = options;
-      
+
       let q = invoicesCollection;
-      
+
       // Apply filters
       if (status) {
         q = query(q, where("status", "==", status));
       }
-      
+
       if (customerId) {
         q = query(q, where("customerId", "==", customerId));
       }
-      
+
       q = query(q, orderBy("createdAt", "desc"), limit(limitCount));
-      
+
       const snapshot = await getDocs(q);
       const invoices = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       }));
-      
+
       // Apply search filter
-      const filteredInvoices = search 
-        ? invoices.filter(invoice => 
-            invoice.invoiceNumber?.toLowerCase().includes(search.toLowerCase()) ||
-            invoice.customer?.name?.toLowerCase().includes(search.toLowerCase())
-          )
+      const filteredInvoices = search
+        ? invoices.filter(invoice =>
+          invoice.invoiceNumber?.toLowerCase().includes(search.toLowerCase()) ||
+          invoice.customer?.name?.toLowerCase().includes(search.toLowerCase())
+        )
         : invoices;
-      
+
       return {
         data: filteredInvoices,
         total: filteredInvoices.length,
@@ -251,29 +251,29 @@ const productService = {
   getProducts: async (options = {}) => {
     try {
       const { search = "", page = 1, limit: limitCount = 20, sortBy, sortDirection } = options;
-      
+
       let q = productsCollection;
-      
+
       if (sortBy) {
         q = query(q, orderBy(sortBy, sortDirection || "asc"));
       }
-      
+
       q = query(q, limit(limitCount));
-      
+
       const snapshot = await getDocs(q);
       const products = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       }));
-      
+
       // Apply search filter
-      const filteredProducts = search 
-        ? products.filter(product => 
-            product.name?.toLowerCase().includes(search.toLowerCase()) ||
-            product.description?.toLowerCase().includes(search.toLowerCase())
-          )
+      const filteredProducts = search
+        ? products.filter(product =>
+          product.name?.toLowerCase().includes(search.toLowerCase()) ||
+          product.description?.toLowerCase().includes(search.toLowerCase())
+        )
         : products;
-      
+
       return {
         data: filteredProducts,
         total: filteredProducts.length,
@@ -346,15 +346,15 @@ const settingsService = {
       // Check if document exists first
       const docRef = doc(db, "settings", key);
       const docSnap = await getDoc(docRef);
-      
+
       if (docSnap.exists()) {
         // Document exists, update it
         await updateDocument("settings", key, { value, description });
       } else {
         // Document doesn't exist, create it
-        await createDocument(settingsCollection, { 
+        await createDocument(settingsCollection, {
           id: key,
-          value, 
+          value,
           description,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp()
@@ -390,7 +390,7 @@ const dashboardService = {
 
       // Calculate statistics with proper status handling
       const totalInvoices = invoices.length;
-      
+
       // Calculate paid invoices (both by status and by paidAmount)
       const paidInvoices = invoices.filter(inv => {
         const isPaidByStatus = inv.status === 'Paid' || inv.status === 'paid';
@@ -398,20 +398,20 @@ const dashboardService = {
         const paidAmount = parseFloat(inv.paidAmount || 0);
         return isPaidByStatus || paidAmount >= invoiceAmount;
       }).length;
-      
+
       // Calculate overdue invoices first (unpaid and past due date)
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      
+
       const overdueInvoices = invoices.filter(inv => {
         const isDraft = inv.status === 'Draft' || inv.status === 'draft';
         const isPaidByStatus = inv.status === 'Paid' || inv.status === 'paid';
         const invoiceAmount = parseFloat(inv.total || inv.amount || inv.totalAmount || 0);
         const paidAmount = parseFloat(inv.paidAmount || 0);
         const isPaidByAmount = paidAmount >= invoiceAmount;
-        
+
         if (isDraft || isPaidByStatus || isPaidByAmount) return false;
-        
+
         if (inv.dueDate) {
           const dueDate = new Date(inv.dueDate);
           dueDate.setHours(0, 0, 0, 0);
@@ -419,7 +419,7 @@ const dashboardService = {
         }
         return false;
       }).length;
-      
+
       // Calculate unpaid invoices (not paid and not draft, excluding overdue)
       const unpaidInvoices = invoices.filter(inv => {
         const isDraft = inv.status === 'Draft' || inv.status === 'draft';
@@ -427,24 +427,24 @@ const dashboardService = {
         const invoiceAmount = parseFloat(inv.total || inv.amount || inv.totalAmount || 0);
         const paidAmount = parseFloat(inv.paidAmount || 0);
         const isPaidByAmount = paidAmount >= invoiceAmount;
-        
+
         if (isDraft || isPaidByStatus || isPaidByAmount) return false;
-        
+
         // Check if it's overdue
         if (inv.dueDate) {
           const dueDate = new Date(inv.dueDate);
           dueDate.setHours(0, 0, 0, 0);
           if (today > dueDate) return false; // Exclude overdue from unpaid
         }
-        
+
         return true;
       }).length;
-      
+
       // Calculate draft invoices
-      const draftInvoices = invoices.filter(inv => 
+      const draftInvoices = invoices.filter(inv =>
         inv.status === 'Draft' || inv.status === 'draft'
       ).length;
-      
+
       // Calculate total revenue (only from paid invoices)
       const totalRevenue = invoices
         .filter(inv => {
