@@ -1,9 +1,7 @@
-@import "tailwindcss";
-
-/* Import Poppins from Google Fonts for all devices */
 @import url("https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap");
 
-/* Toast animations */
+@import "tailwindcss";
+
 @keyframes slideInRight {
   from {
     transform: translateX(100%);
