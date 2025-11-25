@@ -30,7 +30,7 @@ const ClientManagement = () => {
 
   // Get authentication context
   const { user } = useContext(AuthContext);
-  const { success, error: showError } = useToast();
+  const { success, error: showError, warning } = useToast();
 
   // Use Firestore hooks
   const { customers, error, addCustomer, editCustomer, removeCustomer } =
@@ -134,21 +134,32 @@ const ClientManagement = () => {
 
   const handleAddClient = async () => {
     if (formData.name && formData.email) {
+      // Save form data to variables BEFORE clearing
+      const clientName = formData.name;
+      const clientEmail = formData.email;
+      const clientPhone = formData.phone;
+      const clientAddress = formData.address;
+      const clientGstin = formData.gstin;
+
+      // Optimistic UI: Close modal and show notification immediately
+      setFormData({ name: "", gstin: "", phone: "", email: "", address: "" });
+      setShowAddModal(false);
+
+      // Create = Green (Success style)
+      success(`Client "${clientName}" added successfully!`, "Added");
+
       const result = await addCustomer({
-        name: formData.name,
-        email: formData.email,
-        phone: formData.phone,
-        address: formData.address,
-        company: formData.gstin, // Using GSTIN as company identifier
-        taxId: formData.gstin,
+        name: clientName,
+        email: clientEmail,
+        phone: clientPhone,
+        address: clientAddress,
+        company: clientGstin, // Using GSTIN as company identifier
+        taxId: clientGstin,
       });
 
-      if (result.success) {
-        success(`Client "${formData.name}" added successfully!`);
-        setFormData({ name: "", gstin: "", phone: "", email: "", address: "" });
-        setShowAddModal(false);
-      } else {
-        showError(`Failed to add client: ${result.error}`);
+      // Handle failure
+      if (!result.success) {
+        showError(`Failed to add client: ${result.error}`, "Error");
       }
     } else {
       showError("Please fill in required fields (Name and Email)");
@@ -174,7 +185,7 @@ const ClientManagement = () => {
     setSelectedClient(client);
     setEditFormData({
       name: client.name,
-      gstin: client.gstin,
+      gstin: client.taxId || client.company || "",
       phone: client.phone,
       email: client.email,
       address: client.address,
@@ -185,28 +196,39 @@ const ClientManagement = () => {
 
   const handleUpdateClient = async () => {
     if (editFormData.name && editFormData.email && selectedClient) {
-      const result = await editCustomer(selectedClient.id, {
-        name: editFormData.name,
-        email: editFormData.email,
-        phone: editFormData.phone,
-        address: editFormData.address,
-        company: editFormData.gstin,
-        taxId: editFormData.gstin,
+      // Save form data to variables BEFORE clearing
+      const clientName = editFormData.name;
+      const clientEmail = editFormData.email;
+      const clientPhone = editFormData.phone;
+      const clientAddress = editFormData.address;
+      const clientGstin = editFormData.gstin;
+
+      // Optimistic UI: Close modal and show notification immediately
+      setShowEditModal(false);
+      setSelectedClient(null);
+      setEditFormData({
+        name: "",
+        gstin: "",
+        phone: "",
+        email: "",
+        address: "",
       });
 
-      if (result.success) {
-        success(`Client "${editFormData.name}" updated successfully!`);
-        setShowEditModal(false);
-        setSelectedClient(null);
-        setEditFormData({
-          name: "",
-          gstin: "",
-          phone: "",
-          email: "",
-          address: "",
-        });
-      } else {
-        showError(`Failed to update client: ${result.error}`);
+      // Update = Yellow (Warning style)
+      warning(`Client "${clientName}" updated successfully!`, "Updated");
+
+      const result = await editCustomer(selectedClient.id, {
+        name: clientName,
+        email: clientEmail,
+        phone: clientPhone,
+        address: clientAddress,
+        company: clientGstin,
+        taxId: clientGstin,
+      });
+
+      // Handle failure
+      if (!result.success) {
+        showError(`Failed to update client: ${result.error}`, "Error");
       }
     } else {
       showError("Please fill in required fields (Name and Email)");
@@ -222,13 +244,21 @@ const ClientManagement = () => {
   // CHANGED: New function to perform the actual deletion
   const confirmDelete = async () => {
     if (clientToDelete) {
-      const result = await removeCustomer(clientToDelete.id);
-      if (result.success) {
-        success(`Client "${clientToDelete.name}" deleted successfully!`);
-        setShowDeleteConfirmModal(false);
-        setClientToDelete(null);
-      } else {
-        showError(`Failed to delete client: ${result.error}`);
+      const clientName = clientToDelete.name;
+      const clientId = clientToDelete.id;
+
+      // Optimistic UI: Close modal and show notification immediately
+      setShowDeleteConfirmModal(false);
+      setClientToDelete(null);
+
+      // Delete = Red (Error style)
+      showError(`Client "${clientName}" deleted successfully!`, "Deleted");
+
+      const result = await removeCustomer(clientId);
+
+      // Handle failure
+      if (!result.success) {
+        showError(`Failed to delete client: ${result.error}`, "Error");
       }
     }
   };

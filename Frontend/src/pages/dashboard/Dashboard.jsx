@@ -159,11 +159,13 @@ const StatsGrid = memo(({ stats, products }) => {
         title="Total Invoice"
         value={formatNumber(stats?.totalInvoices || 0)}
         icon={<Receipt className="text-blue-600" />}
+        subtext={stats?.financialYearLabel}
       />
       <StatCard
         title="Total Revenue"
         value={formatCurrency(stats?.totalRevenue || 0)}
         icon={<TrendingUp className="text-green-500" />}
+        subtext={stats?.financialYearLabel}
       />
       <StatCard
         title="Payment Status"
@@ -282,7 +284,13 @@ const StatCard = ({
           <span className="text-gray-500 ml-1">{period}</span>
         </div>
       )}
-      {subtext && <p className="text-xs text-gray-500 mt-1">{subtext}</p>}
+      {subtext && (
+        <div className="flex items-center gap-2 body-text-small mt-2">
+          <span className="bg-green-600 text-white px-2 py-0.5 rounded-full font-medium">
+            {subtext}
+          </span>
+        </div>
+      )}
       {footer && <div className="mt-2">{footer}</div>}
     </div>
   </div>

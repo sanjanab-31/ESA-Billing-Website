@@ -385,8 +385,46 @@ const dashboardService = {
       ]);
 
       const customers = customersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      const invoices = invoicesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      const payments = paymentsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      let invoices = invoicesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      let payments = paymentsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+      // Calculate Financial Year
+      const now = new Date();
+      const currentMonth = now.getMonth(); // 0-11
+      const currentYear = now.getFullYear();
+
+      let startYear, endYear;
+      if (currentMonth >= 3) { // April onwards
+        startYear = currentYear;
+        endYear = currentYear + 1;
+      } else { // Jan-Mar
+        startYear = currentYear - 1;
+        endYear = currentYear;
+      }
+
+      const fyStart = new Date(startYear, 3, 1); // April 1st
+      const fyEnd = new Date(endYear, 2, 31, 23, 59, 59, 999); // March 31st end of day
+
+      // Helper to parse date
+      const getDate = (item, dateField) => {
+        const val = item[dateField] || item.createdAt;
+        if (!val) return null;
+        if (val.toDate) return val.toDate(); // Firestore Timestamp
+        if (val instanceof Date) return val;
+        return new Date(val);
+      };
+
+      // Filter Invoices by Financial Year
+      invoices = invoices.filter(inv => {
+        const date = getDate(inv, 'invoiceDate');
+        return date && date >= fyStart && date <= fyEnd;
+      });
+
+      // Filter Payments by Financial Year
+      payments = payments.filter(pay => {
+        const date = getDate(pay, 'paymentDate');
+        return date && date >= fyStart && date <= fyEnd;
+      });
 
       // Calculate statistics with proper status handling
       const totalInvoices = invoices.length;
@@ -467,7 +505,8 @@ const dashboardService = {
         draftInvoices,
         totalCustomers,
         totalPayments,
-        paymentRate
+        paymentRate,
+        financialYearLabel: `${startYear} - ${endYear}`
       };
     } catch (error) {
       throw new Error(`Failed to fetch dashboard stats: ${error.message}`);

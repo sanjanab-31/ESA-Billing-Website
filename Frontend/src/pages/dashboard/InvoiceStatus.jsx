@@ -10,12 +10,21 @@ const InvoiceStatus = ({ stats }) => {
   if (total === 0) {
     return (
       <div className="bg-white p-4 lg:p-5 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200">
-        <h3 className="text-lg font-semibold text-gray-900 mb-1">
-          Invoice Status
-        </h3>
-        <p className="text-sm text-gray-500 mb-4">
-          Breakdown of invoice statuses
-        </p>
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-1">
+              Invoice Status
+            </h3>
+            <p className="text-sm text-gray-500">
+              Breakdown of invoice statuses
+            </p>
+          </div>
+          {stats?.financialYearLabel && (
+            <span className="bg-green-600 text-white px-3 py-1 rounded-full text-sm font-medium">
+              {stats.financialYearLabel}
+            </span>
+          )}
+        </div>
         <div className="flex justify-center items-center py-8">
           <p className="text-gray-500">No invoices yet</p>
         </div>
@@ -35,12 +44,21 @@ const InvoiceStatus = ({ stats }) => {
 
   return (
     <div className="bg-white p-4 lg:p-5 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200">
-      <h3 className="text-lg font-semibold text-gray-900 mb-1">
-        Invoice Status
-      </h3>
-      <p className="text-sm text-gray-500 mb-4">
-        Breakdown of invoice statuses
-      </p>
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-1">
+            Invoice Status
+          </h3>
+          <p className="text-sm text-gray-500">
+            Breakdown of invoice statuses
+          </p>
+        </div>
+        {stats?.financialYearLabel && (
+          <span className="bg-green-600 text-white px-3 py-1 rounded-full text-sm font-medium">
+            {stats.financialYearLabel}
+          </span>
+        )}
+      </div>
       <div className="" style={{ height: 300 }}>
         <ResponsivePie
           data={data}

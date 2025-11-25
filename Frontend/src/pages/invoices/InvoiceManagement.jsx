@@ -21,6 +21,7 @@ import { AuthContext } from "../../context/AuthContext";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 import html2canvas from "html2canvas";
+import { useToast } from "../../context/ToastContext";
 
 const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, message }) => {
   if (!isOpen) return null;
@@ -137,6 +138,7 @@ const ProductAutocomplete = ({
   const [suggestions, setSuggestions] = useState([]);
   const [isFocused, setIsFocused] = useState(false);
   const wrapperRef = useRef(null);
+  const dropdownRef = useRef(null);
   const [dropdownStyle, setDropdownStyle] = useState({});
 
   const updateDropdownPosition = () => {
@@ -168,7 +170,11 @@ const ProductAutocomplete = ({
 
   useEffect(() => {
     function handleClickOutside(event) {
-      if (wrapperRef.current && !wrapperRef.current.contains(event.target)) {
+      if (
+        wrapperRef.current &&
+        !wrapperRef.current.contains(event.target) &&
+        (!dropdownRef.current || !dropdownRef.current.contains(event.target))
+      ) {
         setIsFocused(false);
       }
     }
@@ -217,6 +223,7 @@ const ProductAutocomplete = ({
 
     return (
       <ul
+        ref={dropdownRef}
         style={{ ...dropdownStyle, position: "fixed" }}
         className="z-50 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-auto"
       >
@@ -449,75 +456,80 @@ const InvoicePreview = ({
       <head>
         <title>Invoice ${previewData.invoiceNumber}</title>
         <style>
-          body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #fff; font-size: 14px; }
-          .container { border: 2px solid black; padding: 15px; width: 100%; max-width: 800px; margin: auto; }
+          body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #fff; font-size: 12px; }
+          .container { border: 2px solid black; padding: 0; width: 100%; max-width: 800px; margin: auto; box-sizing: border-box; }
           table { width: 100%; border-collapse: collapse; }
-          td, th { padding: 5px; }
-          .header { text-align: center; }
-          .header-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
-          .header-top .phone-left { font-weight: bold; color: black; }
-          .header-top .phone-right { font-weight: bold; color: black; }
-          .header-main { display: flex; align-items: center; justify-content: center; margin-bottom: 10px; }
-          .header-main .logo { margin-right: 20px; }
-          .header-main .company-name { font-family: 'Times New Roman', serif; font-size: 28px; font-weight: bold; color: #8B0000; margin: 0; }
-          .header-details { text-align: center; }
-          .header-details p { margin: 3px 0; color: black; font-family: Arial, sans-serif; }
-          .bordered-table, .bordered-table th, .bordered-table td { border: 1px solid black; }
+          td, th { padding: 4px; border: 1px solid black; }
+          .no-border { border: none; }
+          .header-top { display: flex; justify-content: space-between; padding: 5px 10px; font-weight: bold; font-size: 12px; border-bottom: none; }
+          .header-main { text-align: center; padding: 10px; border-bottom: 1px solid black; }
+          .logo-section { display: flex; align-items: center; justify-content: center; gap: 20px; }
+          .company-name { font-family: 'Times New Roman', serif; font-size: 26px; font-weight: bold; color: #FF0000; margin: 0; text-transform: uppercase; }
+          .company-details { font-size: 12px; margin-top: 5px; line-height: 1.4; }
+          .invoice-title { text-align: center; font-weight: bold; font-size: 18px; padding: 5px; border-bottom: 1px solid black; background-color: transparent; }
+          .items-table th { text-align: center; font-weight: bold; }
           .text-right { text-align: right; }
           .text-center { text-align: center; }
           .font-bold { font-weight: bold; }
-          .items-table { min-height: 300px; }
-          .items-table td { vertical-align: top; }
+          .footer-text { text-align: center; font-weight: bold; font-size: 12px; padding: 5px; border-top: 1px solid black; }
+          .bank-details-row td { border: 1px solid black; }
+          .declaration-section { font-size: 11px; }
         </style>
       </head>
       <body>
         <div class="container">
-          <div class="header">
-            <div class="header-top">
-              <div class="phone-left">☎ 98432 94464</div>
-              <div class="phone-right">☎ 96984 87096</div>
-            </div>
-            <div class="header-main">
-              <div class="logo">
-                <img src="https://res.cloudinary.com/dnmvriw3e/image/upload/v1756868204/ESA_uggt8u.png" alt="ESA Logo" style="height: 60px; max-width: 120px;">
+          <!-- Header Phone Numbers -->
+          <div class="header-top">
+            <div>☎ 98432 94464</div>
+            <div>☎ 96984 87096</div>
+          </div>
+
+          <!-- Main Header -->
+          <div class="header-main">
+            <div class="logo-section">
+              <img src="https://res.cloudinary.com/dnmvriw3e/image/upload/v1756868204/ESA_uggt8u.png" alt="ESA Logo" style="height: 60px;">
+              <div>
+                <h1 class="company-name">ESA ENGINEERING WORKS</h1>
+                <div class="company-details">
+                  <div>All Kinds of Lathe and Milling Works</div>
+                  <div style="margin: 3px 0; font-size: 11px;">Specialist in : Press Tools, Die Casting Tools, Precision Components</div>
+                  <div>1/100, Chettipalayam Road, E.B. Compound, Malumichampatti, CBE - 641 050.</div>
+                  <div>E-Mail : esaengineeringworks@gmail.com | GSTIN : 33AMWPB2116Q1ZS</div>
+                </div>
               </div>
-              <h1 class="company-name">ESA ENGINEERING WORKS</h1>
-            </div>
-            <div class="header-details">
-              <p>All Kinds of Lathe and Milling Works</p>
-              <p>Specialist in : Press Tools, Die Casting Tools, Precision Components</p>
-              <p>1/100, Chettipalayam Road, E.B. Compound, Malumichampatti, CBE - 641 050.</p>
-              <p>E-Mail : esaengineeringworks@gmail.com | GSTIN : 33AMWPB2116Q1ZS</p>
             </div>
           </div>
-          <h2 class="text-center font-bold" style="background-color: #ccc; margin: 10px -15px; padding: 5px;">INVOICE</h2>
-          <table style="margin-bottom: 10px;">
-            <tr>
-              <td style="width: 70%; vertical-align: top;">
-                <table class="bordered-table">
-                  <tr><td>To, M/s. ${previewData.client?.name || ""}</td></tr>
-                  <tr><td style="height: 60px;">${previewData.client?.address || ""
-      }</td></tr>
-                  <tr><td>GSTIN : ${previewData.client?.gst || ""}</td></tr>
-                </table>
-              </td>
-              <td style="width: 30%; vertical-align: top;">
-                <table class="bordered-table">
-                  <tr><td>NO : ${previewData.invoiceNumber}</td><td>DATE : ${previewData.invoiceDate
-      }</td></tr>
-                  <tr><td colspan="2">P.O. No : ${previewData.poNumber
-      }</td></tr>
-                  <tr><td colspan="2">P.O. Date : ${previewData.poDate
-      }</td></tr>
-                  <tr><td colspan="2">D.C. No : ${previewData.dcNumber
-      }</td></tr>
-                  <tr><td colspan="2">D.C. Date : ${previewData.dcDate
-      }</td></tr>
-                </table>
-              </td>
-            </tr>
-          </table>
-          <table class="bordered-table items-table">
+
+          <!-- Invoice Title -->
+          <div style="display: flex; border-bottom: 1px solid black;">
+            <div style="width: 20%; border-right: 1px solid black; padding: 5px; display: flex; align-items: center;">
+              NO : <span style="margin-left: 5px;">${previewData.invoiceNumber}</span>
+            </div>
+            <div style="width: 60%; text-align: center; font-weight: bold; font-size: 20px; padding: 5px;">
+              INVOICE
+            </div>
+            <div style="width: 20%; border-left: 1px solid black; padding: 5px; display: flex; align-items: center;">
+              DATE : <span style="margin-left: 5px;">${previewData.invoiceDate}</span>
+            </div>
+          </div>
+
+          <!-- Client & Invoice Details -->
+          <div style="display: flex; border-bottom: 1px solid black;">
+            <div style="width: 70%; border-right: 1px solid black; padding: 5px;">
+              <div>To, M/s,</div>
+              <div style="margin-left: 20px; font-weight: bold;">${previewData.client?.name || ""}</div>
+              <div style="margin-left: 20px; height: 40px;">${previewData.client?.address || ""}</div>
+              <div style="margin-top: 5px;">GSTIN : ${previewData.client?.gst || ""}</div>
+            </div>
+            <div style="width: 30%;">
+              <div style="padding: 5px; border-bottom: 1px solid black; height: 20px;">J.O. No : ${previewData.poNumber || ""}</div>
+              <div style="padding: 5px; border-bottom: 1px solid black; height: 20px;">D.C. No : ${previewData.dcNumber || ""}</div>
+              <div style="padding: 5px; height: 20px;">D.C. Date : ${previewData.dcDate || ""}</div>
+            </div>
+          </div>
+
+          <!-- Items Table -->
+          <table class="items-table" style="border-bottom: 1px solid black;">
             <thead>
               <tr>
                 <th style="width: 5%;">S.No.</th>
@@ -529,94 +541,83 @@ const InvoicePreview = ({
               </tr>
             </thead>
             <tbody>
-              ${previewData.items
-        .map(
-          (item, index) => `
+              ${previewData.items.map((item, index) => `
                 <tr>
                   <td class="text-center">${index + 1}</td>
                   <td>${item.description}</td>
                   <td class="text-center">${item.hsnCode}</td>
                   <td class="text-center">${item.quantity}</td>
-                  <td class="text-right">${item.rate.toLocaleString(
-            "en-IN"
-          )}</td>
-                  <td class="text-right">${item.amount.toLocaleString(
-            "en-IN"
-          )}</td>
+                  <td class="text-right">${item.rate}</td>
+                  <td class="text-right">${item.amount}</td>
                 </tr>
-              `
-        )
-        .join("")}
-              ${Array(12 - previewData.items.length)
-        .fill(
-          "<tr><td>&nbsp;</td><td></td><td></td><td></td><td></td><td></td></tr>"
-        )
-        .join("")}
+              `).join("")}
+              ${Array(Math.max(0, 12 - previewData.items.length)).fill(
+      `<tr>
+                  <td style="height: 20px;">&nbsp;</td>
+                  <td></td>
+                  <td></td>
+                  <td></td>
+                  <td></td>
+                  <td></td>
+                </tr>`
+    ).join("")}
             </tbody>
           </table>
-          ${previewData.invoiceNotes
-        ? `<div style="padding: 5px 0; font-style: italic;"><strong>Notes:</strong> ${previewData.invoiceNotes}</div>`
-        : ""
-      }
-          <table class="bordered-table">
+
+          <!-- Footer Section -->
+          <table style="border-top: none;">
             <tr>
-              <td style="width: 60%;" rowspan="3">
-                <div class="font-bold">Declaration</div>
-                <div>${previewData.declaration}</div>
+              <td style="width: 15%; border-right: none;">Bank Details :</td>
+              <td style="width: 55%; border-left: none;">Bank Name : State Bank Of India</td>
+              <td style="width: 15%;">SUB TOTAL</td>
+              <td style="width: 15%; text-right;">${previewCalcs.subtotal.toFixed(2)}</td>
+            </tr>
+            <tr>
+              <td colspan="2" style="border-top: none; border-bottom: none;">
+                <span style="display: inline-block; width: 80px;">&nbsp;</span>
+                A/C No : 42455711572
               </td>
-              <td style="padding-left: 10px;">SUB TOTAL</td>
-              <td class="text-right">${previewCalcs.subtotal.toLocaleString(
-        "en-IN",
-        { minimumFractionDigits: 2 }
-      )}</td>
+              <td>CGST &nbsp;&nbsp;&nbsp;&nbsp; ${previewData.cgst}%</td>
+              <td class="text-right">${previewCalcs.cgstAmount.toFixed(2)}</td>
             </tr>
             <tr>
-              <td style="padding-left: 10px;">CGST ${previewData.cgst}%</td>
-              <td class="text-right">${previewCalcs.cgstAmount.toLocaleString(
-        "en-IN",
-        { minimumFractionDigits: 2 }
-      )}</td>
-            </tr>
-            <tr>
-              <td style="padding-left: 10px;">SGST ${previewData.sgst}%</td>
-              <td class="text-right">${previewCalcs.sgstAmount.toLocaleString(
-        "en-IN",
-        { minimumFractionDigits: 2 }
-      )}</td>
-            </tr>
-            <tr>
-              <td rowspan="3">
-                <span class="font-bold">Rupees :</span> ${amountInWords}
+              <td colspan="2" style="border-top: none; border-bottom: none;">
+                <span style="display: inline-block; width: 80px;">&nbsp;</span>
+                IFSC Code : SBIN0015017
               </td>
-              <td style="padding-left: 10px;">IGST ${previewData.igst}%</td>
-              <td class="text-right">${previewCalcs.igstAmount.toLocaleString(
-        "en-IN",
-        { minimumFractionDigits: 2 }
-      )}</td>
+              <td>SGST &nbsp;&nbsp;&nbsp;&nbsp; ${previewData.sgst}%</td>
+              <td class="text-right">${previewCalcs.sgstAmount.toFixed(2)}</td>
             </tr>
             <tr>
-              <td style="padding-left: 10px;">ROUND OFF</td>
-              <td class="text-right">${(
-        previewCalcs.roundOffAmount || 0
-      ).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</td>
-            </tr>
-            <tr class="font-bold">
-              <td style="padding-left: 10px;">NET TOTAL</td>
-              <td class="text-right">₹${previewCalcs.total.toLocaleString(
-        "en-IN",
-        { minimumFractionDigits: 2 }
-      )}</td>
-            </tr>
-            <tr>
-              <td style="height: 80px; vertical-align: top;">
-                <div class="font-bold">Authorized Signatory</div>
+              <td colspan="2" style="border-top: none;">
+                <span style="display: inline-block; width: 80px;">&nbsp;</span>
+                Branch : Malumichampatti
               </td>
-              <td colspan="2" class="text-right" style="vertical-align: bottom;">
-                <div style="margin-top: 40px;">Authorized Signatory</div>
+              <td>IGST &nbsp;&nbsp;&nbsp;&nbsp; ${previewData.igst}%</td>
+              <td class="text-right">${previewCalcs.igstAmount.toFixed(2)}</td>
+            </tr>
+            <tr>
+              <td colspan="2" style="font-weight: bold;">Rupees : <span style="font-weight: normal;">${amountInWords}</span></td>
+              <td>ROUND OFF</td>
+              <td class="text-right">${(previewCalcs.roundOffAmount || 0).toFixed(2)}</td>
+            </tr>
+            <tr>
+              <td colspan="2" rowspan="2" style="vertical-align: top;">
+                <div class="font-bold" style="margin-bottom: 5px;">Declaration</div>
+                <div style="font-size: 11px;">We declare that this invoice shows the actual price of the goods Described and that all Particulars are true and correct</div>
+              </td>
+              <td class="font-bold">NET TOTAL</td>
+              <td class="text-right font-bold">${previewCalcs.total.toFixed(2)}</td>
+            </tr>
+            <tr>
+              <td colspan="2" style="height: 60px; vertical-align: bottom; text-align: right;">
+                <div style="font-weight: bold; color: #FF0000; margin-bottom: 30px;">For ESA Engineering Works</div>
+                <div style="font-size: 10px;">Authorized Signatory</div>
               </td>
             </tr>
           </table>
-          <div class="text-center font-bold" style="background-color: #ccc; margin: 10px -15px -15px -15px; padding: 5px;">This is a Computer generated bill</div>
+
+          <div class="footer-text">This is a Computer generated bill</div>
         </div>
       </body>
       </html>
@@ -653,259 +654,188 @@ const InvoicePreview = ({
         </div>
         <div className="overflow-y-auto bg-gray-100 p-8">
           <div
-            className="bg-white shadow-lg p-8 mx-auto"
-            style={{ maxWidth: "800px" }}
+            className="bg-white shadow-lg mx-auto border-2 border-black"
+            style={{ maxWidth: "800px", padding: "0" }}
           >
-            <div className="text-center">
-              {/* Top section with phone numbers spread wide */}
-              <div className="flex justify-between items-center mb-4">
-                <div className="font-bold text-black">☎ 98432 94464</div>
-                <div className="font-bold text-black">☎ 96984 87096</div>
-              </div>
+            {/* Header Phone Numbers */}
+            <div className="flex justify-between px-4 py-2 font-bold text-sm">
+              <div>☎ 98432 94464</div>
+              <div>☎ 96984 87096</div>
+            </div>
 
-              {/* Main section with logo and company name */}
-              <div className="flex items-center justify-center mb-3">
+            {/* Main Header */}
+            <div className="text-center border-b border-black pb-4">
+              <div className="flex items-center justify-center gap-4">
                 <img
                   src="https://res.cloudinary.com/dnmvriw3e/image/upload/v1756868204/ESA_uggt8u.png"
                   alt="ESA Logo"
-                  className="h-16 mr-5"
+                  className="h-16"
                 />
-                <h1
-                  className="text-3xl font-bold"
-                  style={{
-                    fontFamily: 'Times New Roman, serif',
-                    color: '#8B0000',
-                    margin: 0
-                  }}
-                >
-                  ESA ENGINEERING WORKS
-                </h1>
+                <div className="text-center">
+                  <h1
+                    className="text-3xl font-bold"
+                    style={{
+                      fontFamily: '"Times New Roman", serif',
+                      color: "#FF0000",
+                      margin: 0,
+                    }}
+                  >
+                    ESA ENGINEERING WORKS
+                  </h1>
+                  <div className="text-xs text-black mt-1 space-y-1">
+                    <p>All Kinds of Lathe and Milling Works</p>
+                    <p>Specialist in : Press Tools, Die Casting Tools, Precision Components</p>
+                    <p>1/100, Chettipalayam Road, E.B. Compound, Malumichampatti, CBE - 641 050.</p>
+                    <p>E-Mail : esaengineeringworks@gmail.com | GSTIN : 33AMWPB2116Q1ZS</p>
+                  </div>
+                </div>
               </div>
+            </div>
 
-              {/* Details section */}
-              <div className="text-center">
-                <p className="text-sm text-black mb-1">
-                  All Kinds of Lathe and Milling Works
-                </p>
-                <p className="text-sm text-black mb-1">
-                  Specialist in : Press Tools, Die Casting Tools, Precision Components
-                </p>
-                <p className="text-sm text-black mb-1">
-                  1/100, Chettipalayam Road, E.B. Compound, Malumichampatti, CBE - 641 050.
-                </p>
-                <p className="text-sm text-black">
-                  E-Mail : esaengineeringworks@gmail.com | GSTIN : 33AMWPB2116Q1ZS
-                </p>
+            {/* Invoice Title */}
+            <div className="flex border-b border-black">
+              <div className="w-[20%] border-r border-black p-2 flex items-center text-sm">
+                <span className="font-bold mr-2">NO :</span> {previewData.invoiceNumber}
+              </div>
+              <div className="w-[60%] text-center font-bold text-xl p-2">
+                INVOICE
+              </div>
+              <div className="w-[20%] border-l border-black p-2 flex items-center text-sm">
+                <span className="font-bold mr-2">DATE :</span> {previewData.invoiceDate}
               </div>
             </div>
-            <div className="text-center font-bold bg-gray-200 my-2 p-1 text-xl">
-              INVOICE
-            </div>
-            <div className="flex justify-between gap-4 mb-2 text-sm">
-              <div className="w-2/3">
-                <table className="w-full border border-black">
-                  <tbody>
-                    <tr>
-                      <td className="p-1 border border-black">
-                        To, M/s. {previewData.client?.name}
-                      </td>
-                    </tr>
-                    <tr>
-                      <td className="p-1 border border-black h-20 align-top">
-                        {previewData.client?.address}
-                      </td>
-                    </tr>
-                    <tr>
-                      <td className="p-1 border border-black">
-                        GSTIN : {previewData.client?.gst}
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
+
+            {/* Client & Invoice Details */}
+            <div className="flex border-b border-black">
+              <div className="w-[70%] border-r border-black p-2 text-sm">
+                <div>To, M/s,</div>
+                <div className="font-bold ml-4">{previewData.client?.name}</div>
+                <div className="ml-4 h-10">{previewData.client?.address}</div>
+                <div className="mt-2">GSTIN : {previewData.client?.gst}</div>
               </div>
-              <div className="w-1/3">
-                <table className="w-full border border-black">
-                  <tbody>
-                    <tr>
-                      <td className="p-1 border-b border-black">
-                        NO : {previewData.invoiceNumber}
-                      </td>
-                      <td className="p-1 border-b border-l border-black">
-                        DATE : {previewData.invoiceDate}
-                      </td>
-                    </tr>
-                    <tr>
-                      <td className="p-1 border-b border-black" colSpan="2">
-                        P.O. No : {previewData.poNumber}
-                      </td>
-                    </tr>
-                    <tr>
-                      <td className="p-1 border-b border-black" colSpan="2">
-                        P.O. Date : {previewData.poDate}
-                      </td>
-                    </tr>
-                    <tr>
-                      <td className="p-1 border-b border-black" colSpan="2">
-                        D.C. No : {previewData.dcNumber}
-                      </td>
-                    </tr>
-                    <tr>
-                      <td className="p-1" colSpan="2">
-                        D.C. Date : {previewData.dcDate}
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
+              <div className="w-[30%] text-sm">
+                <div className="border-b border-black p-2 h-8 flex items-center">
+                  <span className="font-bold mr-2">J.O. No :</span> {previewData.poNumber}
+                </div>
+                <div className="border-b border-black p-2 h-8 flex items-center">
+                  <span className="font-bold mr-2">D.C. No :</span> {previewData.dcNumber}
+                </div>
+                <div className="p-2 h-8 flex items-center">
+                  <span className="font-bold mr-2">D.C. Date :</span> {previewData.dcDate}
+                </div>
               </div>
             </div>
-            <table className="w-full border-t border-l border-r border-black text-sm">
-              <thead className="bg-gray-100">
-                <tr>
-                  <th className="p-1 border-b border-r border-black w-[5%]">
-                    S.No.
-                  </th>
-                  <th className="p-1 border-b border-r border-black w-[45%]">
-                    PARTICULARS
-                  </th>
-                  <th className="p-1 border-b border-r border-black w-[15%]">
-                    HSN CODE
-                  </th>
-                  <th className="p-1 border-b border-r border-black w-[10%]">
-                    QTY.
-                  </th>
-                  <th className="p-1 border-b border-r border-black w-[10%]">
-                    RATE
-                  </th>
-                  <th className="p-1 border-b border-black w-[15%]">AMOUNT</th>
+
+            {/* Items Table */}
+            <table className="w-full text-sm border-b border-black">
+              <thead>
+                <tr className="border-b border-black">
+                  <th className="w-[5%] border-r border-black p-1 text-center">S.No.</th>
+                  <th className="w-[45%] border-r border-black p-1 text-center">PARTICULARS</th>
+                  <th className="w-[15%] border-r border-black p-1 text-center">HSN CODE</th>
+                  <th className="w-[10%] border-r border-black p-1 text-center">QTY.</th>
+                  <th className="w-[10%] border-r border-black p-1 text-center">RATE</th>
+                  <th className="w-[15%] p-1 text-center">AMOUNT</th>
                 </tr>
               </thead>
               <tbody>
                 {previewData.items.map((item, index) => (
                   <tr key={index}>
-                    <td className="p-1 border-b border-r border-black text-center">
-                      {index + 1}
-                    </td>
-                    <td className="p-1 border-b border-r border-black">
-                      {item.description}
-                    </td>
-                    <td className="p-1 border-b border-r border-black text-center">
-                      {item.hsnCode}
-                    </td>
-                    <td className="p-1 border-b border-r border-black text-center">
-                      {item.quantity}
-                    </td>
-                    <td className="p-1 border-b border-r border-black text-right">
-                      {item.rate.toLocaleString("en-IN")}
-                    </td>
-                    <td className="p-1 border-b border-black text-right">
-                      {item.amount.toLocaleString("en-IN")}
-                    </td>
+                    <td className="border-r border-black p-1 text-center">{index + 1}</td>
+                    <td className="border-r border-black p-1">{item.description}</td>
+                    <td className="border-r border-black p-1 text-center">{item.hsnCode}</td>
+                    <td className="border-r border-black p-1 text-center">{item.quantity}</td>
+                    <td className="border-r border-black p-1 text-right">{item.rate}</td>
+                    <td className="p-1 text-right">{item.amount}</td>
                   </tr>
                 ))}
                 {Array(Math.max(0, 12 - previewData.items.length))
                   .fill(0)
                   .map((_, index) => (
                     <tr key={`empty-${index}`}>
-                      <td className="p-1 border-b border-r border-black h-6">
-                        &nbsp;
-                      </td>
-                      <td className="p-1 border-b border-r border-black"></td>
-                      <td className="p-1 border-b border-r border-black"></td>
-                      <td className="p-1 border-b border-r border-black"></td>
-                      <td className="p-1 border-b border-r border-black"></td>
-                      <td className="p-1 border-b border-black"></td>
+                      <td className="border-r border-black p-1 h-6">&nbsp;</td>
+                      <td className="border-r border-black p-1"></td>
+                      <td className="border-r border-black p-1"></td>
+                      <td className="border-r border-black p-1"></td>
+                      <td className="border-r border-black p-1"></td>
+                      <td className="p-1"></td>
                     </tr>
                   ))}
               </tbody>
             </table>
-            {previewData.invoiceNotes && (
-              <div className="p-1 italic border-l border-r border-b border-black">
-                <strong>Notes:</strong> {previewData.invoiceNotes}
-              </div>
-            )}
-            <table className="w-full border border-black mt-[-1px] text-sm">
+
+            {/* Footer Section */}
+            <table className="w-full text-sm">
               <tbody>
                 <tr>
-                  <td
-                    className="w-[60%] border-r border-black p-1 align-top"
-                    rowSpan="3"
-                  >
-                    <p className="font-bold">Declaration</p>
-                    <p>{previewData.declaration}</p>
-                  </td>
-                  <td className="border-b border-black p-1">SUB TOTAL</td>
-                  <td className="border-b border-black p-1 text-right">
-                    {previewCalcs.subtotal.toLocaleString("en-IN", {
-                      minimumFractionDigits: 2,
-                    })}
+                  <td className="w-[15%] p-1">Bank Details :</td>
+                  <td className="w-[55%] p-1">Bank Name : State Bank Of India</td>
+                  <td className="w-[15%] border-l border-black p-1">SUB TOTAL</td>
+                  <td className="w-[15%] border-l border-black p-1 text-right">
+                    {previewCalcs.subtotal.toFixed(2)}
                   </td>
                 </tr>
                 <tr>
-                  <td className="border-b border-black p-1">
-                    CGST {previewData.cgst}%
+                  <td className="p-1" colSpan="2">
+                    <span className="inline-block w-20">&nbsp;</span>
+                    A/C No : 42455711572
                   </td>
-                  <td className="border-b border-black p-1 text-right">
-                    {previewCalcs.cgstAmount.toLocaleString("en-IN", {
-                      minimumFractionDigits: 2,
-                    })}
-                  </td>
-                </tr>
-                <tr>
-                  <td className="border-b border-black p-1">
-                    SGST {previewData.sgst}%
-                  </td>
-                  <td className="border-b border-black p-1 text-right">
-                    {previewCalcs.sgstAmount.toLocaleString("en-IN", {
-                      minimumFractionDigits: 2,
-                    })}
+                  <td className="border-l border-black p-1">CGST &nbsp;&nbsp;&nbsp; {previewData.cgst}%</td>
+                  <td className="border-l border-black p-1 text-right">
+                    {previewCalcs.cgstAmount.toFixed(2)}
                   </td>
                 </tr>
                 <tr>
-                  <td
-                    className="border-r border-black p-1 align-top"
-                    rowSpan="3"
-                  >
-                    <span className="font-bold">Rupees:</span> {amountInWords}
+                  <td className="p-1" colSpan="2">
+                    <span className="inline-block w-20">&nbsp;</span>
+                    IFSC Code : SBIN0015017
                   </td>
-                  <td className="border-b border-black p-1">
-                    IGST {previewData.igst}%
-                  </td>
-                  <td className="border-b border-black p-1 text-right">
-                    {previewCalcs.igstAmount.toLocaleString("en-IN", {
-                      minimumFractionDigits: 2,
-                    })}
+                  <td className="border-l border-black p-1">SGST &nbsp;&nbsp;&nbsp; {previewData.sgst}%</td>
+                  <td className="border-l border-black p-1 text-right">
+                    {previewCalcs.sgstAmount.toFixed(2)}
                   </td>
                 </tr>
                 <tr>
-                  <td className="border-b border-black p-1">ROUND OFF</td>
-                  <td className="border-b border-black p-1 text-right">
-                    {(previewCalcs.roundOffAmount || 0).toLocaleString(
-                      "en-IN",
-                      { minimumFractionDigits: 2 }
-                    )}
+                  <td className="p-1" colSpan="2">
+                    <span className="inline-block w-20">&nbsp;</span>
+                    Branch : Malumichampatti
                   </td>
-                </tr>
-                <tr className="font-bold">
-                  <td className="p-1">NET TOTAL</td>
-                  <td className="p-1 text-right">
-                    ₹
-                    {previewCalcs.total.toLocaleString("en-IN", {
-                      minimumFractionDigits: 2,
-                    })}
+                  <td className="border-l border-black p-1">IGST &nbsp;&nbsp;&nbsp; {previewData.igst}%</td>
+                  <td className="border-l border-black p-1 text-right">
+                    {previewCalcs.igstAmount.toFixed(2)}
                   </td>
                 </tr>
                 <tr>
-                  <td className="border-r border-black p-1 h-24 align-top">
-                    <p className="font-bold">Declaration</p>
-                    <p>{previewData.declaration}</p>
+                  <td className="p-1 border-t border-black font-bold" colSpan="2">
+                    Rupees : <span className="font-normal">{amountInWords}</span>
                   </td>
-                  <td colSpan="2" className="p-1 align-bottom text-right">
-                    <p className="mt-12">Authorized Signatory</p>
+                  <td className="border-l border-t border-black p-1">ROUND OFF</td>
+                  <td className="border-l border-t border-black p-1 text-right">
+                    {(previewCalcs.roundOffAmount || 0).toFixed(2)}
+                  </td>
+                </tr>
+                <tr>
+                  <td className="p-1 border-t border-black align-top" colSpan="2" rowSpan="2">
+                    <div className="font-bold mb-1">Declaration</div>
+                    <div className="text-xs">
+                      We declare that this invoice shows the actual price of the goods Described and that all Particulars are true and correct
+                    </div>
+                  </td>
+                  <td className="border-l border-t border-black p-1 font-bold">NET TOTAL</td>
+                  <td className="border-l border-t border-black p-1 text-right font-bold">
+                    {previewCalcs.total.toFixed(2)}
+                  </td>
+                </tr>
+                <tr>
+                  <td className="border-l border-black p-1 h-20 align-bottom text-right" colSpan="2">
+                    <div className="font-bold text-red-600 mb-8">For ESA Engineering Works</div>
+                    <div className="text-xs">Authorized Signatory</div>
                   </td>
                 </tr>
               </tbody>
             </table>
-            <div className="text-center font-bold bg-gray-200 mt-2 p-1">
+
+            <div className="text-center font-bold text-xs bg-gray-200 p-1 border-t border-black">
               This is a Computer generated bill
             </div>
           </div>
@@ -1042,7 +972,7 @@ const CreateInvoiceComponent = ({
               <div>
                 {/* CHANGED: Added required indicator */}
                 <label className="block text-sm text-gray-700 mb-1">
-                  P.O. Number <span className="text-red-500">*</span>
+                  J.O. Number <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -1112,17 +1042,17 @@ const CreateInvoiceComponent = ({
                 <Plus className="w-4 h-4 mr-1" /> Add Item
               </button>
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[600px]">
+            <div>
+              <table className="w-full">
                 <thead className="text-xs uppercase font-semibold text-gray-500">
                   <tr>
-                    <th className="p-2 text-left w-10">#</th>
-                    <th className="p-2 text-left">Description</th>
-                    <th className="p-2 text-left w-32">HSN</th>
-                    <th className="p-2 text-left w-24">Qty</th>
-                    <th className="p-2 text-left w-32">Rate (₹)</th>
-                    <th className="p-2 text-left w-32">Amount (₹)</th>
-                    <th className="p-2 text-left w-10"></th>
+                    <th className="p-2 text-left w-[5%]">#</th>
+                    <th className="p-2 text-left w-[35%]">Description</th>
+                    <th className="p-2 text-left w-[15%]">HSN</th>
+                    <th className="p-2 text-left w-[10%]">Qty</th>
+                    <th className="p-2 text-left w-[15%]">Rate (₹)</th>
+                    <th className="p-2 text-left w-[15%]">Amount (₹)</th>
+                    <th className="p-2 text-left w-[5%]"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1465,7 +1395,6 @@ const InvoiceManagementComponent = ({
   handleViewInvoice,
   handleEditInvoice,
   handleDownloadInvoice,
-  promptDelete,
   getDynamicStatus,
 }) => {
   const tabs = ["All Invoices", "Paid", "Unpaid", "Drafts", "Overdue"];
@@ -1590,13 +1519,7 @@ const InvoiceManagementComponent = ({
                             >
                               <Download className="w-4 h-4" />
                             </button>
-                            <button
-                              onClick={() => promptDelete(invoice.id)}
-                              className="p-1 text-gray-600 transition-colors hover:text-red-600"
-                              title="Delete Invoice"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+
                           </div>
                         </td>
                       </tr>
@@ -1633,7 +1556,7 @@ const InvoiceManagementSystem = () => {
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [showPreview, setShowPreview] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState(null);
-  const [invoiceToDelete, setInvoiceToDelete] = useState(null);
+  const { success, error: showError, warning } = useToast();
 
   // Get authentication context
   const { user } = useContext(AuthContext);
@@ -1654,7 +1577,6 @@ const InvoiceManagementSystem = () => {
     error: invoicesError,
     addInvoice,
     editInvoice,
-    removeInvoice,
   } = useInvoices();
 
   const { customers, error: customersError } = useCustomers();
@@ -1931,8 +1853,9 @@ const InvoiceManagementSystem = () => {
     if (!clientId) missingFields.push("Client Information");
     if (items.length === 0) missingFields.push("At least one item");
     if (missingFields.length > 0) {
-      alert(
-        `Please fill in all required fields:\n- ${missingFields.join("\n- ")}`
+      showError(
+        `Please fill in all required fields:\n- ${missingFields.join("\n- ")}`,
+        "Validation Error"
       );
       return false;
     }
@@ -1948,12 +1871,12 @@ const InvoiceManagementSystem = () => {
 
     const result = await addInvoice(draftInvoice);
     if (result.success) {
-      alert("Invoice saved as draft!");
+      success("Invoice saved as draft!", "Draft Saved");
       resetInvoiceForm();
       setEditingInvoice(null);
       setCurrentPage("management");
     } else {
-      alert("Error saving draft: " + result.error);
+      showError("Error saving draft: " + result.error, "Error");
     }
   };
 
@@ -1968,11 +1891,11 @@ const InvoiceManagementSystem = () => {
 
     const result = await addInvoice(newInvoice);
     if (result.success) {
-      alert("Invoice saved successfully!");
+      success("Invoice saved successfully!", "Invoice Saved");
       resetInvoiceForm();
       setCurrentPage("management");
     } else {
-      alert("Error saving invoice: " + result.error);
+      showError("Error saving invoice: " + result.error, "Error");
     }
   };
 
@@ -1986,12 +1909,12 @@ const InvoiceManagementSystem = () => {
 
     const result = await editInvoice(editingInvoice.id, updatedInvoice);
     if (result.success) {
-      alert("Invoice updated successfully!");
+      warning("Invoice updated successfully!", "Invoice Updated");
       setEditingInvoice(null);
       resetInvoiceForm();
       setCurrentPage("management");
     } else {
-      alert("Error updating invoice: " + result.error);
+      showError("Error updating invoice: " + result.error, "Error");
     }
   };
 
@@ -2015,7 +1938,7 @@ const InvoiceManagementSystem = () => {
       // Generate PDF for existing invoice
       await generateInvoicePDF(invoice, settings);
     } catch (error) {
-      alert("Error generating PDF. Please try again.");
+      showError("Error generating PDF. Please try again.", "Error");
     }
   };
 
@@ -2034,9 +1957,10 @@ const InvoiceManagementSystem = () => {
       // Create a temporary div for HTML to PDF conversion
       const tempDiv = document.createElement("div");
       tempDiv.innerHTML = invoiceHTML;
-      tempDiv.style.position = "absolute";
-      tempDiv.style.left = "-9999px";
-      tempDiv.style.top = "-9999px";
+      tempDiv.style.position = "fixed";
+      tempDiv.style.left = "-10000px";
+      tempDiv.style.top = "0";
+      tempDiv.style.zIndex = "-9999";
       tempDiv.style.width = "800px";
       document.body.appendChild(tempDiv);
 
@@ -2193,29 +2117,34 @@ const InvoiceManagementSystem = () => {
       <head>
         <title>Invoice ${invoice.invoiceNumber}</title>
         <style>
-          body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #fff; font-size: 14px; }
-          .container { border: 2px solid black; padding: 15px; width: 100%; max-width: 800px; margin: auto; }
-          table { width: 100%; border-collapse: collapse; }
-          td, th { padding: 5px; }
-          .header { text-align: center; }
-          .header-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
-          .header-top .phone-left { font-weight: bold; color: black; }
-          .header-top .phone-right { font-weight: bold; color: black; }
-          .header-main { display: flex; align-items: center; justify-content: center; margin-bottom: 10px; }
-          .header-main .logo { margin-right: 20px; }
-          .header-main .company-name { font-family: 'Times New Roman', serif; font-size: 28px; font-weight: bold; color: #8B0000; margin: 0; }
-          .header-details { text-align: center; }
-          .header-details p { margin: 3px 0; color: black; font-family: Arial, sans-serif; }
-          .bordered-table, .bordered-table th, .bordered-table td { border: 1px solid black; }
-          .text-right { text-align: right; }
-          .text-center { text-align: center; }
-          .font-bold { font-weight: bold; }
-          .items-table { min-height: 300px; }
-          .items-table td { vertical-align: top; }
+          #invoice-pdf-wrapper { font-family: Arial, sans-serif; padding: 20px; background-color: #fff; font-size: 14px; color: black; }
+          #invoice-pdf-wrapper .container { border: 2px solid black; padding: 15px; width: 100%; max-width: 800px; margin: auto; }
+          #invoice-pdf-wrapper table { width: 100%; border-collapse: collapse; }
+          #invoice-pdf-wrapper td, #invoice-pdf-wrapper th { padding: 5px; }
+          #invoice-pdf-wrapper .header { text-align: center; }
+          #invoice-pdf-wrapper .header-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+          #invoice-pdf-wrapper .header-top .phone-left { font-weight: bold; color: black; }
+          #invoice-pdf-wrapper .header-top .phone-right { font-weight: bold; color: black; }
+          #invoice-pdf-wrapper .header-main { display: flex; align-items: center; justify-content: center; margin-bottom: 10px; }
+          #invoice-pdf-wrapper .header-main .logo { margin-right: 20px; }
+          #invoice-pdf-wrapper .header-main .company-name { font-family: 'Times New Roman', serif; font-size: 28px; font-weight: bold; color: #8B0000; margin: 0; }
+          #invoice-pdf-wrapper .header-details { text-align: center; }
+          #invoice-pdf-wrapper .header-details p { margin: 3px 0; color: black; font-family: Arial, sans-serif; }
+          #invoice-pdf-wrapper .bordered-table { border: 1px solid black; border-collapse: collapse; width: 100%; }
+          #invoice-pdf-wrapper .bordered-table th { border: 1px solid black; }
+          #invoice-pdf-wrapper .bordered-table td { border: 1px solid black; }
+          #invoice-pdf-wrapper .text-right { text-align: right; }
+          #invoice-pdf-wrapper .text-center { text-align: center; }
+          #invoice-pdf-wrapper .font-bold { font-weight: bold; }
+          #invoice-pdf-wrapper .items-table { min-height: 300px; border-collapse: collapse; }
+          #invoice-pdf-wrapper .items-table th { border: 1px solid black; border-bottom: 1px solid black; }
+          #invoice-pdf-wrapper .items-table td { border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none; vertical-align: top; }
+          #invoice-pdf-wrapper .items-table tr:last-child td { border-bottom: 1px solid black; }
         </style>
       </head>
       <body>
-        <div class="container">
+        <div id="invoice-pdf-wrapper">
+          <div class="container">
           <div class="header">
             <div class="header-top">
               <div class="phone-left">☎ 98432 94464</div>
@@ -2273,21 +2202,22 @@ const InvoiceManagementSystem = () => {
         .map(
           (item, index) => `
                 <tr>
-                  <td class="text-center">${index + 1}</td>
-                  <td>${item.description}</td>
-                  <td class="text-center">${item.hsnCode}</td>
-                  <td class="text-center">${item.quantity}</td>
-                  <td class="text-right">₹${item.rate.toFixed(2)}</td>
-                  <td class="text-right">₹${(item.quantity * item.rate).toFixed(
-            2
-          )}</td>
+                  <td class="text-center" style="border-right: 1px solid black; border-bottom: none;">${index + 1}</td>
+                  <td style="border-right: 1px solid black; border-bottom: none;">${item.description}</td>
+                  <td class="text-center" style="border-right: 1px solid black; border-bottom: none;">${item.hsnCode}</td>
+                  <td class="text-center" style="border-right: 1px solid black; border-bottom: none;">${item.quantity}</td>
+                  <td class="text-right" style="border-right: 1px solid black; border-bottom: none;">₹${item.rate.toFixed(2)}</td>
+                  <td class="text-right" style="border-bottom: none;">₹${(item.quantity * item.rate).toFixed(2)}</td>
                 </tr>
               `
         )
         .join("")}
-              <tr style="height: 120px;">
-                <td colspan="6">&nbsp;</td>
-              </tr>
+              ${Array(Math.max(0, 12 - invoice.items.length))
+        .fill(
+          '<tr><td style="border-right: 1px solid black; border-bottom: none;">&nbsp;</td><td style="border-right: 1px solid black; border-bottom: none;"></td><td style="border-right: 1px solid black; border-bottom: none;"></td><td style="border-right: 1px solid black; border-bottom: none;"></td><td style="border-right: 1px solid black; border-bottom: none;"></td><td style="border-bottom: none;"></td></tr>'
+        )
+        .join("")}
+            </tbody>
               <tr>
                 <td colspan="5" class="text-right font-bold">Sub Total</td>
                 <td class="text-right font-bold">₹${calculations.subtotal.toFixed(
@@ -2372,41 +2302,18 @@ const InvoiceManagementSystem = () => {
         ? `<p style="margin-top: 10px; font-size: 12px;"><strong>Notes:</strong> ${invoice.invoiceNotes}</p>`
         : ""
       }
+          </div>
         </div>
       </body>
       </html>
     `;
   };
-  const promptDelete = (invoiceId) => {
-    setInvoiceToDelete(invoiceId);
-  };
 
-  const confirmDelete = async () => {
-    if (!invoiceToDelete) return;
-    try {
-      const result = await removeInvoice(invoiceToDelete);
-      if (result.success) {
-        alert("Invoice deleted successfully!");
-        setInvoiceToDelete(null);
-      } else {
-        alert("Failed to delete invoice: " + (result.error || "Unknown"));
-      }
-    } catch (e) {
-      alert("Error deleting invoice: " + e.message);
-    }
-  };
 
   return (
     <div>
       {/* debug overlay removed */}
 
-      <ConfirmationModal
-        isOpen={!!invoiceToDelete}
-        onClose={() => setInvoiceToDelete(null)}
-        onConfirm={confirmDelete}
-        title="Confirm Deletion"
-        message="Are you sure you want to delete this invoice? This action cannot be undone."
-      />
       {currentPage === "management" && (
         <InvoiceManagementComponent
           activeTab={activeTab}
@@ -2419,7 +2326,6 @@ const InvoiceManagementSystem = () => {
           handleViewInvoice={handleViewInvoice}
           handleEditInvoice={handleEditInvoice}
           handleDownloadInvoice={handleDownloadInvoice}
-          promptDelete={promptDelete}
           getDynamicStatus={getDynamicStatus}
         />
       )}
