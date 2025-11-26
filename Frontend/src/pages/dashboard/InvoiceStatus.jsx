@@ -20,7 +20,7 @@ const InvoiceStatus = ({ stats }) => {
             </p>
           </div>
           {stats?.financialYearLabel && (
-            <span className="bg-green-600 text-white px-3 py-1 rounded-full text-sm font-medium">
+            <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm font-medium">
               {stats.financialYearLabel}
             </span>
           )}
@@ -35,11 +35,11 @@ const InvoiceStatus = ({ stats }) => {
   // Prepare data for Nivo Pie
   const data = [
     { id: "Paid", label: "Paid", value: paid, color: "#22c55e" }, // green-500
-    { id: "Unpaid", label: "Unpaid", value: unpaid, color: "#3b82f6" }, // blue-500
+    { id: "Unpaid", label: "Unpaid", value: unpaid, color: "#f97316" }, // orange-600
     ...(overdue > 0
       ? [{ id: "Overdue", label: "Overdue", value: overdue, color: "#ef4444" }]
       : []), // red-500
-    { id: "Draft", label: "Draft", value: draft, color: "#f59e42" }, // amber-500
+    { id: "Draft", label: "Draft", value: draft, color: "#eab308" }, // yellow-500
   ].filter((item) => item.value > 0);
 
   return (
@@ -54,7 +54,7 @@ const InvoiceStatus = ({ stats }) => {
           </p>
         </div>
         {stats?.financialYearLabel && (
-          <span className="bg-green-600 text-white px-3 py-1 rounded-full text-sm font-medium">
+          <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm font-medium">
             {stats.financialYearLabel}
           </span>
         )}
@@ -87,23 +87,21 @@ const InvoiceStatus = ({ stats }) => {
         <div className="flex items-center gap-2">
           <span
             className="w-3 h-3 rounded-full"
-            style={{ background: "#3b82f6", display: "inline-block" }}
+            style={{ background: "#f97316", display: "inline-block" }}
           />
           <span>Unpaid ({unpaid})</span>
         </div>
-        {overdue > 0 && (
-          <div className="flex items-center gap-2">
-            <span
-              className="w-3 h-3 rounded-full"
-              style={{ background: "#ef4444", display: "inline-block" }}
-            />
-            <span>Overdue ({overdue})</span>
-          </div>
-        )}
         <div className="flex items-center gap-2">
           <span
             className="w-3 h-3 rounded-full"
-            style={{ background: "#f59e42", display: "inline-block" }}
+            style={{ background: "#ef4444", display: "inline-block" }}
+          />
+          <span>Overdue ({overdue})</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span
+            className="w-3 h-3 rounded-full"
+            style={{ background: "#eab308", display: "inline-block" }}
           />
           <span>Draft ({draft})</span>
         </div>
