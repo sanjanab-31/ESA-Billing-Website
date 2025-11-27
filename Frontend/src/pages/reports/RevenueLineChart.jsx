@@ -6,16 +6,15 @@ import {
   FileText,
   Percent,
   Users,
-  FileDown,
   Printer,
-  Sheet,
-  BookOpen,
-  Truck,
   UserCheck,
   ChevronLeft,
   ChevronRight,
   IndianRupee,
+  X,
+  Search,
 } from "lucide-react";
+import { ResponsivePie } from "@nivo/pie";
 import {
   useDashboard,
   useInvoices,
@@ -24,7 +23,9 @@ import {
 } from "../../hooks/useFirestore";
 import { AuthContext } from "../../context/AuthContext";
 import jsPDF from "jspdf";
-import "jspdf-autotable";
+import autoTable from "jspdf-autotable";
+import html2canvas from "html2canvas";
+import { generateInvoiceHTML } from "../../utils/invoiceGenerator";
 
 // Calendar Popup Component
 const CalendarPopup = ({ onDateSelect, onClose }) => {
@@ -166,20 +167,22 @@ const RevenueLineChart = ({ invoices = [] }) => {
           return (
             invDate >= monthStart &&
             invDate <= monthEnd &&
-            inv.status === "paid"
+            (inv.status === "paid" || inv.status === "Paid")
           );
         })
         .reduce((sum, inv) => sum + (inv.total || inv.amount || 0), 0);
 
+      const monthCount = invoices.filter((inv) => {
+        const invDate = new Date(
+          inv.invoiceDate || inv.createdAt?.toDate?.() || inv.createdAt
+        );
+        return invDate >= monthStart && invDate <= monthEnd;
+      }).length;
+
       months.push({
-        name: monthName,
+        month: monthName,
         revenue: monthRevenue,
-        count: invoices.filter((inv) => {
-          const invDate = new Date(
-            inv.invoiceDate || inv.createdAt?.toDate?.() || inv.createdAt
-          );
-          return invDate >= monthStart && invDate <= monthEnd;
-        }).length,
+        invoices: monthCount,
       });
     }
 
@@ -187,127 +190,95 @@ const RevenueLineChart = ({ invoices = [] }) => {
   };
 
   const data = generateMonthlyData();
-  const maxRevenue = Math.max(...data.map((d) => d.revenue), 1);
-  const maxCount = Math.max(...data.map((d) => d.count), 1);
 
-  const getYPosition = (value, maxValue) => {
-    return 125 - (value / maxValue) * 100;
-  };
-
-  const getXPosition = (index) => {
-    return 25 + index * 45;
-  };
-
-  // Generate path for revenue line
-  const revenuePath = data
-    .map((item, index) => {
-      const x = getXPosition(index);
-      const y = getYPosition(item.revenue, maxRevenue);
-      return `${index === 0 ? "M" : "L"} ${x} ${y}`;
-    })
-    .join(" ");
-
-  // Generate path for invoice count line
-  const countPath = data
-    .map((item, index) => {
-      const x = getXPosition(index);
-      const y = getYPosition(item.count, maxCount);
-      return `${index === 0 ? "M" : "L"} ${x} ${y}`;
-    })
-    .join(" ");
+  // Format data for Nivo
+  const nivoData = [
+    {
+      id: "Revenue",
+      color: "#3b82f6",
+      data: data.map(d => ({ x: d.month, y: d.revenue }))
+    }
+  ];
 
   return (
-    <div className="w-full h-full flex items-end">
-      <svg
-        width="100%"
-        height="100%"
-        viewBox="0 0 300 150"
-        preserveAspectRatio="none"
-      >
-        {/* Dashed Grid Lines */}
-        {[25, 50, 75, 100, 125].map((y) => (
-          <line
-            key={y}
-            x1="25"
-            y1={y}
-            x2="295"
-            y2={y}
-            stroke="#E2E8F0"
-            strokeWidth="1"
-            strokeDasharray="4 4"
-          />
-        ))}
-
-        {/* Y-Axis Labels */}
-        <text x="20" y="28" fill="#64748B" fontSize="10" textAnchor="end">
-          ₹{(maxRevenue / 1000).toFixed(0)}k
-        </text>
-        <text x="20" y="53" fill="#64748B" fontSize="10" textAnchor="end">
-          ₹{((maxRevenue * 0.75) / 1000).toFixed(0)}k
-        </text>
-        <text x="20" y="78" fill="#64748B" fontSize="10" textAnchor="end">
-          ₹{((maxRevenue * 0.5) / 1000).toFixed(0)}k
-        </text>
-        <text x="20" y="103" fill="#64748B" fontSize="10" textAnchor="end">
-          ₹{((maxRevenue * 0.25) / 1000).toFixed(0)}k
-        </text>
-        <text x="20" y="128" fill="#64748B" fontSize="10" textAnchor="end">
-          ₹0k
-        </text>
-
-        {/* X-Axis Labels */}
-        {data.map((item, index) => (
-          <text
-            key={index}
-            x={getXPosition(index)}
-            y="145"
-            fill="#64748B"
-            fontSize="10"
-            textAnchor="middle"
-          >
-            {item.name}
-          </text>
-        ))}
-
-        {/* Gradient for Area Chart */}
-        <defs>
-          <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#1A73E8" stopOpacity={0.2} />
-            <stop offset="100%" stopColor="#1A73E8" stopOpacity={0} />
-          </linearGradient>
-        </defs>
-
-        {/* Revenue Line */}
-        <path d={revenuePath} stroke="#1A73E8" strokeWidth="2" fill="none" />
-
-        {/* Invoice Count Line */}
-        <path
-          d={countPath}
-          stroke="#34D399"
-          strokeWidth="2"
-          fill="none"
-          strokeDasharray="4 4"
-        />
-
-        {/* Data Points */}
-        {data.map((item, index) => (
-          <g key={index}>
-            <circle
-              cx={getXPosition(index)}
-              cy={getYPosition(item.revenue, maxRevenue)}
-              r="3"
-              fill="#1A73E8"
-            />
-            <circle
-              cx={getXPosition(index)}
-              cy={getYPosition(item.count, maxCount)}
-              r="3"
-              fill="#34D399"
-            />
-          </g>
-        ))}
-      </svg>
-    </div>
+    <ResponsiveLine
+      data={nivoData}
+      margin={{ top: 20, right: 20, bottom: 50, left: 60 }}
+      xScale={{ type: 'point' }}
+      yScale={{
+        type: 'linear',
+        min: 'auto',
+        max: 'auto',
+        stacked: false,
+        reverse: false
+      }}
+      yFormat=" >-,.0f"
+      curve="monotoneX"
+      axisTop={null}
+      axisRight={null}
+      axisBottom={{
+        tickSize: 5,
+        tickPadding: 5,
+        tickRotation: 0,
+        legend: 'Month',
+        legendOffset: 36,
+        legendPosition: 'middle'
+      }}
+      axisLeft={{
+        tickSize: 5,
+        tickPadding: 5,
+        tickRotation: 0,
+        legend: 'Revenue (₹)',
+        legendOffset: -50,
+        legendPosition: 'middle',
+        format: value => `₹${(value / 1000).toFixed(0)}k`
+      }}
+      enableGridX={false}
+      colors={{ datum: 'color' }}
+      lineWidth={3}
+      pointSize={8}
+      pointColor={{ theme: 'background' }}
+      pointBorderWidth={2}
+      pointBorderColor={{ from: 'serieColor' }}
+      pointLabelYOffset={-12}
+      enableArea={true}
+      areaOpacity={0.1}
+      useMesh={true}
+      legends={[]}
+      theme={{
+        axis: {
+          ticks: {
+            text: {
+              fontSize: 11,
+              fill: '#64748b'
+            }
+          },
+          legend: {
+            text: {
+              fontSize: 12,
+              fill: '#475569',
+              fontWeight: 600
+            }
+          }
+        },
+        grid: {
+          line: {
+            stroke: '#e2e8f0',
+            strokeWidth: 1
+          }
+        }
+      }}
+      tooltip={({ point }) => (
+        <div className="bg-white px-3 py-2 rounded-lg shadow-lg border border-gray-200">
+          <div className="text-sm font-semibold text-gray-900">
+            {point.data.x}
+          </div>
+          <div className="text-sm text-gray-600">
+            Revenue: <span className="font-bold text-blue-600">₹{point.data.y.toLocaleString('en-IN')}</span>
+          </div>
+        </div>
+      )}
+    />
   );
 };
 
@@ -336,7 +307,7 @@ const TopClientsBarChart = ({ invoices = [], customers = [], selectedMonth, sele
       const clientId = inv.clientId || inv.client?.id;
       const clientName = inv.client?.name || "Unknown Client";
       const amount = inv.total || inv.amount || 0;
-      
+
       if (clientId) {
         if (!clientPayments[clientId]) {
           clientPayments[clientId] = {
@@ -359,104 +330,104 @@ const TopClientsBarChart = ({ invoices = [], customers = [], selectedMonth, sele
   };
 
   const data = generateClientData();
-  const maxValue = Math.max(...data.map((d) => d.total), 1);
+
+  // Format data for Nivo
+  const nivoData = data.map(client => ({
+    client: client.name.length > 12 ? client.name.substring(0, 12) + '...' : client.name,
+    revenue: client.total,
+    count: client.count
+  }));
 
   return (
-    <div className="w-full h-full flex items-end">
-      <svg
-        width="100%"
-        height="100%"
-        viewBox="0 0 400 200"
-        preserveAspectRatio="none"
-      >
-        {/* Dashed Grid Lines */}
-        {[25, 50, 75, 100, 125, 150, 175].map((y) => (
-          <line
-            key={y}
-            x1="40"
-            y1={y}
-            x2="380"
-            y2={y}
-            stroke="#E2E8F0"
-            strokeWidth="1"
-            strokeDasharray="4 4"
-          />
-        ))}
-
-        {/* Y-Axis Labels */}
-        <text x="35" y="15" fill="#64748B" fontSize="10" textAnchor="end">
-          ₹{(maxValue / 1000).toFixed(0)}k
-        </text>
-        <text x="35" y="40" fill="#64748B" fontSize="10" textAnchor="end">
-          ₹{((maxValue * 0.8) / 1000).toFixed(0)}k
-        </text>
-        <text x="35" y="65" fill="#64748B" fontSize="10" textAnchor="end">
-          ₹{((maxValue * 0.6) / 1000).toFixed(0)}k
-        </text>
-        <text x="35" y="90" fill="#64748B" fontSize="10" textAnchor="end">
-          ₹{((maxValue * 0.4) / 1000).toFixed(0)}k
-        </text>
-        <text x="35" y="115" fill="#64748B" fontSize="10" textAnchor="end">
-          ₹{((maxValue * 0.2) / 1000).toFixed(0)}k
-        </text>
-        <text x="35" y="140" fill="#64748B" fontSize="10" textAnchor="end">
-          ₹0k
-        </text>
-
-        {/* Bars and X-Axis Labels */}
-        {data.map((item, index) => {
-          const x = 50 + index * 55;
-          const y = 175 - (item.total / maxValue) * 150;
-          const height = (item.total / maxValue) * 150;
-          const colors = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4'];
-          
-          return (
-            <g key={item.name}>
-              <rect
-                x={x + 5}
-                y={y}
-                width="45"
-                height={height}
-                fill={colors[index % colors.length]}
-                rx="4"
-                ry="4"
-              />
-              {/* Value label on top of bar */}
-              <text
-                x={x + 27.5}
-                y={y - 5}
-                fill="#374151"
-                fontSize="9"
-                textAnchor="middle"
-                fontWeight="bold"
-              >
-                ₹{(item.total / 1000).toFixed(0)}k
-              </text>
-              {/* Client name (truncated) */}
-              <text
-                x={x + 27.5}
-                y="195"
-                fill="#64748B"
-                fontSize="9"
-                textAnchor="middle"
-              >
-                {item.name.length > 8 ? item.name.substring(0, 8) + '...' : item.name}
-              </text>
-              {/* Invoice count */}
-              <text
-                x={x + 27.5}
-                y="210"
-                fill="#9CA3AF"
-                fontSize="8"
-                textAnchor="middle"
-              >
-                {item.count} inv
-              </text>
-            </g>
-          );
-        })}
-      </svg>
-    </div>
+    <ResponsiveBar
+      data={nivoData}
+      keys={['revenue']}
+      indexBy="client"
+      margin={{ top: 20, right: 20, bottom: 60, left: 70 }}
+      padding={0.3}
+      valueScale={{ type: 'linear' }}
+      indexScale={{ type: 'band', round: true }}
+      colors={['#3b82f6']}
+      borderRadius={6}
+      borderColor={{
+        from: 'color',
+        modifiers: [['darker', 1.6]]
+      }}
+      axisTop={null}
+      axisRight={null}
+      axisBottom={{
+        tickSize: 5,
+        tickPadding: 5,
+        tickRotation: -20,
+        legend: 'Client',
+        legendPosition: 'middle',
+        legendOffset: 50
+      }}
+      axisLeft={{
+        tickSize: 5,
+        tickPadding: 5,
+        tickRotation: 0,
+        legend: 'Revenue (₹)',
+        legendPosition: 'middle',
+        legendOffset: -60,
+        format: value => `₹${(value / 1000).toFixed(0)}k`
+      }}
+      enableLabel={true}
+      label={d => `₹${(d.value / 1000).toFixed(0)}k`}
+      labelSkipWidth={12}
+      labelSkipHeight={12}
+      labelTextColor={{
+        from: 'color',
+        modifiers: [['darker', 2]]
+      }}
+      legends={[]}
+      role="application"
+      ariaLabel="Top clients bar chart"
+      theme={{
+        axis: {
+          ticks: {
+            text: {
+              fontSize: 11,
+              fill: '#64748b'
+            }
+          },
+          legend: {
+            text: {
+              fontSize: 12,
+              fill: '#475569',
+              fontWeight: 600
+            }
+          }
+        },
+        grid: {
+          line: {
+            stroke: '#e2e8f0',
+            strokeWidth: 1
+          }
+        },
+        labels: {
+          text: {
+            fontSize: 11,
+            fontWeight: 600
+          }
+        }
+      }}
+      tooltip={({ id, value, indexValue, data }) => (
+        <div className="bg-white px-3 py-2 rounded-lg shadow-lg border border-gray-200">
+          <div className="text-sm font-semibold text-gray-900">
+            {indexValue}
+          </div>
+          <div className="text-sm text-gray-600">
+            Revenue: <span className="font-bold text-blue-600">₹{value.toLocaleString('en-IN')}</span>
+          </div>
+          <div className="text-xs text-gray-500">
+            {data.count} invoice{data.count !== 1 ? 's' : ''}
+          </div>
+        </div>
+      )}
+      motionConfig="gentle"
+      animate={true}
+    />
   );
 };
 
@@ -717,7 +688,8 @@ const GSTSummary = ({ invoices = [], getDynamicInvoiceStatus }) => {
               <p className="font-bold text-sm text-gray-900">
                 ₹
                 {gstData.cgst.toLocaleString("en-IN", {
-                  maximumFractionDigits: 0,
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
                 })}
               </p>
               <p className="text-xs text-gray-500">
@@ -734,7 +706,8 @@ const GSTSummary = ({ invoices = [], getDynamicInvoiceStatus }) => {
               <p className="font-bold text-sm text-gray-900">
                 ₹
                 {gstData.sgst.toLocaleString("en-IN", {
-                  maximumFractionDigits: 0,
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
                 })}
               </p>
               <p className="text-xs text-gray-500">
@@ -751,7 +724,8 @@ const GSTSummary = ({ invoices = [], getDynamicInvoiceStatus }) => {
               <p className="font-bold text-sm text-gray-900">
                 ₹
                 {gstData.igst.toLocaleString("en-IN", {
-                  maximumFractionDigits: 0,
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
                 })}
               </p>
               <p className="text-xs text-gray-500">
@@ -762,20 +736,346 @@ const GSTSummary = ({ invoices = [], getDynamicInvoiceStatus }) => {
         </div>
       </div>
       {/* GST Distribution */}
-      <div className="p-5 border border-gray-200 rounded-xl flex flex-col items-center justify-center">
-        <h3 className="font-bold text-gray-900 self-start text-lg">
+      <div className="p-5 border border-gray-200 rounded-xl flex flex-col">
+        <h3 className="font-bold text-gray-900 text-lg">
           GST Distribution
         </h3>
-        <p className="text-sm text-gray-500 mb-4 self-start">
+        <p className="text-sm text-gray-500 mb-4">
           Visual breakdown
         </p>
-        <div className="flex-grow flex items-center justify-center">
-          <DonutChart
-            cgst={gstData.cgstPercent}
-            sgst={gstData.sgstPercent}
-            igst={gstData.igstPercent}
+        <div className="h-80">
+          <ResponsivePie
+            data={[
+              { id: "CGST", label: "CGST", value: gstData.cgst, color: "#3b82f6" },
+              { id: "SGST", label: "SGST", value: gstData.sgst, color: "#10b981" },
+              { id: "IGST", label: "IGST", value: gstData.igst, color: "#f59e0b" }
+            ].filter(item => item.value > 0)}
+            margin={{ top: 20, right: 80, bottom: 80, left: 80 }}
+            innerRadius={0.5}
+            padAngle={0.7}
+            cornerRadius={3}
+            activeOuterRadiusOffset={8}
+            colors={{ datum: 'data.color' }}
+            borderWidth={1}
+            borderColor={{
+              from: 'color',
+              modifiers: [['darker', 0.2]]
+            }}
+            arcLinkLabelsSkipAngle={10}
+            arcLinkLabelsTextColor="#333333"
+            arcLinkLabelsThickness={2}
+            arcLinkLabelsColor={{ from: 'color' }}
+            arcLabelsSkipAngle={10}
+            enableArcLabels={false}
+            theme={{
+              labels: {
+                text: {
+                  fontSize: 12,
+                  fontWeight: 600
+                }
+              }
+            }}
+            tooltip={({ datum }) => (
+              <div className="bg-white px-3 py-2 rounded-lg shadow-lg border border-gray-200">
+                <div className="text-sm font-semibold text-gray-900">
+                  {datum.label}
+                </div>
+                <div className="text-sm text-gray-600">
+                  Amount: <span className="font-bold" style={{ color: datum.color }}>₹{datum.value.toLocaleString('en-IN')}</span>
+                </div>
+                <div className="text-xs text-gray-500">
+                  {datum.data.id === 'CGST' && `${gstData.cgstPercent.toFixed(1)}%`}
+                  {datum.data.id === 'SGST' && `${gstData.sgstPercent.toFixed(1)}%`}
+                  {datum.data.id === 'IGST' && `${gstData.igstPercent.toFixed(1)}%`}
+                </div>
+              </div>
+            )}
           />
         </div>
+      </div>
+    </div>
+  );
+};
+
+const PDFExportModal = ({ isOpen, onClose, invoices, customers, payments, stats, onExport }) => {
+  const [step, setStep] = useState("type-selection"); // type-selection, client-selection, client-options, date-selection
+  const [reportType, setReportType] = useState(""); // client, monthly, yearly
+  const [clientReportType, setClientReportType] = useState(""); // monthly, yearly
+  const [selectedClient, setSelectedClient] = useState(null);
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const months = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
+  ];
+
+  const currentYear = new Date().getFullYear();
+  const years = Array.from({ length: 5 }, (_, i) => currentYear - i);
+
+  useEffect(() => {
+    if (isOpen) {
+      setStep("type-selection");
+      setReportType("");
+      setClientReportType("");
+      setSelectedClient(null);
+      setSearchTerm("");
+      setSelectedMonth(new Date().getMonth());
+      setSelectedYear(new Date().getFullYear());
+    }
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
+  const filteredCustomers = customers.filter(c =>
+    c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (c.email && c.email.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
+
+  const handleTypeSelect = (type) => {
+    setReportType(type);
+    if (type === "client") {
+      setStep("client-selection");
+    } else {
+      setStep("date-selection");
+    }
+  };
+
+  const handleClientSelect = (client) => {
+    setSelectedClient(client);
+    setStep("client-options");
+  };
+
+  const handleClientOptionSelect = (type) => {
+    setClientReportType(type);
+    setStep("date-selection");
+  };
+
+  const handleGenerate = () => {
+    let filteredInvoices = [...invoices];
+    let title = "Business Report";
+    let subtitle = "";
+
+    // Filter by Client if needed
+    if (reportType === "client" && selectedClient) {
+      filteredInvoices = filteredInvoices.filter(inv =>
+        inv.clientId === selectedClient.id || inv.client?.id === selectedClient.id
+      );
+    }
+
+    // Filter by Date
+    const isMonthly = (reportType === "monthly") || (reportType === "client" && clientReportType === "monthly");
+    const isYearly = (reportType === "yearly") || (reportType === "client" && clientReportType === "yearly");
+
+    if (isMonthly) {
+      const start = new Date(selectedYear, selectedMonth, 1);
+      const end = new Date(selectedYear, selectedMonth + 1, 0);
+
+      filteredInvoices = filteredInvoices.filter(inv => {
+        const d = new Date(inv.invoiceDate || inv.createdAt?.toDate?.() || inv.createdAt);
+        return d >= start && d <= end;
+      });
+
+      title = reportType === "client" ? `Client Monthly Bill - ${selectedClient.name}` : "Monthly Bill";
+      subtitle = `For ${months[selectedMonth]} ${selectedYear}`;
+    } else if (isYearly) {
+      // Financial Year: 1st April of selectedYear to 31st March of selectedYear + 1
+      const start = new Date(selectedYear, 3, 1); // April 1st
+      const end = new Date(selectedYear + 1, 2, 31); // March 31st next year
+
+      filteredInvoices = filteredInvoices.filter(inv => {
+        const d = new Date(inv.invoiceDate || inv.createdAt?.toDate?.() || inv.createdAt);
+        return d >= start && d <= end;
+      });
+
+      title = reportType === "client" ? `Client Yearly Bill - ${selectedClient.name}` : "Yearly Bill";
+      subtitle = `Financial Year ${selectedYear}-${selectedYear + 1}`;
+    }
+
+    onExport(filteredInvoices, customers, payments, stats, title, subtitle);
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 modal-backdrop flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-auto relative">
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+          title="Close"
+        >
+          <X size={18} />
+        </button>
+
+        <div className="p-6">
+          <h2 className="text-lg font-bold text-gray-900 mb-4">
+            {step === "type-selection" && "Select Report Type"}
+            {step === "client-selection" && "Select Client"}
+            {step === "client-options" && "Select Bill Type"}
+            {step === "date-selection" && "Select Period"}
+          </h2>
+
+          {step === "type-selection" && (
+            <div className="space-y-3">
+              <button
+                onClick={() => handleTypeSelect("client")}
+                className="w-full p-4 text-left border border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all group bg-gray-50"
+              >
+                <div className="font-semibold text-gray-900 group-hover:text-blue-700">Client Bill</div>
+                <div className="text-sm text-gray-500">Download reports for specific clients</div>
+              </button>
+              <button
+                onClick={() => handleTypeSelect("monthly")}
+                className="w-full p-4 text-left border border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all group bg-gray-50"
+              >
+                <div className="font-semibold text-gray-900 group-hover:text-blue-700">Monthly Bill</div>
+                <div className="text-sm text-gray-500">Download entire monthly bill</div>
+              </button>
+              <button
+                onClick={() => handleTypeSelect("yearly")}
+                className="w-full p-4 text-left border border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all group bg-gray-50"
+              >
+                <div className="font-semibold text-gray-900 group-hover:text-blue-700">Yearly Bill</div>
+                <div className="text-sm text-gray-500">Download entire financial year bill</div>
+              </button>
+            </div>
+          )}
+
+          {step === "client-selection" && (
+            <div className="space-y-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                <input
+                  type="text"
+                  placeholder="Search clients..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 bg-gray-100 border-0 rounded-lg text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div className="max-h-60 overflow-y-auto space-y-2">
+                {filteredCustomers.length > 0 ? (
+                  filteredCustomers.map(client => (
+                    <button
+                      key={client.id}
+                      onClick={() => handleClientSelect(client)}
+                      className="w-full p-3 text-left hover:bg-gray-100 rounded-lg flex items-center justify-between group transition-colors"
+                    >
+                      <div>
+                        <div className="font-medium text-gray-900">{client.name}</div>
+                        <div className="text-xs text-gray-500">{client.email}</div>
+                      </div>
+                      <ChevronRight size={16} className="text-gray-400 group-hover:text-gray-600" />
+                    </button>
+                  ))
+                ) : (
+                  <div className="text-center text-gray-500 py-4">No clients found</div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {step === "client-options" && (
+            <div className="space-y-3">
+              <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-100">
+                <span className="text-sm text-blue-800 font-medium">Selected Client: </span>
+                <span className="text-sm text-blue-900">{selectedClient?.name}</span>
+              </div>
+              <button
+                onClick={() => handleClientOptionSelect("monthly")}
+                className="w-full p-4 text-left border border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all group bg-gray-50"
+              >
+                <div className="font-semibold text-gray-900 group-hover:text-blue-700">Monthly Bill</div>
+                <div className="text-sm text-gray-500">Download monthly report for this client</div>
+              </button>
+              <button
+                onClick={() => handleClientOptionSelect("yearly")}
+                className="w-full p-4 text-left border border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all group bg-gray-50"
+              >
+                <div className="font-semibold text-gray-900 group-hover:text-blue-700">Yearly Bill</div>
+                <div className="text-sm text-gray-500">Download yearly report for this client</div>
+              </button>
+            </div>
+          )}
+
+          {step === "date-selection" && (
+            <div className="space-y-4">
+              {/* Show Month Selector if Monthly */}
+              {((reportType === "monthly") || (reportType === "client" && clientReportType === "monthly")) && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Select Month</label>
+                  <select
+                    value={selectedMonth}
+                    onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
+                    className="w-full px-3 py-2 bg-gray-100 border-0 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    {months.map((m, i) => (
+                      <option key={i} value={i}>{m}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Show Year Selector */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {((reportType === "yearly") || (reportType === "client" && clientReportType === "yearly"))
+                    ? "Select Financial Year (Starts April 1st)"
+                    : "Select Year"}
+                </label>
+                <select
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                  className="w-full px-3 py-2 bg-gray-100 border-0 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {years.map(y => (
+                    <option key={y} value={y}>
+                      {((reportType === "yearly") || (reportType === "client" && clientReportType === "yearly"))
+                        ? `${y} - ${y + 1}`
+                        : y}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex gap-4 mt-6">
+                <button
+                  onClick={() => {
+                    if (reportType === "client") setStep("client-options");
+                    else setStep("type-selection");
+                  }}
+                  className="flex-1 px-4 py-2 bg-white border border-gray-200 text-gray-900 rounded-lg text-sm hover:bg-gray-50 transition-colors"
+                >
+                  Back
+                </button>
+                <button
+                  onClick={handleGenerate}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition-colors"
+                >
+                  Download PDF
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {step !== "type-selection" && step !== "date-selection" && (
+          <div className="px-6 pb-6 pt-0 flex justify-start">
+            <button
+              onClick={() => {
+                if (step === "client-options") {
+                  setStep("client-selection");
+                } else if (step === "client-selection") {
+                  setStep("type-selection");
+                }
+              }}
+              className="text-sm text-gray-600 hover:text-gray-900 flex items-center"
+            >
+              <ChevronLeft size={16} className="mr-1" /> Back
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -792,11 +1092,16 @@ const ReportsAnalytics = () => {
   const [toDate, setToDate] = useState(null);
   const [fromDateString, setFromDateString] = useState("");
   const [toDateString, setToDateString] = useState("");
-  
   // New state for the new charts
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [revenueYear, setRevenueYear] = useState(new Date().getFullYear());
+
+  // PDF Modal State
+  const [showPDFModal, setShowPDFModal] = useState(false);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const [showExportDropdown, setShowExportDropdown] = useState(false);
+  const exportDropdownRef = useRef(null);
 
   // Get authentication context
   const { user } = useContext(AuthContext);
@@ -807,12 +1112,29 @@ const ReportsAnalytics = () => {
   const { customers, error: customersError } = useCustomers();
   const { payments, error: paymentsError } = useAllPayments();
 
-  const tabs = ["Overview", "GST Summary", "Client Analysis", "Revenue Analysis"];
   const years = Array.from({ length: 5 }, (_, i) => currentYear - i);
   const months = [
     "January", "February", "March", "April", "May", "June",
     "July", "August", "September", "October", "November", "December"
   ];
+
+  // Close export dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (exportDropdownRef.current && !exportDropdownRef.current.contains(event.target)) {
+        setShowExportDropdown(false);
+      }
+    };
+
+    if (showExportDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showExportDropdown]);
+
 
   // Filter invoices based on selected time period
   const getFilteredInvoices = () => {
@@ -862,14 +1184,14 @@ const ReportsAnalytics = () => {
     if (invoice.status === "Paid" || invoice.status === "paid") return "Paid";
     if (invoice.status === "Draft" || invoice.status === "draft") return "Draft";
     if (invoice.status === "deleted") return "Deleted";
-    
+
     // Check if invoice is overdue
     if (invoice.dueDate) {
       const dueDate = new Date(invoice.dueDate);
       const today = new Date();
       if (dueDate < today) return "Overdue";
     }
-    
+
     return "Unpaid";
   };
 
@@ -878,16 +1200,16 @@ const ReportsAnalytics = () => {
     const paidInvoices = filteredInvoices.filter(inv => getDynamicInvoiceStatus(inv) === "Paid");
     const unpaidInvoices = filteredInvoices.filter(inv => getDynamicInvoiceStatus(inv) === "Unpaid");
     const overdueInvoices = filteredInvoices.filter(inv => getDynamicInvoiceStatus(inv) === "Overdue");
-    
+
     const totalRevenue = paidInvoices.reduce((sum, inv) => {
       return sum + (inv.total || inv.amount || 0);
     }, 0);
-    
+
     const totalInvoices = filteredInvoices.length;
     const paidCount = paidInvoices.length;
     const unpaidCount = unpaidInvoices.length;
     const overdueCount = overdueInvoices.length;
-    
+
     return {
       totalRevenue,
       totalInvoices,
@@ -955,289 +1277,100 @@ const ReportsAnalytics = () => {
       );
     }
 
-    switch (activeTab) {
-      case "Overview":
-        return (
-          <>
-            {/* Stats Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-6">
-              <div className="bg-white p-3 lg:p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200">
-                <div className="flex justify-between items-start mb-2">
-                  <h3 className="text-sm font-medium text-gray-600">
-                    Total Revenue
-                  </h3>
-                  <div className="p-1 bg-gray-50 rounded-md">
-                    <IndianRupee className="w-4 h-4 text-green-500" />
-                  </div>
-                </div>
-                <div className="mt-1">
-                  <p className="text-xl font-bold text-gray-900">
-                    ₹{realTimeStats.totalRevenue.toLocaleString("en-IN")}
-                  </p>
-                  <p className="text-xs text-green-500 flex items-center mt-0.5">
-                    <TrendingUp className="w-3 h-3 mr-1" /> Real-time data
-                  </p>
-                </div>
-              </div>
-              <div className="bg-white p-3 lg:p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200">
-                <div className="flex justify-between items-start mb-2">
-                  <h3 className="text-sm font-medium text-gray-600">
-                    Total Invoices
-                  </h3>
-                  <div className="p-1 bg-gray-50 rounded-md">
-                    <FileText className="w-4 h-4 text-blue-600" />
-                  </div>
-                </div>
-                <div className="mt-1">
-                  <p className="text-xl font-bold text-gray-900">
-                    {realTimeStats.totalInvoices}
-                  </p>
-                  <p className="text-xs text-green-500 flex items-center mt-0.5">
-                    <TrendingUp className="w-3 h-3 mr-1" /> Live count
-                  </p>
-                </div>
-              </div>
-              <div className="bg-white p-3 lg:p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200">
-                <div className="flex justify-between items-start mb-2">
-                  <h3 className="text-sm font-medium text-gray-600">
-                    GST Collected
-                  </h3>
-                  <div className="p-1 bg-gray-50 rounded-md">
-                    <Percent className="w-4 h-4 text-purple-600" />
-                  </div>
-                </div>
-                <div className="mt-1">
-                  <p className="text-xl font-bold text-gray-900">
-                    ₹{(() => {
-                      const paidInvoices = realTimeStats.paidInvoices;
-                      const totalGST = paidInvoices.reduce((sum, inv) => {
-                        const subtotal = inv.items?.reduce((itemSum, item) => {
-                          return itemSum + (item.amount || (item.quantity || 0) * (item.rate || 0));
-                        }, 0) || 0;
-                        const cgstRate = inv.cgst || 0;
-                        const sgstRate = inv.sgst || 0;
-                        const igstRate = inv.igst || 0;
-                        return sum + (subtotal * (cgstRate + sgstRate + igstRate)) / 100;
-                      }, 0);
-                      return totalGST.toLocaleString("en-IN");
-                    })()}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    From paid invoices
-                  </p>
-                </div>
-              </div>
-              <div className="bg-white p-3 lg:p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200">
-                <div className="flex justify-between items-start mb-2">
-                  <h3 className="text-sm font-medium text-gray-600">
-                    Total Clients
-                  </h3>
-                  <div className="p-1 bg-gray-50 rounded-md">
-                    <Users className="w-4 h-4 text-indigo-600" />
-                  </div>
-                </div>
-                <div className="mt-1">
-                  <p className="text-xl font-bold text-gray-900">
-                    {stats?.totalCustomers || 0}
-                  </p>
-                  <p className="text-xs text-green-500 flex items-center mt-0.5">
-                    <TrendingUp className="w-3 h-3 mr-1" /> Active clients
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Charts */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-              <div className="bg-white p-3 lg:p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200">
-                <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                  Revenue Trends
-                </h3>
-                <p className="text-sm text-gray-500 mb-4">
-                  Monthly revenue and invoice count
-                </p>
-                <div className="h-64">
-                  <RevenueLineChart invoices={filteredInvoices} />
-                </div>
-              </div>
-              <div className="bg-white p-3 lg:p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200">
-                <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                  Top Clients This Month
-                </h3>
-                <p className="text-sm text-gray-500 mb-4">Top 6 clients by payment amount</p>
-                <div className="h-64">
-                  <TopClientsBarChart 
-                    invoices={invoices} 
-                    customers={customers} 
-                    selectedMonth={new Date().getMonth()}
-                    selectedYear={new Date().getFullYear()}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Export Options */}
-            <div className="bg-white p-3 lg:p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200">
-              <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                Export Options
+    return (
+      <>
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-6 mb-6">
+          <div className="bg-white p-3 lg:p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200">
+            <div className="flex justify-between items-start mb-2">
+              <h3 className="text-sm font-medium text-gray-600">
+                Total Revenue
               </h3>
-              <p className="text-sm text-gray-500 mb-4">
-                Download reports in various formats
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                <button
-                  onClick={() =>
-                    exportToPDF(invoices, customers, payments, stats)
-                  }
-                  className="p-5 border border-gray-200 rounded-lg flex flex-col items-center justify-center space-y-2 hover:bg-gray-50 transition-colors"
-                >
-                  <Printer size={24} className="text-gray-700" />
-                  <span className="text-sm font-medium">PDF Report</span>
-                  <span className="text-xs text-gray-500">
-                    Detailed invoice report
-                  </span>
-                </button>
-                <button
-                  onClick={() => exportToExcel(invoices, customers, payments)}
-                  className="p-5 border border-gray-200 rounded-lg flex flex-col items-center justify-center space-y-2 hover:bg-gray-50 transition-colors"
-                >
-                  <Sheet size={24} className="text-gray-700" />
-                  <span className="text-sm font-medium">CSV Export</span>
-                  <span className="text-xs text-gray-500">
-                    All invoice details
-                  </span>
-                </button>
-                <button
-                  onClick={() =>
-                    exportDetailed(invoices, customers, payments, stats)
-                  }
-                  className="p-5 border border-gray-200 rounded-lg flex flex-col items-center justify-center space-y-2 hover:bg-gray-50 transition-colors"
-                >
-                  <FileDown size={24} className="text-gray-700" />
-                  <span className="text-sm font-medium">Detailed Report</span>
-                  <span className="text-xs text-gray-500">
-                    Complete data export
-                  </span>
-                </button>
+              <div className="p-1 bg-gray-50 rounded-md">
+                <IndianRupee className="w-4 h-4 text-green-500" />
               </div>
             </div>
-          </>
-        );
-      case "GST Summary":
-        return <GSTSummary invoices={filteredInvoices} getDynamicInvoiceStatus={getDynamicInvoiceStatus} />;
-      case "Client Analysis":
-        return (
-          <div className="space-y-6">
-            {/* Month and Year Filter for Client Analysis */}
-            <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Client Analysis Filters</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-gray-800 mb-1 block">Month</label>
-                  <div className="relative">
-                    <select
-                      value={selectedMonth}
-                      onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
-                      className="w-full bg-gray-100 border-0 rounded-md text-sm p-2.5 appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      {months.map((month, index) => (
-                        <option key={index} value={index}>{month}</option>
-                      ))}
-                    </select>
-                    <ChevronDown
-                      size={18}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-800 mb-1 block">Year</label>
-                  <div className="relative">
-                    <select
-                      value={selectedYear}
-                      onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                      className="w-full bg-gray-100 border-0 rounded-md text-sm p-2.5 appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      {years.map((year) => (
-                        <option key={year} value={year}>{year}</option>
-                      ))}
-                    </select>
-                    <ChevronDown
-                      size={18}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Top 6 Clients Chart */}
-            <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-              <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                Top 6 Clients by Payment Amount
-              </h3>
-              <p className="text-sm text-gray-500 mb-4">
-                {months[selectedMonth]} {selectedYear} - Clients with highest payments
+            <div className="mt-1">
+              <p className="text-xl font-bold text-gray-900">
+                ₹{realTimeStats.totalRevenue.toLocaleString("en-IN")}
               </p>
-              <div className="h-80">
-                <TopClientsBarChart 
-                  invoices={invoices} 
-                  customers={customers} 
-                  selectedMonth={selectedMonth}
-                  selectedYear={selectedYear}
-                />
-              </div>
+              <p className="text-xs text-green-500 flex items-center mt-0.5">
+                <TrendingUp className="w-3 h-3 mr-1" /> Real-time data
+              </p>
             </div>
           </div>
-        );
-      case "Revenue Analysis":
-        return (
-          <div className="space-y-6">
-            {/* Year Filter for Revenue Analysis */}
-            <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Revenue Analysis Filter</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-gray-800 mb-1 block">Year</label>
-                  <div className="relative">
-                    <select
-                      value={revenueYear}
-                      onChange={(e) => setRevenueYear(parseInt(e.target.value))}
-                      className="w-full bg-gray-100 border-0 rounded-md text-sm p-2.5 appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      {years.map((year) => (
-                        <option key={year} value={year}>{year}</option>
-                      ))}
-                    </select>
-                    <ChevronDown
-                      size={18}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none"
-                    />
-                  </div>
-                </div>
+          <div className="bg-white p-3 lg:p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200">
+            <div className="flex justify-between items-start mb-2">
+              <h3 className="text-sm font-medium text-gray-600">
+                Total Invoices
+              </h3>
+              <div className="p-1 bg-gray-50 rounded-md">
+                <FileText className="w-4 h-4 text-blue-600" />
               </div>
             </div>
-
-            {/* Monthly Revenue Line Chart */}
-            <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-              <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                Monthly Revenue Trend
-              </h3>
-              <p className="text-sm text-gray-500 mb-4">
-                {revenueYear} - Month-wise revenue from paid invoices
+            <div className="mt-1">
+              <p className="text-xl font-bold text-gray-900">
+                {realTimeStats.totalInvoices}
               </p>
-              <div className="h-80">
-                <MonthlyRevenueLineChart 
-                  invoices={invoices} 
-                  selectedYear={revenueYear}
-                />
-              </div>
+              <p className="text-xs text-green-500 flex items-center mt-0.5">
+                <TrendingUp className="w-3 h-3 mr-1" /> Live count
+              </p>
             </div>
           </div>
-        );
-      default:
-        return null;
-    }
+          <div className="bg-white p-3 lg:p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200">
+            <div className="flex justify-between items-start mb-2">
+              <h3 className="text-sm font-medium text-gray-600">
+                GST Collected
+              </h3>
+              <div className="p-1 bg-gray-50 rounded-md">
+                <Percent className="w-4 h-4 text-purple-600" />
+              </div>
+            </div>
+            <div className="mt-1">
+              <p className="text-xl font-bold text-gray-900">
+                ₹{(() => {
+                  const paidInvoices = realTimeStats.paidInvoices;
+                  const totalGST = paidInvoices.reduce((sum, inv) => {
+                    const subtotal = inv.items?.reduce((itemSum, item) => {
+                      return itemSum + (item.amount || (item.quantity || 0) * (item.rate || 0));
+                    }, 0) || 0;
+                    const cgstRate = inv.cgst || 0;
+                    const sgstRate = inv.sgst || 0;
+                    const igstRate = inv.igst || 0;
+                    return sum + (subtotal * (cgstRate + sgstRate + igstRate)) / 100;
+                  }, 0);
+                  return totalGST.toLocaleString("en-IN");
+                })()}
+              </p>
+              <p className="text-xs text-gray-500 mt-0.5">
+                From paid invoices
+              </p>
+            </div>
+          </div>
+          <div className="bg-white p-3 lg:p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200">
+            <div className="flex justify-between items-start mb-2">
+              <h3 className="text-sm font-medium text-gray-600">
+                Total Clients
+              </h3>
+              <div className="p-1 bg-gray-50 rounded-md">
+                <Users className="w-4 h-4 text-indigo-600" />
+              </div>
+            </div>
+            <div className="mt-1">
+              <p className="text-xl font-bold text-gray-900">
+                {stats?.totalCustomers || 0}
+              </p>
+              <p className="text-xs text-green-500 flex items-center mt-0.5">
+                <TrendingUp className="w-3 h-3 mr-1" /> Active clients
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* GST Summary */}
+        <GSTSummary invoices={filteredInvoices} getDynamicInvoiceStatus={getDynamicInvoiceStatus} />
+      </>
+    );
   };
 
   return (
@@ -1252,6 +1385,56 @@ const ReportsAnalytics = () => {
             <p className="text-sm text-gray-600 mt-1">
               Generate comprehensive business reports and insights
             </p>
+          </div>
+
+          {/* Export Dropdown */}
+          <div className="relative mt-3 sm:mt-0" ref={exportDropdownRef}>
+            <button
+              onClick={() => setShowExportDropdown(!showExportDropdown)}
+              className="bg-blue-600 text-white flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+            >
+              <FileText className="w-4 h-4" />
+              Export Report
+              <ChevronDown className={`w-4 h-4 transition-transform ${showExportDropdown ? 'rotate-180' : ''}`} />
+            </button>
+
+            {showExportDropdown && (
+              <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-xl border border-gray-200 z-50">
+                <div className="p-2">
+                  <button
+                    onClick={() => {
+                      setShowPDFModal(true);
+                      setShowExportDropdown(false);
+                    }}
+                    className="w-full flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors text-left"
+                  >
+                    <div className="p-2 bg-blue-50 rounded-lg">
+                      <Printer className="w-5 h-5 text-blue-600" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="text-sm font-semibold text-gray-900">PDF Report</div>
+                      <div className="text-xs text-gray-500 mt-0.5">Detailed invoice report</div>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      exportSummaryReport(invoices, customers);
+                      setShowExportDropdown(false);
+                    }}
+                    className="w-full flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors text-left"
+                  >
+                    <div className="p-2 bg-green-50 rounded-lg">
+                      <FileText className="w-5 h-5 text-green-600" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="text-sm font-semibold text-gray-900">Summary Report</div>
+                      <div className="text-xs text-gray-500 mt-0.5">Yearly & Monthly Overview</div>
+                    </div>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </header>
 
@@ -1313,9 +1496,8 @@ const ReportsAnalytics = () => {
 
               {/* From Date */}
               <div
-                className={`relative ${
-                  reportType === "Custom Report" ? "block" : "invisible"
-                }`}
+                className={`relative ${reportType === "Custom Report" ? "block" : "invisible"
+                  }`}
               >
                 <label className="text-sm font-medium text-gray-800 mb-1 block">
                   From Date
@@ -1345,9 +1527,8 @@ const ReportsAnalytics = () => {
 
               {/* To Date */}
               <div
-                className={`relative ${
-                  reportType === "Custom Report" ? "block" : "invisible"
-                }`}
+                className={`relative ${reportType === "Custom Report" ? "block" : "invisible"
+                  }`}
               >
                 <label className="text-sm font-medium text-gray-800 mb-1 block">
                   To Date
@@ -1377,42 +1558,120 @@ const ReportsAnalytics = () => {
             </div>
           </div>
 
-          {/* Tabs */}
-          <div className="mb-6">
-            <div className="bg-gray-100 rounded-lg p-1 flex items-center space-x-1 max-w-max overflow-x-auto">
-              {tabs.map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors whitespace-nowrap ${
-                    activeTab === tab
-                      ? "bg-white text-gray-900 shadow-sm"
-                      : "bg-transparent text-gray-600 hover:bg-gray-200"
-                  }`}
-                >
-                  {tab}
-                </button>
-              ))}
-            </div>
-          </div>
-
           {/* Main Content Area */}
           {renderContent()}
         </main>
+
+        {/* PDF Export Modal */}
+        <PDFExportModal
+          isOpen={showPDFModal}
+          onClose={() => setShowPDFModal(false)}
+          invoices={invoices}
+          customers={customers}
+          payments={payments}
+          stats={stats}
+          onExport={(inv, cust, pay, st, title, subtitle) => {
+            setIsGeneratingPDF(true);
+            // Use setTimeout to allow UI to update with loading state
+            setTimeout(async () => {
+              await exportToPDF(inv, cust, pay, st, title, subtitle);
+              setIsGeneratingPDF(false);
+            }, 100);
+          }}
+        />
+
+        {/* Loading Overlay */}
+        {isGeneratingPDF && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[60]">
+            <div className="bg-white p-6 rounded-lg shadow-xl flex flex-col items-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+              <h3 className="text-lg font-semibold text-gray-900">Generating Report...</h3>
+              <p className="text-sm text-gray-500">Please wait while we generate the PDF invoices.</p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
 };
 
 // Export functions
-const exportToPDF = (invoices, customers, payments, stats) => {
+const exportToPDF = async (invoices, customers, payments, stats, title = "Business Report", subtitle = "") => {
+  // If it's a specific bill request (Client/Monthly/Yearly), generate actual invoices
+  if (title.includes("Bill")) {
+    try {
+      const doc = new jsPDF("p", "mm", "a4");
+      const pdfWidth = doc.internal.pageSize.getWidth();
+      const pdfHeight = doc.internal.pageSize.getHeight();
+
+      // Sort invoices by date
+      const sortedInvoices = [...invoices].sort((a, b) => {
+        const dateA = new Date(a.invoiceDate || a.createdAt);
+        const dateB = new Date(b.invoiceDate || b.createdAt);
+        return dateA - dateB;
+      });
+
+      for (let i = 0; i < sortedInvoices.length; i++) {
+        const invoice = sortedInvoices[i];
+
+        // Create temp div
+        const tempDiv = document.createElement("div");
+        tempDiv.innerHTML = generateInvoiceHTML(invoice, {});
+        tempDiv.style.position = "absolute";
+        tempDiv.style.left = "-9999px";
+        tempDiv.style.width = "800px"; // Fixed width for consistent rendering
+        document.body.appendChild(tempDiv);
+
+        // Convert to canvas
+        const canvas = await html2canvas(tempDiv, {
+          scale: 2,
+          useCORS: true,
+          allowTaint: true,
+          backgroundColor: "#ffffff",
+          width: 800,
+          height: tempDiv.scrollHeight
+        });
+
+        document.body.removeChild(tempDiv);
+
+        const imgData = canvas.toDataURL("image/png");
+        const imgWidth = pdfWidth - 20; // 10mm margin
+        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+        // Add page (except for first one)
+        if (i > 0) {
+          doc.addPage();
+        }
+
+        // Add image to PDF
+        // If image is taller than page, we might need to split it, but for now assuming 1 page per invoice
+        // or scaling to fit if needed, but standard invoice fits A4
+        if (imgHeight > pdfHeight - 20) {
+          // If too tall, scale it down to fit one page
+          const scaleFactor = (pdfHeight - 20) / imgHeight;
+          doc.addImage(imgData, "PNG", 10, 10, imgWidth * scaleFactor, imgHeight * scaleFactor);
+        } else {
+          doc.addImage(imgData, "PNG", 10, 10, imgWidth, imgHeight);
+        }
+      }
+
+      doc.save(`${title.replace(/ /g, "_")}_${new Date().toISOString().split("T")[0]}.pdf`);
+      return;
+    } catch (error) {
+      console.error("Error generating bulk PDF:", error);
+      alert("Error generating PDF. Please try again.");
+      return;
+    }
+  }
+
+  // Fallback to Summary Report for "Detailed Report" or generic export
   const doc = new jsPDF();
 
   // Header
   doc.setFontSize(20);
-  doc.text("Business Report", 20, 20);
+  doc.text(title, 20, 20);
   doc.setFontSize(12);
-  doc.text(`Generated on: ${new Date().toLocaleDateString("en-IN")}`, 20, 30);
+  doc.text(subtitle || `Generated on: ${new Date().toLocaleDateString("en-IN")}`, 20, 30);
 
   // Summary Stats
   doc.setFontSize(16);
@@ -1430,7 +1689,7 @@ const exportToPDF = (invoices, customers, payments, stats) => {
     ["Payment Rate", `${stats?.paymentRate?.toFixed(1) || 0}%`],
   ];
 
-  doc.autoTable({
+  autoTable(doc, {
     startY: 60,
     head: [["Metric", "Value"]],
     body: summaryData,
@@ -1460,7 +1719,7 @@ const exportToPDF = (invoices, customers, payments, stats) => {
     inv.igst ? `${inv.igst}%` : "0%",
   ]);
 
-  doc.autoTable({
+  autoTable(doc, {
     startY: doc.lastAutoTable.finalY + 30,
     head: [
       [
@@ -1470,7 +1729,7 @@ const exportToPDF = (invoices, customers, payments, stats) => {
         "Phone",
         "Amount",
         "Status",
-        "Invoice Date",
+        "Date",
         "Due Date",
         "Items",
         "CGST",
@@ -1484,13 +1743,6 @@ const exportToPDF = (invoices, customers, payments, stats) => {
     styles: { fontSize: 8 },
     columnStyles: {
       4: { halign: "right" },
-      5: { halign: "center" },
-      6: { halign: "center" },
-      7: { halign: "center" },
-      8: { halign: "center" },
-      9: { halign: "center" },
-      10: { halign: "center" },
-      11: { halign: "center" },
     },
   });
 
@@ -1510,7 +1762,7 @@ const exportToPDF = (invoices, customers, payments, stats) => {
       payment.status || "N/A",
     ]);
 
-    doc.autoTable({
+    autoTable(doc, {
       startY: doc.lastAutoTable.finalY + 30,
       head: [
         [
@@ -1538,90 +1790,106 @@ const exportToPDF = (invoices, customers, payments, stats) => {
   doc.save(`business_report_${new Date().toISOString().split("T")[0]}.pdf`);
 };
 
-const exportToExcel = (invoices, customers, payments) => {
-  // Create detailed CSV with all invoice information
-  const csvData = [
-    [
-      "Invoice Number",
-      "Client Name",
-      "Client Email",
-      "Client Phone",
-      "Client Address",
-      "Amount",
-      "Subtotal",
-      "CGST %",
-      "SGST %",
-      "IGST %",
-      "CGST Amount",
-      "SGST Amount",
-      "IGST Amount",
-      "Status",
-      "Invoice Date",
-      "Due Date",
-      "Items Count",
-      "Payment Status",
-      "Payment Method",
-      "Transaction ID",
-      "Payment Date",
-    ],
-  ];
+const exportSummaryReport = (invoices, customers) => {
+  const doc = new jsPDF();
+  const currentYear = new Date().getFullYear();
+  const currentMonth = new Date().getMonth();
 
-  (invoices || []).forEach((inv) => {
-    const invoicePayments = (payments || []).filter(
-      (p) => p.invoiceId === inv.id
-    );
-    const latestPayment = invoicePayments[invoicePayments.length - 1];
+  // 1. Calculate Financial Summaries
+  let yearlyRevenue = 0;
+  let monthlyRevenue = 0;
+  let totalGST = 0;
 
-    const subtotal =
-      inv.items?.reduce((sum, item) => sum + (item.amount || 0), 0) ||
-      inv.total ||
-      inv.amount ||
-      0;
-    const cgstAmount = (subtotal * (inv.cgst || 0)) / 100;
-    const sgstAmount = (subtotal * (inv.sgst || 0)) / 100;
-    const igstAmount = (subtotal * (inv.igst || 0)) / 100;
+  invoices.forEach(inv => {
+    const invDate = new Date(inv.invoiceDate || inv.createdAt);
+    const amount = parseFloat(inv.total || inv.amount || 0);
 
-    csvData.push([
-      inv.invoiceNumber || "",
-      inv.client?.name || "",
-      inv.client?.email || "",
-      inv.client?.phone || "",
-      inv.client?.address || "",
-      inv.total || inv.amount || 0,
-      subtotal,
-      inv.cgst || 0,
-      inv.sgst || 0,
-      inv.igst || 0,
-      cgstAmount,
-      sgstAmount,
-      igstAmount,
-      inv.status || "",
-      inv.invoiceDate
-        ? new Date(inv.invoiceDate).toLocaleDateString("en-IN")
-        : "",
-      inv.dueDate ? new Date(inv.dueDate).toLocaleDateString("en-IN") : "",
-      inv.items?.length || 0,
-      latestPayment ? "Paid" : "Unpaid",
-      latestPayment?.method || "",
-      latestPayment?.transactionId || "",
-      latestPayment?.paymentDate
-        ? new Date(latestPayment.paymentDate).toLocaleDateString("en-IN")
-        : "",
-    ]);
+    // Yearly Revenue
+    if (invDate.getFullYear() === currentYear) {
+      yearlyRevenue += amount;
+    }
+
+    // Monthly Revenue
+    if (invDate.getFullYear() === currentYear && invDate.getMonth() === currentMonth) {
+      monthlyRevenue += amount;
+    }
+
+    // Total GST
+    const subtotal = inv.items?.reduce((sum, item) => sum + (item.amount || 0), 0) || amount;
+    const cgst = (subtotal * (inv.cgst || 0)) / 100;
+    const sgst = (subtotal * (inv.sgst || 0)) / 100;
+    const igst = (subtotal * (inv.igst || 0)) / 100;
+    totalGST += (cgst + sgst + igst);
   });
 
-  const csvContent = csvData
-    .map((row) => row.map((cell) => `"${cell}"`).join(","))
-    .join("\n");
-  const blob = new Blob([csvContent], { type: "text/csv" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `detailed_invoices_export_${
-    new Date().toISOString().split("T")[0]
-  }.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
+  // 2. Calculate Client-wise Revenue
+  const clientRevenueMap = {};
+  invoices.forEach(inv => {
+    const clientId = inv.clientId || inv.client?.id;
+    const clientName = inv.client?.name || "Unknown Client";
+    const amount = parseFloat(inv.total || inv.amount || 0);
+
+    if (clientId) {
+      if (!clientRevenueMap[clientId]) {
+        clientRevenueMap[clientId] = { name: clientName, total: 0, count: 0 };
+      }
+      clientRevenueMap[clientId].total += amount;
+      clientRevenueMap[clientId].count += 1;
+    }
+  });
+
+  const clientRevenueData = Object.values(clientRevenueMap).sort((a, b) => b.total - a.total);
+
+  // --- Generate PDF ---
+
+  // Title
+  doc.setFontSize(20);
+  doc.setTextColor(40);
+  doc.text("Business Summary Report", 14, 22);
+
+  doc.setFontSize(11);
+  doc.setTextColor(100);
+  doc.text(`Generated on: ${new Date().toLocaleDateString('en-IN')}`, 14, 30);
+
+  // Financial Summary Section
+  autoTable(doc, {
+    startY: 40,
+    head: [['Metric', 'Amount']],
+    body: [
+      ['Total Revenue (This Year)', `Rs. ${yearlyRevenue.toLocaleString('en-IN')}`],
+      ['Total Revenue (This Month)', `Rs. ${monthlyRevenue.toLocaleString('en-IN')}`],
+      ['Total GST Collected', `Rs. ${totalGST.toLocaleString('en-IN')}`],
+    ],
+    theme: 'grid',
+    headStyles: { fillColor: [41, 128, 185], textColor: 255, fontStyle: 'bold' },
+    columnStyles: {
+      0: { fontStyle: 'bold', cellWidth: 100 },
+      1: { halign: 'right' }
+    },
+    styles: { fontSize: 12, cellPadding: 6 }
+  });
+
+  // Client-wise Revenue Section
+  doc.text("Client-wise Revenue", 14, doc.lastAutoTable.finalY + 15);
+
+  autoTable(doc, {
+    startY: doc.lastAutoTable.finalY + 20,
+    head: [['Client Name', 'Invoices', 'Total Revenue']],
+    body: clientRevenueData.map(c => [
+      c.name,
+      c.count,
+      `Rs. ${c.total.toLocaleString('en-IN')}`
+    ]),
+    theme: 'striped',
+    headStyles: { fillColor: [52, 73, 94], textColor: 255 },
+    columnStyles: {
+      1: { halign: 'center' },
+      2: { halign: 'right' }
+    },
+    styles: { fontSize: 10 }
+  });
+
+  doc.save(`summary_report_${new Date().toISOString().split('T')[0]}.pdf`);
 };
 
 const exportDetailed = (invoices, customers, payments, stats) => {
