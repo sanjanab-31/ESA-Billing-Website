@@ -1,0 +1,9 @@
+runConfig:
+  runCommand: npm run preview
+
+env:
+  - variable: NODE_ENV
+    value: production
+    availability:
+      - BUILD
+      - RUNTIME
