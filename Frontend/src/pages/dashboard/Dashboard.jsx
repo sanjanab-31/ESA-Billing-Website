@@ -160,12 +160,14 @@ const StatsGrid = memo(({ stats, products }) => {
         value={formatNumber(stats?.totalInvoices || 0)}
         icon={<Receipt className="text-blue-600" />}
         subtext={stats?.financialYearLabel}
+        subtextColor="blue"
       />
       <StatCard
         title="Total Revenue"
         value={formatCurrency(stats?.totalRevenue || 0)}
         icon={<TrendingUp className="text-green-500" />}
         subtext={stats?.financialYearLabel}
+        subtextColor="green"
       />
       <StatCard
         title="Payment Status"
@@ -230,6 +232,7 @@ const StatCard = ({
   changeType,
   period,
   subtext,
+  subtextColor = "green",
   icon,
   footer,
   isSecondaryValueRed,
@@ -286,7 +289,7 @@ const StatCard = ({
       )}
       {subtext && (
         <div className="flex items-center gap-2 body-text-small mt-2">
-          <span className="bg-green-600 text-white px-2 py-0.5 rounded-full font-medium">
+          <span className={`${subtextColor === "blue" ? "bg-blue-600" : "bg-green-600"} text-white px-2 py-0.5 rounded-full font-medium`}>
             {subtext}
           </span>
         </div>
