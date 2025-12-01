@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect, useContext, memo, useCallback } from "react";
 import { Plus, Search, Eye, Edit, Trash2, X } from "lucide-react";
+import Pagination from "../../components/Pagination";
 import { useProducts } from "../../hooks/useFirestore";
 import { AuthContext } from "../../context/AuthContext";
 import { useToast } from "../../context/ToastContext";
@@ -273,47 +274,33 @@ export default function ProductManagement() {
   const { user } = useContext(AuthContext);
   const { success, error: showError, warning } = useToast();
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
+
   // Use Firestore hook
   const {
     products,
     loading,
     error,
+    pagination,
     addProduct,
     editProduct,
     removeProduct
-  } = useProducts({ search: searchTerm });
-  // PERFORMANCE: Filter and sort products with secondary sorting for stability
-  const filteredProducts = useMemo(() => {
-    if (!products) return [];
+  } = useProducts({
+    search: searchTerm,
+    page: currentPage,
+    limit: itemsPerPage,
+    sortBy: 'name',
+    sortDirection: 'asc'
+  });
 
-    // 1. Assign stable Serial Numbers based on the original list order
-    // This ensures S.No is fixed to the product's position in the full list
-    const productsWithStableIndex = products.map((p, i) => ({
-      ...p,
-      originalSerialNumber: String(i + 1).padStart(2, '0')
-    }));
+  // Reset page when search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
 
-    let filtered = productsWithStableIndex;
-    if (searchTerm) {
-      filtered = productsWithStableIndex.filter(
-        (product) =>
-          product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          product.hsn.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
+  // Stable handlers for actions
 
-    // Sort with secondary sorting for stable ordering
-    return [...filtered].sort((a, b) => {
-      // Primary sort by name (case-insensitive)
-      const nameCompare = (a.name || '').toLowerCase().localeCompare((b.name || '').toLowerCase());
-      if (nameCompare !== 0) return nameCompare;
-
-      // Secondary sort by createdAt for stability
-      const aTime = a.createdAt?.toMillis?.() || 0;
-      const bTime = b.createdAt?.toMillis?.() || 0;
-      return bTime - aTime;
-    });
-  }, [products, searchTerm]);
 
   // Stable handlers for actions
   const closeModal = useCallback(() => setModal({ isOpen: false, type: null, data: null }), []);
@@ -397,7 +384,7 @@ export default function ProductManagement() {
   return (
     <>
       <div className="min-h-screen text-slate-800 font-sans">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-8 pt-28">
+        <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 pb-8 pt-28">
           <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-2">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">
@@ -443,7 +430,27 @@ export default function ProductManagement() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {error ? (
+                  {loading ? (
+                    [...Array(5)].map((_, i) => (
+                      <tr key={i} className="animate-pulse">
+                        <td className="px-6 py-4">
+                          <div className="h-4 bg-gray-200 rounded w-8"></div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="h-4 bg-gray-200 rounded w-48"></div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="h-4 bg-gray-200 rounded w-24"></div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="h-4 bg-gray-200 rounded w-20"></div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="h-4 bg-gray-200 rounded w-24"></div>
+                        </td>
+                      </tr>
+                    ))
+                  ) : error ? (
                     <tr>
                       <td colSpan="5" className="text-center text-sm text-gray-500 py-12">
                         <div className="text-red-600">
@@ -457,8 +464,8 @@ export default function ProductManagement() {
                         </div>
                       </td>
                     </tr>
-                  ) : filteredProducts.length > 0 ? (
-                    filteredProducts.map((product) => {
+                  ) : products && products.length > 0 ? (
+                    products.map((product, index) => {
                       return (
                         <ProductRow
                           key={product.id}
@@ -467,7 +474,7 @@ export default function ProductManagement() {
                             price: `₹${Number(product.price).toLocaleString('en-IN')}`,
                             revenue: 'N/A'
                           }}
-                          serialNumber={product.originalSerialNumber}
+                          serialNumber={String((currentPage - 1) * itemsPerPage + index + 1).padStart(2, '0')}
                           onView={handleViewProduct}
                           onEdit={handleEditProduct}
                           onDelete={handleDeleteProduct}
@@ -488,6 +495,18 @@ export default function ProductManagement() {
                 </tbody>
               </table>
             </div>
+            {pagination && (
+              <Pagination
+                currentPage={pagination.page}
+                totalPages={pagination.totalPages}
+                onPageChange={setCurrentPage}
+                itemsPerPage={itemsPerPage}
+                onItemsPerPageChange={setItemsPerPage}
+                totalItems={pagination.total}
+                startIndex={(pagination.page - 1) * pagination.limit}
+                endIndex={pagination.page * pagination.limit}
+              />
+            )}
           </main>
         </div>
       </div>

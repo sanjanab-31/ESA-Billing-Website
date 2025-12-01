@@ -1,6 +1,7 @@
-import React, { useState, useRef, useEffect, useContext } from "react";
+import React, { useState, useRef, useEffect, useContext, useMemo } from "react";
 import { useLocation } from "react-router-dom";
 import { createPortal } from "react-dom";
+import Pagination from "../../components/Pagination";
 import {
   Search,
   Plus,
@@ -296,6 +297,54 @@ const InvoicePreview = ({
       total: invoice.isRoundOff ? Math.round(invoice.amount) : invoice.amount,
     }
     : calculations;
+
+  const convertToWords = (amount) => {
+    const ones = [
+      "", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine",
+    ];
+    const tens = [
+      "", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety",
+    ];
+    const teens = [
+      "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen",
+    ];
+
+    const convertHundreds = (num) => {
+      let result = "";
+      if (num >= 100) {
+        result += ones[Math.floor(num / 100)] + " Hundred ";
+        num %= 100;
+      }
+      if (num >= 20) {
+        result += tens[Math.floor(num / 10)] + " ";
+        num %= 10;
+      } else if (num >= 10) {
+        result += teens[num - 10] + " ";
+        return result;
+      }
+      if (num > 0) {
+        result += ones[num] + " ";
+      }
+      return result;
+    };
+
+    if (amount === 0) return "Zero";
+
+    const crores = Math.floor(amount / 10000000);
+    const lakhs = Math.floor((amount % 10000000) / 100000);
+    const thousands = Math.floor((amount % 100000) / 1000);
+    const hundreds = amount % 1000;
+
+    let words = "";
+    if (crores > 0) words += convertHundreds(crores) + "Crore ";
+    if (lakhs > 0) words += convertHundreds(lakhs) + "Lakh ";
+    if (thousands > 0) words += convertHundreds(thousands) + "Thousand ";
+    if (hundreds > 0) words += convertHundreds(hundreds);
+
+    return "Indian Rupees " + words.trim() + " Only";
+  };
+
+  const amountInWords = convertToWords(Math.floor(previewCalcs.total));
 
 
 
@@ -614,7 +663,7 @@ const CreateInvoiceComponent = ({
   removeItem,
 }) => (
   <div className="min-h-screen text-slate-800 font-sans">
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-8 pt-28">
+    <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 pb-8 pt-28">
       <div className="flex justify-between items-center mb-2">
         <div className="flex items-center">
           <button
@@ -1146,12 +1195,18 @@ const InvoiceManagementComponent = ({
   handleEditInvoice,
   handleDownloadInvoice,
   getDynamicStatus,
+  pagination,
+  onPageChange,
+  itemsPerPage,
+
+  onItemsPerPageChange,
+  loading,
 }) => {
   const tabs = ["All Invoices", "Paid", "Unpaid", "Drafts", "Overdue"];
 
   return (
     <div className="min-h-screen text-slate-800 font-sans">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-8 pt-28">
+      <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 pb-8 pt-28">
         <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-2">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">
@@ -1214,7 +1269,19 @@ const InvoiceManagementComponent = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {filteredInvoices.length > 0 ? (
+                {loading ? (
+                  [...Array(5)].map((_, i) => (
+                    <tr key={i} className="animate-pulse">
+                      <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-24"></div></td>
+                      <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-24"></div></td>
+                      <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-32"></div></td>
+                      <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-20"></div></td>
+                      <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-24"></div></td>
+                      <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-16"></div></td>
+                      <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-20"></div></td>
+                    </tr>
+                  ))
+                ) : filteredInvoices.length > 0 ? (
                   filteredInvoices.map((invoice) => {
                     const dynamicStatus = getDynamicStatus(invoice);
                     return (
@@ -1292,15 +1359,29 @@ const InvoiceManagementComponent = ({
               </tbody>
             </table>
           </div>
+          {pagination && (
+            <Pagination
+              currentPage={pagination.page}
+              totalPages={pagination.totalPages}
+              onPageChange={onPageChange}
+              itemsPerPage={itemsPerPage}
+              onItemsPerPageChange={onItemsPerPageChange}
+              totalItems={pagination.total}
+              startIndex={(pagination.page - 1) * pagination.limit}
+              endIndex={pagination.page * pagination.limit}
+            />
+          )}
         </main>
-      </div>
-    </div>
+      </div >
+    </div >
   );
 };
 
 const InvoiceManagementSystem = () => {
   const location = useLocation();
   const [currentPage, setCurrentPage] = useState("management");
+  const [page, setPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
   const [activeTab, setActiveTab] = useState("All Invoices");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedInvoice, setSelectedInvoice] = useState(null);
@@ -1322,12 +1403,33 @@ const InvoiceManagementSystem = () => {
   }, [location]);
 
   // Use Firestore hooks
+  const statusParam = useMemo(() => {
+    if (activeTab === "All Invoices") return undefined;
+    if (activeTab === "Drafts") return "Draft";
+    return activeTab;
+  }, [activeTab]);
+
   const {
     invoices,
+    loading: invoicesLoading,
     error: invoicesError,
+    pagination,
     addInvoice,
     editInvoice,
-  } = useInvoices();
+    removeInvoice
+  } = useInvoices({
+    search: searchTerm,
+    page: page,
+    limit: itemsPerPage,
+    status: statusParam,
+    sortBy: "invoiceNumber",
+    sortDirection: "asc"
+  });
+
+  // Reset page when search or tab changes
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm, activeTab]);
 
   const { customers, error: customersError } = useCustomers();
 
@@ -1414,49 +1516,7 @@ const InvoiceManagementSystem = () => {
     return "Unpaid";
   };
 
-  const [filteredInvoices, setFilteredInvoices] = useState([]);
 
-  // Filter invoices based on active tab and search term
-  useEffect(() => {
-    if (!invoices) return;
-
-    let filtered = [...invoices];
-
-    // Filter by tab
-    if (activeTab !== "All Invoices") {
-      filtered = filtered.filter((invoice) => {
-        const dynamicStatus = getDynamicStatus(invoice);
-
-        // Status synchronization logic
-        if (invoice.invoiceNumber) {
-          // Status is already synchronized
-        }
-
-        if (activeTab === "Paid") return dynamicStatus === "Paid";
-        if (activeTab === "Unpaid") return dynamicStatus === "Unpaid";
-        if (activeTab === "Drafts") return dynamicStatus === "Draft";
-        if (activeTab === "Overdue") return dynamicStatus === "Overdue";
-        return true;
-      });
-    }
-
-    // Filter by search term
-    if (searchTerm) {
-      filtered = filtered.filter(
-        (invoice) =>
-          invoice.invoiceNumber
-            .toLowerCase()
-            .includes(searchTerm.toLowerCase()) ||
-          (invoice.client &&
-            invoice.client.name
-              .toLowerCase()
-              .includes(searchTerm.toLowerCase())) ||
-          invoice.amount.toString().includes(searchTerm)
-      );
-    }
-
-    setFilteredInvoices(filtered);
-  }, [searchTerm, activeTab, invoices]);
 
   useEffect(() => {
     const subtotal = invoiceData.items.reduce(
@@ -1864,91 +1924,91 @@ const InvoiceManagementSystem = () => {
     return `
       <!DOCTYPE html>
       <html>
-      <head>
-        <title>Invoice ${invoice.invoiceNumber}</title>
-        <style>
-          #invoice-pdf-wrapper { font-family: Arial, sans-serif; padding: 20px; background-color: #fff; font-size: 14px; color: black; }
-          #invoice-pdf-wrapper .container { border: 2px solid black; padding: 15px; width: 100%; max-width: 800px; margin: auto; }
-          #invoice-pdf-wrapper table { width: 100%; border-collapse: collapse; }
-          #invoice-pdf-wrapper td, #invoice-pdf-wrapper th { padding: 5px; }
-          #invoice-pdf-wrapper .header { text-align: center; }
-          #invoice-pdf-wrapper .header-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
-          #invoice-pdf-wrapper .header-top .phone-left { font-weight: bold; color: black; }
-          #invoice-pdf-wrapper .header-top .phone-right { font-weight: bold; color: black; }
-          #invoice-pdf-wrapper .header-main { display: flex; align-items: center; justify-content: center; margin-bottom: 10px; }
-          #invoice-pdf-wrapper .header-main .logo { margin-right: 20px; }
-          #invoice-pdf-wrapper .header-main .company-name { font-family: 'Times New Roman', serif; font-size: 28px; font-weight: bold; color: #8B0000; margin: 0; }
-          #invoice-pdf-wrapper .header-details { text-align: center; }
-          #invoice-pdf-wrapper .header-details p { margin: 3px 0; color: black; font-family: Arial, sans-serif; }
-          #invoice-pdf-wrapper .bordered-table { border: 1px solid black; border-collapse: collapse; width: 100%; }
-          #invoice-pdf-wrapper .bordered-table th { border: 1px solid black; }
-          #invoice-pdf-wrapper .bordered-table td { border: 1px solid black; }
-          #invoice-pdf-wrapper .text-right { text-align: right; }
-          #invoice-pdf-wrapper .text-center { text-align: center; }
-          #invoice-pdf-wrapper .font-bold { font-weight: bold; }
-          #invoice-pdf-wrapper .items-table { min-height: 300px; border-collapse: collapse; }
-          #invoice-pdf-wrapper .items-table th { border: 1px solid black; border-bottom: 1px solid black; }
-          #invoice-pdf-wrapper .items-table td { border-right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none; vertical-align: top; }
-          #invoice-pdf-wrapper .items-table tr:last-child td { border-bottom: 1px solid black; }
-        </style>
-      </head>
-      <body>
-        <div id="invoice-pdf-wrapper">
-          <div class="container">
-          <div class="header">
-            <div class="header-top">
-              <div class="phone-left">☎ 98432 94464</div>
-              <div class="phone-right">☎ 96984 87096</div>
-            </div>
-            <div class="header-main">
-              <div class="logo">
-                <img src="https://res.cloudinary.com/dnmvriw3e/image/upload/v1756868204/ESA_uggt8u.png" alt="ESA Logo" style="height: 60px; max-width: 120px;">
+        <head>
+          <title>Invoice ${invoice.invoiceNumber}</title>
+          <style>
+            #invoice-pdf-wrapper {font - family: Arial, sans-serif; padding: 20px; background-color: #fff; font-size: 14px; color: black; }
+            #invoice-pdf-wrapper .container {border: 2px solid black; padding: 15px; width: 100%; max-width: 800px; margin: auto; }
+            #invoice-pdf-wrapper table {width: 100%; border-collapse: collapse; }
+            #invoice-pdf-wrapper td, #invoice-pdf-wrapper th {padding: 5px; }
+            #invoice-pdf-wrapper .header {text - align: center; }
+            #invoice-pdf-wrapper .header-top {display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+            #invoice-pdf-wrapper .header-top .phone-left {font - weight: bold; color: black; }
+            #invoice-pdf-wrapper .header-top .phone-right {font - weight: bold; color: black; }
+            #invoice-pdf-wrapper .header-main {display: flex; align-items: center; justify-content: center; margin-bottom: 10px; }
+            #invoice-pdf-wrapper .header-main .logo {margin - right: 20px; }
+            #invoice-pdf-wrapper .header-main .company-name {font - family: 'Times New Roman', serif; font-size: 28px; font-weight: bold; color: #8B0000; margin: 0; }
+            #invoice-pdf-wrapper .header-details {text - align: center; }
+            #invoice-pdf-wrapper .header-details p {margin: 3px 0; color: black; font-family: Arial, sans-serif; }
+            #invoice-pdf-wrapper .bordered-table {border: 1px solid black; border-collapse: collapse; width: 100%; }
+            #invoice-pdf-wrapper .bordered-table th {border: 1px solid black; }
+            #invoice-pdf-wrapper .bordered-table td {border: 1px solid black; }
+            #invoice-pdf-wrapper .text-right {text - align: right; }
+            #invoice-pdf-wrapper .text-center {text - align: center; }
+            #invoice-pdf-wrapper .font-bold {font - weight: bold; }
+            #invoice-pdf-wrapper .items-table {min - height: 300px; border-collapse: collapse; }
+            #invoice-pdf-wrapper .items-table th {border: 1px solid black; border-bottom: 1px solid black; }
+            #invoice-pdf-wrapper .items-table td {border - right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none; vertical-align: top; }
+            #invoice-pdf-wrapper .items-table tr:last-child td {border - bottom: 1px solid black; }
+          </style>
+        </head>
+        <body>
+          <div id="invoice-pdf-wrapper">
+            <div class="container">
+              <div class="header">
+                <div class="header-top">
+                  <div class="phone-left">☎ 98432 94464</div>
+                  <div class="phone-right">☎ 96984 87096</div>
+                </div>
+                <div class="header-main">
+                  <div class="logo">
+                    <img src="https://res.cloudinary.com/dnmvriw3e/image/upload/v1756868204/ESA_uggt8u.png" alt="ESA Logo" style="height: 60px; max-width: 120px;">
+                  </div>
+                  <h1 class="company-name">ESA ENGINEERING WORKS</h1>
+                </div>
+                <div class="header-details">
+                  <p>All Kinds of Lathe and Milling Works</p>
+                  <p>Specialist in : Press Tools, Die Casting Tools, Precision Components</p>
+                  <p>1/100, Chettipalayam Road, E.B. Compound, Malumichampatti, CBE - 641 050.</p>
+                  <p>E-Mail : esaengineeringworks@gmail.com | GSTIN : 33AMWPB2116Q1ZS</p>
+                </div>
               </div>
-              <h1 class="company-name">ESA ENGINEERING WORKS</h1>
-            </div>
-            <div class="header-details">
-              <p>All Kinds of Lathe and Milling Works</p>
-              <p>Specialist in : Press Tools, Die Casting Tools, Precision Components</p>
-              <p>1/100, Chettipalayam Road, E.B. Compound, Malumichampatti, CBE - 641 050.</p>
-              <p>E-Mail : esaengineeringworks@gmail.com | GSTIN : 33AMWPB2116Q1ZS</p>
-            </div>
-          </div>
-          <h2 class="text-center font-bold" style="background-color: #ccc; margin: 10px -15px; padding: 5px;">INVOICE</h2>
-          <table style="margin-bottom: 10px;">
-            <tr>
-              <td style="width: 70%; vertical-align: top;">
-                <table class="bordered-table">
-                  <tr><td>To, M/s. ${invoice.client?.name || ""}</td></tr>
-                  <tr><td style="height: 60px;">${invoice.client?.address || ""
+              <h2 class="text-center font-bold" style="background-color: #ccc; margin: 10px -15px; padding: 5px;">INVOICE</h2>
+              <table style="margin-bottom: 10px;">
+                <tr>
+                  <td style="width: 70%; vertical-align: top;">
+                    <table class="bordered-table">
+                      <tr><td>To, M/s. ${invoice.client?.name || ""}</td></tr>
+                      <tr><td style="height: 60px;">${invoice.client?.address || ""
       }</td></tr>
-                  <tr><td>GSTIN : ${invoice.client?.gst || ""}</td></tr>
-                </table>
-              </td>
-              <td style="width: 30%; vertical-align: top;">
-                <table class="bordered-table">
-                  <tr><td>NO : ${invoice.invoiceNumber}</td><td>DATE : ${invoice.invoiceDate
+                      <tr><td>GSTIN : ${invoice.client?.gst || ""}</td></tr>
+                    </table>
+                  </td>
+                  <td style="width: 30%; vertical-align: top;">
+                    <table class="bordered-table">
+                      <tr><td>NO : ${invoice.invoiceNumber}</td><td>DATE : ${invoice.invoiceDate
       }</td></tr>
-                  <tr><td colspan="2">P.O. No : ${invoice.poNumber}</td></tr>
-                  <tr><td colspan="2">P.O. Date : ${invoice.poDate}</td></tr>
-                  <tr><td colspan="2">D.C. No : ${invoice.dcNumber}</td></tr>
-                  <tr><td colspan="2">D.C. Date : ${invoice.dcDate}</td></tr>
-                </table>
-              </td>
-            </tr>
-          </table>
-          <table class="bordered-table items-table">
-            <thead>
-              <tr style="background-color: #ccc;">
-                <th style="width: 5%;">S.No</th>
-                <th style="width: 45%;">Description of Goods</th>
-                <th style="width: 10%;">HSN/SAC</th>
-                <th style="width: 10%;">Qty</th>
-                <th style="width: 15%;">Rate</th>
-                <th style="width: 15%;">Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${invoice.items
+                      <tr><td colspan="2">P.O. No : ${invoice.poNumber}</td></tr>
+                      <tr><td colspan="2">P.O. Date : ${invoice.poDate}</td></tr>
+                      <tr><td colspan="2">D.C. No : ${invoice.dcNumber}</td></tr>
+                      <tr><td colspan="2">D.C. Date : ${invoice.dcDate}</td></tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+              <table class="bordered-table items-table">
+                <thead>
+                  <tr style="background-color: #ccc;">
+                    <th style="width: 5%;">S.No</th>
+                    <th style="width: 45%;">Description of Goods</th>
+                    <th style="width: 10%;">HSN/SAC</th>
+                    <th style="width: 10%;">Qty</th>
+                    <th style="width: 15%;">Rate</th>
+                    <th style="width: 15%;">Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${invoice.items
         .map(
           (item, index) => `
                 <tr>
@@ -1962,19 +2022,19 @@ const InvoiceManagementSystem = () => {
               `
         )
         .join("")}
-              ${Array(Math.max(0, 12 - invoice.items.length))
+                  ${Array(Math.max(0, 12 - invoice.items.length))
         .fill(
           '<tr><td style="border-right: 1px solid black; border-bottom: none;">&nbsp;</td><td style="border-right: 1px solid black; border-bottom: none;"></td><td style="border-right: 1px solid black; border-bottom: none;"></td><td style="border-right: 1px solid black; border-bottom: none;"></td><td style="border-right: 1px solid black; border-bottom: none;"></td><td style="border-bottom: none;"></td></tr>'
         )
         .join("")}
-            </tbody>
-              <tr>
-                <td colspan="5" class="text-right font-bold">Sub Total</td>
-                <td class="text-right font-bold">₹${calculations.subtotal.toFixed(
+                </tbody>
+                <tr>
+                  <td colspan="5" class="text-right font-bold">Sub Total</td>
+                  <td class="text-right font-bold">₹${calculations.subtotal.toFixed(
           2
         )}</td>
-              </tr>
-              ${invoice.cgst > 0
+                </tr>
+                ${invoice.cgst > 0
         ? `
                 <tr>
                   <td colspan="5" class="text-right">CGST @ ${invoice.cgst
@@ -1986,7 +2046,7 @@ const InvoiceManagementSystem = () => {
               `
         : ""
       }
-              ${invoice.sgst > 0
+                ${invoice.sgst > 0
         ? `
                 <tr>
                   <td colspan="5" class="text-right">SGST @ ${invoice.sgst
@@ -1998,7 +2058,7 @@ const InvoiceManagementSystem = () => {
               `
         : ""
       }
-              ${invoice.igst > 0
+                ${invoice.igst > 0
         ? `
                 <tr>
                   <td colspan="5" class="text-right">IGST @ ${invoice.igst
@@ -2010,7 +2070,7 @@ const InvoiceManagementSystem = () => {
               `
         : ""
       }
-              ${invoice.isRoundOff && calculations.roundOffAmount !== 0
+                ${invoice.isRoundOff && calculations.roundOffAmount !== 0
         ? `
                 <tr>
                   <td colspan="5" class="text-right">Round Off</td>
@@ -2021,41 +2081,41 @@ const InvoiceManagementSystem = () => {
               `
         : ""
       }
-              <tr style="background-color: #ccc;">
-                <td colspan="5" class="text-right font-bold">Total</td>
-                <td class="text-right font-bold">₹${calculations.total.toFixed(
+                <tr style="background-color: #ccc;">
+                  <td colspan="5" class="text-right font-bold">Total</td>
+                  <td class="text-right font-bold">₹${calculations.total.toFixed(
         2
       )}</td>
-              </tr>
-            </tbody>
-          </table>
-          <p class="font-bold">Amount in Words: ${amountInWords}</p>
-          <table style="margin-top: 20px;">
-            <tr>
-              <td style="width: 50%; vertical-align: top;">
-                <table class="bordered-table">
-                  <tr><td class="text-center font-bold">Declaration</td></tr>
-                  <tr><td style="height: 60px;">${invoice.declaration ||
+                </tr>
+              </tbody>
+            </table>
+            <p class="font-bold">Amount in Words: ${amountInWords}</p>
+            <table style="margin-top: 20px;">
+              <tr>
+                <td style="width: 50%; vertical-align: top;">
+                  <table class="bordered-table">
+                    <tr><td class="text-center font-bold">Declaration</td></tr>
+                    <tr><td style="height: 60px;">${invoice.declaration ||
       "We declare that this invoice shows the actual price of the goods Described and that all Particulars are true and correct."
       }</td></tr>
-                </table>
-              </td>
-              <td style="width: 50%; vertical-align: top;">
-                <table class="bordered-table">
-                  <tr><td class="text-center font-bold">Authorised Signatory</td></tr>
-                  <tr><td style="height: 60px;">&nbsp;</td></tr>
-                </table>
-              </td>
-            </tr>
-          </table>
-          ${invoice.invoiceNotes
+                  </table>
+                </td>
+                <td style="width: 50%; vertical-align: top;">
+                  <table class="bordered-table">
+                    <tr><td class="text-center font-bold">Authorised Signatory</td></tr>
+                    <tr><td style="height: 60px;">&nbsp;</td></tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+            ${invoice.invoiceNotes
         ? `<p style="margin-top: 10px; font-size: 12px;"><strong>Notes:</strong> ${invoice.invoiceNotes}</p>`
         : ""
       }
           </div>
         </div>
       </body>
-      </html>
+    </html>
     `;
   };
 
@@ -2068,7 +2128,7 @@ const InvoiceManagementSystem = () => {
         <InvoiceManagementComponent
           activeTab={activeTab}
           searchTerm={searchTerm}
-          filteredInvoices={filteredInvoices}
+          filteredInvoices={invoices}
           setActiveTab={setActiveTab}
           setSearchTerm={setSearchTerm}
           handleCreateInvoice={handleCreateInvoice}
@@ -2077,6 +2137,11 @@ const InvoiceManagementSystem = () => {
           handleEditInvoice={handleEditInvoice}
           handleDownloadInvoice={handleDownloadInvoice}
           getDynamicStatus={getDynamicStatus}
+          pagination={pagination}
+          onPageChange={setPage}
+          itemsPerPage={itemsPerPage}
+          onItemsPerPageChange={setItemsPerPage}
+          loading={invoicesLoading}
         />
       )}
       {(currentPage === "create" || currentPage === "edit") && (

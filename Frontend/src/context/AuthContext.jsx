@@ -6,119 +6,119 @@ import { auth } from "../lib/firebase/config";
 export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [authInitialized, setAuthInitialized] = useState(false);
+    const [user, setUser] = useState(null);
+    const [authInitialized, setAuthInitialized] = useState(false);
 
-  const [isSessionTimeoutEnabled, setIsSessionTimeoutEnabled] = useState(() => {
-    const saved = localStorage.getItem('sessionTimeoutEnabled');
-    return saved !== null ? JSON.parse(saved) : true;
-  });
-
-  const [sessionTimeoutMinutes, setSessionTimeoutMinutes] = useState(() => {
-    const saved = localStorage.getItem('sessionTimeoutMinutes');
-    return saved !== null ? JSON.parse(saved) : 15;
-  });
-
-  useEffect(() => {
-    localStorage.setItem('sessionTimeoutEnabled', JSON.stringify(isSessionTimeoutEnabled));
-  }, [isSessionTimeoutEnabled]);
-
-  useEffect(() => {
-    localStorage.setItem('sessionTimeoutMinutes', JSON.stringify(sessionTimeoutMinutes));
-  }, [sessionTimeoutMinutes]);
-
-  const toggleSessionTimeout = () => {
-    setIsSessionTimeoutEnabled(prev => !prev);
-  };
-
-  useEffect(() => {
-    const interceptor = axios.interceptors.request.use(async (config) => {
-      const current = auth.currentUser;
-      if (current) {
-        const token = await current.getIdToken();
-        config.headers = config.headers || {};
-        config.headers.Authorization = `Bearer ${token}`;
-      }
-      return config;
-    }, (err) => Promise.reject(err));
-
-    const unsubscribe = onAuthStateChanged(auth, (u) => {
-      setUser(u ? { ...u } : null);
-      setAuthInitialized(true);
+    const [isSessionTimeoutEnabled, setIsSessionTimeoutEnabled] = useState(() => {
+        const saved = localStorage.getItem('sessionTimeoutEnabled');
+        return saved !== null ? JSON.parse(saved) : true;
     });
 
-    return () => {
-      unsubscribe();
-      axios.interceptors.request.eject(interceptor);
+    const [sessionTimeoutMinutes, setSessionTimeoutMinutes] = useState(() => {
+        const saved = localStorage.getItem('sessionTimeoutMinutes');
+        return saved !== null ? JSON.parse(saved) : 15;
+    });
+
+    useEffect(() => {
+        localStorage.setItem('sessionTimeoutEnabled', JSON.stringify(isSessionTimeoutEnabled));
+    }, [isSessionTimeoutEnabled]);
+
+    useEffect(() => {
+        localStorage.setItem('sessionTimeoutMinutes', JSON.stringify(sessionTimeoutMinutes));
+    }, [sessionTimeoutMinutes]);
+
+    const toggleSessionTimeout = () => {
+        setIsSessionTimeoutEnabled(prev => !prev);
     };
-  }, []);
 
-  const signOut = async () => {
-    await firebaseSignOut(auth);
-    setUser(null);
-  };
+    useEffect(() => {
+        const interceptor = axios.interceptors.request.use(async (config) => {
+            const current = auth.currentUser;
+            if (current) {
+                const token = await current.getIdToken();
+                config.headers = config.headers || {};
+                config.headers.Authorization = `Bearer ${token}`;
+            }
+            return config;
+        }, (err) => Promise.reject(err));
 
-  const updateUserEmail = async (newEmail, currentPassword) => {
-    try {
-      const user = auth.currentUser;
-      if (!user) throw new Error('No user is signed in');
+        const unsubscribe = onAuthStateChanged(auth, (u) => {
+            setUser(u ? { ...u } : null);
+            setAuthInitialized(true);
+        });
 
-      const credential = EmailAuthProvider.credential(user.email, currentPassword);
-      await reauthenticateWithCredential(user, credential);
+        return () => {
+            unsubscribe();
+            axios.interceptors.request.eject(interceptor);
+        };
+    }, []);
 
-      await updateEmail(user, newEmail);
+    const signOut = async () => {
+        await firebaseSignOut(auth);
+        setUser(null);
+    };
 
-      setUser({ ...user, email: newEmail });
-      return { success: true };
-    } catch (error) {
-      return { success: false, error: error.message };
-    }
-  };
+    const updateUserEmail = async (newEmail, currentPassword) => {
+        try {
+            const user = auth.currentUser;
+            if (!user) throw new Error('No user is signed in');
 
-  const updateUserPassword = async (currentPassword, newPassword) => {
-    try {
-      const user = auth.currentUser;
-      if (!user) throw new Error('No user is signed in');
+            const credential = EmailAuthProvider.credential(user.email, currentPassword);
+            await reauthenticateWithCredential(user, credential);
 
-      const credential = EmailAuthProvider.credential(user.email, currentPassword);
-      await reauthenticateWithCredential(user, credential);
+            await updateEmail(user, newEmail);
 
-      await updatePassword(user, newPassword);
-      return { success: true };
-    } catch (error) {
-      return { success: false, error: error.message };
-    }
-  };
+            setUser({ ...user, email: newEmail });
+            return { success: true };
+        } catch (error) {
+            return { success: false, error: error.message };
+        }
+    };
 
-  const updateUserProfile = async (displayName) => {
-    try {
-      const user = auth.currentUser;
-      if (!user) throw new Error('No user is signed in');
+    const updateUserPassword = async (currentPassword, newPassword) => {
+        try {
+            const user = auth.currentUser;
+            if (!user) throw new Error('No user is signed in');
 
-      await updateProfile(user, { displayName });
+            const credential = EmailAuthProvider.credential(user.email, currentPassword);
+            await reauthenticateWithCredential(user, credential);
 
-      setUser({ ...user, displayName });
+            await updatePassword(user, newPassword);
+            return { success: true };
+        } catch (error) {
+            return { success: false, error: error.message };
+        }
+    };
 
-      return { success: true };
-    } catch (error) {
-      return { success: false, error: error.message };
-    }
-  };
+    const updateUserProfile = async (displayName) => {
+        try {
+            const user = auth.currentUser;
+            if (!user) throw new Error('No user is signed in');
 
-  return (
-    <AuthContext.Provider value={{
-      user,
-      authInitialized,
-      signOut,
-      updateUserEmail,
-      updateUserPassword,
-      updateUserProfile,
-      isSessionTimeoutEnabled,
-      toggleSessionTimeout,
-      sessionTimeoutMinutes,
-      setSessionTimeoutMinutes
-    }}>
-      {children}
-    </AuthContext.Provider>
-  );
+            await updateProfile(user, { displayName });
+
+            setUser({ ...user, displayName });
+
+            return { success: true };
+        } catch (error) {
+            return { success: false, error: error.message };
+        }
+    };
+
+    return (
+        <AuthContext.Provider value={{
+            user,
+            authInitialized,
+            signOut,
+            updateUserEmail,
+            updateUserPassword,
+            updateUserProfile,
+            isSessionTimeoutEnabled,
+            toggleSessionTimeout,
+            sessionTimeoutMinutes,
+            setSessionTimeoutMinutes
+        }}>
+            {children}
+        </AuthContext.Provider>
+    );
 };

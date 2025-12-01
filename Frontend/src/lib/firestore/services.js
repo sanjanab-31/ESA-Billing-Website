@@ -107,12 +107,16 @@ const invoiceService = {
   // Get all invoices with optional filtering
   getInvoices: async (options = {}) => {
     try {
-      const { search = "", page = 1, limit: limitCount = 20, status, customerId } = options;
+      const { search = "", page = 1, limit: limitCount = 20, status, customerId, sortBy, sortDirection } = options;
 
       let q = invoicesCollection;
+      let fetchAllUnpaid = false;
 
       // Apply filters
-      if (status) {
+      if (status === 'Overdue' || status === 'Unpaid') {
+        q = query(q, where("status", "==", "Unpaid"));
+        fetchAllUnpaid = true;
+      } else if (status) {
         q = query(q, where("status", "==", status));
       }
 
@@ -120,13 +124,31 @@ const invoiceService = {
         q = query(q, where("customerId", "==", customerId));
       }
 
-      q = query(q, orderBy("createdAt", "desc"), limit(limitCount));
+      if (sortBy) {
+        q = query(q, orderBy(sortBy, sortDirection || "asc"));
+      } else {
+        q = query(q, orderBy("createdAt", "desc"));
+      }
+
+      // Only limit if we don't need to fetch all for client-side filtering
+      if (!fetchAllUnpaid) {
+        q = query(q, limit(limitCount));
+      }
 
       const snapshot = await getDocs(q);
-      const invoices = snapshot.docs.map(doc => ({
+      let invoices = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       }));
+
+      // Apply date filtering for Overdue/Unpaid
+      if (status === 'Overdue') {
+        const today = new Date().toISOString().split('T')[0];
+        invoices = invoices.filter(inv => inv.dueDate && inv.dueDate < today);
+      } else if (status === 'Unpaid') {
+        const today = new Date().toISOString().split('T')[0];
+        invoices = invoices.filter(inv => !inv.dueDate || inv.dueDate >= today);
+      }
 
       // Apply search filter
       const filteredInvoices = search
@@ -136,12 +158,22 @@ const invoiceService = {
         )
         : invoices;
 
+      const total = filteredInvoices.length;
+      const totalPages = Math.ceil(total / limitCount);
+
+      // Apply manual pagination if we fetched all
+      let data = filteredInvoices;
+      if (fetchAllUnpaid) {
+        const startIndex = (page - 1) * limitCount;
+        data = filteredInvoices.slice(startIndex, startIndex + limitCount);
+      }
+
       return {
-        data: filteredInvoices,
-        total: filteredInvoices.length,
+        data: data,
+        total: total,
         page,
         limit: limitCount,
-        totalPages: Math.ceil(filteredInvoices.length / limitCount)
+        totalPages: totalPages
       };
     } catch (error) {
       throw new Error(`Failed to fetch invoices: ${error.message}`);

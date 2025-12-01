@@ -51,7 +51,7 @@ const Dashboard = () => {
   return (
     <div className="min-h-screen text-slate-800 font-sans">
       {/* Optimized container for laptop/desktop view */}
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-8 pt-20 md:pt-28">
+      <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 pb-8 pt-20 md:pt-28">
         <Header />
         <main className="mt-6 flex flex-col gap-6">
           {/* Stats Grid */}

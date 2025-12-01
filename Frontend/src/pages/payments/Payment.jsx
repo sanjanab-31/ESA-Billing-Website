@@ -1006,7 +1006,7 @@ const PaymentsPage = () => {
   if (invoicesError || !user) {
     return (
       <div className="min-h-screen bg-gray-50 font-sans">
-        <div className="max-w-7xl mx-auto px-8 pb-8 pt-32">
+        <div className="max-w-full mx-auto px-8 pb-8 pt-32">
           <div className="text-center py-20">
             <div className="h-16 w-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <svg className="h-8 w-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1040,7 +1040,7 @@ const PaymentsPage = () => {
         onSave={handleSaveEditedPayment}
         payment={editingPayment}
       />
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-8 pt-28">
+      <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 pb-8 pt-28">
         <header className="mb-2">
           <h1 className="text-2xl font-bold text-gray-900">
             Payment Management

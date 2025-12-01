@@ -13,6 +13,7 @@ import {
   TrendingUp,
   AlertCircle,
 } from "lucide-react";
+import Pagination from "../../components/Pagination";
 import { AuthContext } from "../../context/AuthContext";
 import { useCustomers, useInvoices } from "../../hooks/useFirestore";
 import { useToast } from "../../context/ToastContext";
@@ -33,8 +34,23 @@ const ClientManagement = () => {
   const { success, error: showError, warning } = useToast();
 
   // Use Firestore hooks
-  const { customers, error, addCustomer, editCustomer, removeCustomer } =
-    useCustomers({ search: searchTerm });
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
+
+  // Use Firestore hooks
+  const { customers, loading, error, pagination, addCustomer, editCustomer, removeCustomer } =
+    useCustomers({
+      search: searchTerm,
+      page: currentPage,
+      limit: itemsPerPage,
+      sortBy: 'name',
+      sortDirection: 'asc'
+    });
+
+  // Reset page when search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
 
   // Fetch all invoices for calculating client statistics
   const { invoices } = useInvoices();
@@ -89,21 +105,7 @@ const ClientManagement = () => {
     };
   };
 
-  // PERFORMANCE: Sort customers with secondary sorting for stable ordering
-  const sortedCustomers = useMemo(() => {
-    if (!customers || customers.length === 0) return [];
 
-    return [...customers].sort((a, b) => {
-      // Primary sort by name (case-insensitive)
-      const nameCompare = (a.name || '').toLowerCase().localeCompare((b.name || '').toLowerCase());
-      if (nameCompare !== 0) return nameCompare;
-
-      // Secondary sort by createdAt for stability
-      const aTime = a.createdAt?.toMillis?.() || 0;
-      const bTime = b.createdAt?.toMillis?.() || 0;
-      return bTime - aTime;
-    });
-  }, [customers]);
 
 
   const [formData, setFormData] = useState({
@@ -293,12 +295,15 @@ const ClientManagement = () => {
   }, []);
 
   // PERFORMANCE: Memoized ClientRow component to prevent unnecessary re-renders
-  const ClientRow = memo(({ client, stats }) => {
+  const ClientRow = memo(({ client, stats, serialNumber }) => {
     return (
       <tr
         key={client.id}
         className="text-sm transition-colors hover:bg-gray-50"
       >
+        <td className="px-6 py-4 font-medium text-gray-900">
+          {serialNumber}
+        </td>
         <td className="px-6 py-4">
           <div className="font-medium text-gray-900">
             {client.name}
@@ -358,7 +363,7 @@ const ClientManagement = () => {
 
   return (
     <div className="min-h-screen text-slate-800 font-sans">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-8 pt-28">
+      <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 pb-8 pt-28">
         <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-2">
           <div className="flex-1">
             <h1 className="text-2xl font-bold text-gray-900">
@@ -394,6 +399,7 @@ const ClientManagement = () => {
             <table className="w-full min-w-[800px]">
               <thead className="text-xs font-semibold text-gray-500 uppercase bg-gray-50">
                 <tr>
+                  <th className="px-6 py-3 text-left">S.No</th>
                   <th className="px-6 py-3 text-left">Client Name</th>
                   <th className="px-6 py-3 text-left">GST Number</th>
                   <th className="px-6 py-3 text-left">Phone Number</th>
@@ -404,9 +410,22 @@ const ClientManagement = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {error ? (
+                {loading ? (
+                  [...Array(5)].map((_, i) => (
+                    <tr key={i} className="animate-pulse">
+                      <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-8"></div></td>
+                      <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-32"></div></td>
+                      <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-32"></div></td>
+                      <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-24"></div></td>
+                      <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-16"></div></td>
+                      <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-20"></div></td>
+                      <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-20"></div></td>
+                      <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-16"></div></td>
+                    </tr>
+                  ))
+                ) : error ? (
                   <tr>
-                    <td colSpan="7" className="px-4 py-8 text-center">
+                    <td colSpan="8" className="px-4 py-8 text-center">
                       <div className="text-red-600">
                         <p>Error loading clients: {error}</p>
                         <button
@@ -418,21 +437,22 @@ const ClientManagement = () => {
                       </div>
                     </td>
                   </tr>
-                ) : sortedCustomers.length > 0 ? (
-                  sortedCustomers.map((client) => {
+                ) : customers && customers.length > 0 ? (
+                  customers.map((client, index) => {
                     const stats = getClientStats(client.id);
                     return (
                       <ClientRow
                         key={client.id}
                         client={client}
                         stats={stats}
+                        serialNumber={String((currentPage - 1) * itemsPerPage + index + 1).padStart(2, '0')}
                       />
                     );
                   })
                 ) : (
                   <tr>
                     <td
-                      colSpan="7"
+                      colSpan="8"
                       className="px-4 py-8 text-center text-gray-500"
                     >
                       No clients found.{" "}
@@ -443,6 +463,18 @@ const ClientManagement = () => {
               </tbody>
             </table>
           </div>
+          {pagination && (
+            <Pagination
+              currentPage={pagination.page}
+              totalPages={pagination.totalPages}
+              onPageChange={setCurrentPage}
+              itemsPerPage={itemsPerPage}
+              onItemsPerPageChange={setItemsPerPage}
+              totalItems={pagination.total}
+              startIndex={(pagination.page - 1) * pagination.limit}
+              endIndex={pagination.page * pagination.limit}
+            />
+          )}
         </main>
       </div>
 

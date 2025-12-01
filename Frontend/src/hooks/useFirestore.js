@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   dashboardService,
   customerService,
@@ -9,13 +9,19 @@ import {
   subscribeToCollection,
 } from "../lib/firestore/services";
 
-// Simple in-memory caches to keep data between navigations and provide instant UI
+// Helper to compare options
+const areOptionsEqual = (opt1, opt2) => {
+  return JSON.stringify(opt1) === JSON.stringify(opt2);
+};
+
+// Enhanced caches to store data keyed by options
+// Structure: { data: any, options: object, pagination: object }
 let customersCache = null;
 let productsCache = null;
 let invoicesCache = null;
-let paymentsCache = {};
+let paymentsCache = {}; // Keyed by invoiceId, or 'all' for useAllPayments
 let settingsCache = null;
-let dashboardStatsCache = null; // ADDED: Cache for dashboard stats
+let dashboardStatsCache = null;
 
 // Dashboard Hook with real-time updates and instant cache loading
 export const useDashboard = () => {
@@ -35,12 +41,13 @@ export const useDashboard = () => {
   }, []);
 
   useEffect(() => {
-    fetchStats();
+    // Only fetch if no cached stats, otherwise fetch in background
+    if (!stats) fetchStats();
 
     // Set up real-time listeners for collections that affect dashboard stats
     const unsubscribeInvoices = subscribeToCollection(
       "invoices",
-      (invoices) => {
+      () => {
         // Recalculate stats when invoices change
         fetchStats();
       }
@@ -48,7 +55,7 @@ export const useDashboard = () => {
 
     const unsubscribeCustomers = subscribeToCollection(
       "customers",
-      (customers) => {
+      () => {
         // Recalculate stats when customers change
         fetchStats();
       }
@@ -56,7 +63,7 @@ export const useDashboard = () => {
 
     const unsubscribePayments = subscribeToCollection(
       "payments",
-      (payments) => {
+      () => {
         // Recalculate stats when payments change
         fetchStats();
       }
@@ -67,7 +74,7 @@ export const useDashboard = () => {
       unsubscribeCustomers();
       unsubscribePayments();
     };
-  }, [fetchStats]);
+  }, [fetchStats, stats]); // Added stats to dependency array to prevent re-fetching if already cached
 
   return { stats, error, refetch: fetchStats };
 };
@@ -82,11 +89,19 @@ export const useCustomers = (options = {}) => {
     sortBy,
     sortDirection,
   } = options;
-  const [customers, setCustomers] = useState([]);
-  const [error, setError] = useState(null);
-  const [pagination, setPagination] = useState(null);
 
-  const fetchCustomers = useCallback(async () => {
+  const currentOptions = { search, page, limit, status, sortBy, sortDirection };
+  // Check if cache matches current options
+  const hasValidCache = customersCache && areOptionsEqual(customersCache.options, currentOptions);
+
+  const [customers, setCustomers] = useState(hasValidCache ? customersCache.data : []);
+  const [loading, setLoading] = useState(!hasValidCache);
+  const [error, setError] = useState(null);
+  const [pagination, setPagination] = useState(hasValidCache ? customersCache.pagination : null);
+
+  const fetchCustomers = useCallback(async (forceLoading = false) => {
+    if (forceLoading) setLoading(true);
+
     try {
       const result = await customerService.getCustomers({
         search,
@@ -96,145 +111,129 @@ export const useCustomers = (options = {}) => {
         sortBy,
         sortDirection,
       });
+
       setCustomers(result.data);
-      customersCache = result.data;
       setPagination({
         total: result.total,
         page: result.page,
         limit: result.limit,
         totalPages: result.totalPages,
       });
+
+      // Update cache
+      customersCache = {
+        data: result.data,
+        pagination: {
+          total: result.total,
+          page: result.page,
+          limit: result.limit,
+          totalPages: result.totalPages,
+        },
+        options: currentOptions
+      };
+
       setError(null);
     } catch (err) {
       setError(err.message);
+    } finally {
+      setLoading(false);
     }
   }, [search, page, limit, status, sortBy, sortDirection]);
 
-  const addCustomer = useCallback(
-    async (data) => {
-      // Optimistic update: add to local state immediately, rollback on failure
-      let previous = null;
-      const tempId = `temp-${Date.now()}`;
-      const optimisticCustomer = { id: tempId, ...data };
-      try {
-        setCustomers((prev) => {
-          previous = prev;
-          return [optimisticCustomer, ...prev];
-        });
+  // CRUD operations...
+  const addCustomer = useCallback(async (data) => {
+    let previous = null;
+    const tempId = `temp-${Date.now()}`;
+    const optimisticCustomer = { id: tempId, ...data };
+    try {
+      setCustomers((prev) => {
+        previous = prev;
+        return [optimisticCustomer, ...prev];
+      });
+      const id = await customerService.createCustomer(data);
+      setCustomers((prev) => prev.map((c) => (c.id === tempId ? { id, ...c } : c)));
+      return { success: true, id };
+    } catch (err) {
+      if (previous) setCustomers(previous);
+      return { success: false, error: err.message };
+    }
+  }, []);
 
-        const id = await customerService.createCustomer(data);
+  const editCustomer = useCallback(async (id, data) => {
+    let previous = null;
+    try {
+      setCustomers((prev) => {
+        previous = prev;
+        return prev.map((c) => (c.id === id ? { ...c, ...data } : c));
+      });
+      await customerService.updateCustomer(id, data);
+      return { success: true };
+    } catch (err) {
+      if (previous) setCustomers(previous);
+      return { success: false, error: err.message };
+    }
+  }, []);
 
-        // Replace temporary id with real id
-        setCustomers((prev) =>
-          prev.map((c) => (c.id === tempId ? { id, ...c } : c))
-        );
-
-        return { success: true, id };
-      } catch (err) {
-        // rollback
-        if (previous) setCustomers(previous);
-        return { success: false, error: err.message };
-      }
-    },
-    [fetchCustomers]
-  );
-
-  const editCustomer = useCallback(
-    async (id, data) => {
-      // Optimistic update: update local state immediately, rollback on failure
-      let previous = null;
-      try {
-        setCustomers((prev) => {
-          previous = prev;
-          return prev.map((c) => (c.id === id ? { ...c, ...data } : c));
-        });
-
-        await customerService.updateCustomer(id, data);
-
-        return { success: true };
-      } catch (err) {
-        // rollback
-        if (previous) setCustomers(previous);
-        return { success: false, error: err.message };
-      }
-    },
-    [fetchCustomers]
-  );
-
-  const removeCustomer = useCallback(
-    async (id) => {
-      // Optimistic update: remove from local state immediately, rollback on failure
-      let previous = null;
-      try {
-        setCustomers((prev) => {
-          previous = prev;
-          return prev.filter((c) => c.id !== id);
-        });
-
-        await customerService.deleteCustomer(id);
-
-        return { success: true };
-      } catch (err) {
-        // rollback
-        if (previous) setCustomers(previous);
-        return { success: false, error: err.message };
-      }
-    },
-    [fetchCustomers]
-  );
+  const removeCustomer = useCallback(async (id) => {
+    let previous = null;
+    try {
+      setCustomers((prev) => {
+        previous = prev;
+        return prev.filter((c) => c.id !== id);
+      });
+      await customerService.deleteCustomer(id);
+      return { success: true };
+    } catch (err) {
+      if (previous) setCustomers(previous);
+      return { success: false, error: err.message };
+    }
+  }, []);
 
   useEffect(() => {
-    // load cached data instantly if available
-    if (customersCache) {
-      setCustomers(customersCache);
-    }
-    fetchCustomers();
+    // Only fetch if we didn't have valid cache, or if we want to refresh in background
+    // If we had valid cache, we already set state, so just fetch in background without loading spinner
+    fetchCustomers(!hasValidCache);
 
-    // subscribe for realtime updates
     const unsub = subscribeToCollection("customers", (docs) => {
-      // docs is a QuerySnapshot - map to data if provided by subscribeToCollection implementation
+      // Real-time updates logic could be improved to respect pagination/filtering
+      // For now, simple update if data changes
       try {
-        const data = docs.docs
-          ? docs.docs.map((d) => ({ id: d.id, ...d.data() }))
-          : docs;
-        customersCache = data;
-        setCustomers(data);
-      } catch (e) {
-        // fallback: ignore
-      }
+        // This is a simplified update, ideally we should re-run the full query or merge
+        // But re-running fetchCustomers is safer to keep consistency
+        fetchCustomers(false);
+      } catch (e) { }
     });
 
     return () => {
       if (unsub) unsub();
     };
-  }, [fetchCustomers]);
+  }, [fetchCustomers, hasValidCache]); // hasValidCache is derived from options which are in dependency of fetchCustomers
 
-  return {
-    customers,
-    error,
-    pagination,
-    addCustomer,
-    editCustomer,
-    removeCustomer,
-    refetch: fetchCustomers,
-  };
+  return { customers, loading, error, pagination, addCustomer, editCustomer, removeCustomer, refetch: () => fetchCustomers(true) };
 };
 
 // Invoice Management Hook
 export const useInvoices = (options = {}) => {
-  const [invoices, setInvoices] = useState([]);
-  const [error, setError] = useState(null);
-  const [pagination, setPagination] = useState(null);
-
   const {
     search: invoiceSearch = "",
     page: invoicePage = 1,
     limit: invoiceLimit = 20,
     status: invoiceStatus,
     customerId,
+    sortBy,
+    sortDirection,
   } = options;
 
-  const fetchInvoices = useCallback(async () => {
+  const currentOptions = { invoiceSearch, invoicePage, invoiceLimit, invoiceStatus, customerId, sortBy, sortDirection };
+  const hasValidCache = invoicesCache && areOptionsEqual(invoicesCache.options, currentOptions);
+
+  const [invoices, setInvoices] = useState(hasValidCache ? invoicesCache.data : []);
+  const [loading, setLoading] = useState(!hasValidCache);
+  const [error, setError] = useState(null);
+  const [pagination, setPagination] = useState(hasValidCache ? invoicesCache.pagination : null);
+
+  const fetchInvoices = useCallback(async (forceLoading = false) => {
+    if (forceLoading) setLoading(true);
     try {
       const result = await invoiceService.getInvoices({
         search: invoiceSearch,
@@ -242,139 +241,113 @@ export const useInvoices = (options = {}) => {
         limit: invoiceLimit,
         status: invoiceStatus,
         customerId,
+        sortBy,
+        sortDirection,
       });
+
       setInvoices(result.data);
-      invoicesCache = result.data;
       setPagination({
         total: result.total,
         page: result.page,
         limit: result.limit,
         totalPages: result.totalPages,
       });
+
+      invoicesCache = {
+        data: result.data,
+        pagination: {
+          total: result.total,
+          page: result.page,
+          limit: result.limit,
+          totalPages: result.totalPages,
+        },
+        options: currentOptions
+      };
+
       setError(null);
     } catch (err) {
       setError(err.message);
+    } finally {
+      setLoading(false);
     }
-  }, [invoiceSearch, invoicePage, invoiceLimit, invoiceStatus, customerId]);
+  }, [invoiceSearch, invoicePage, invoiceLimit, invoiceStatus, customerId, sortBy, sortDirection]);
 
-  const addInvoice = useCallback(
-    async (data) => {
-      // Optimistic update for invoices
-      let previous = null;
-      const tempId = `temp-inv-${Date.now()}`;
-      const optimisticInvoice = { id: tempId, ...data };
-      try {
-        setInvoices((prev) => {
-          previous = prev;
-          return [optimisticInvoice, ...prev];
-        });
+  // CRUD operations...
+  const addInvoice = useCallback(async (data) => {
+    let previous = null;
+    const tempId = `temp-inv-${Date.now()}`;
+    const optimisticInvoice = { id: tempId, ...data };
+    try {
+      setInvoices((prev) => {
+        previous = prev;
+        return [optimisticInvoice, ...prev];
+      });
+      const id = await invoiceService.createInvoice(data);
+      setInvoices((prev) => prev.map((inv) => (inv.id === tempId ? { id, ...inv } : inv)));
+      return { success: true, id };
+    } catch (err) {
+      if (previous) setInvoices(previous);
+      return { success: false, error: err.message };
+    }
+  }, []);
 
-        const id = await invoiceService.createInvoice(data);
+  const editInvoice = useCallback(async (id, data) => {
+    let previous = null;
+    try {
+      setInvoices((prev) => {
+        previous = prev;
+        return prev.map((inv) => (inv.id === id ? { ...inv, ...data } : inv));
+      });
+      await invoiceService.updateInvoice(id, data);
+      return { success: true };
+    } catch (err) {
+      if (previous) setInvoices(previous);
+      return { success: false, error: err.message };
+    }
+  }, []);
 
-        // replace temp id
-        setInvoices((prev) =>
-          prev.map((inv) => (inv.id === tempId ? { id, ...inv } : inv))
-        );
-        invoicesCache = invoicesCache
-          ? [{ id, ...data }, ...invoicesCache]
-          : null;
-
-        return { success: true, id };
-      } catch (err) {
-        if (previous) setInvoices(previous);
-        return { success: false, error: err.message };
-      }
-    },
-    [fetchInvoices]
-  );
-
-  const editInvoice = useCallback(
-    async (id, data) => {
-      // Optimistic update for invoice edit
-      let previous = null;
-      try {
-        setInvoices((prev) => {
-          previous = prev;
-          return prev.map((inv) => (inv.id === id ? { ...inv, ...data } : inv));
-        });
-
-        await invoiceService.updateInvoice(id, data);
-        // update cache if present
-        if (invoicesCache)
-          invoicesCache = invoicesCache.map((inv) =>
-            inv.id === id ? { ...inv, ...data } : inv
-          );
-
-        return { success: true };
-      } catch (err) {
-        if (previous) setInvoices(previous);
-        return { success: false, error: err.message };
-      }
-    },
-    [fetchInvoices]
-  );
-
-  const removeInvoice = useCallback(
-    async (id) => {
-      // Optimistic remove from state
-      let previous = null;
-      try {
-        setInvoices((prev) => {
-          previous = prev;
-          return prev.filter((inv) => inv.id !== id);
-        });
-
-        // call backend delete
-        await invoiceService.deleteInvoice(id);
-
-        // update cache
-        if (invoicesCache)
-          invoicesCache = invoicesCache.filter((inv) => inv.id !== id);
-
-        return { success: true };
-      } catch (err) {
-        if (previous) setInvoices(previous);
-        return { success: false, error: err.message };
-      }
-    },
-    [fetchInvoices]
-  );
+  const removeInvoice = useCallback(async (id) => {
+    let previous = null;
+    try {
+      setInvoices((prev) => {
+        previous = prev;
+        return prev.filter((inv) => inv.id !== id);
+      });
+      await invoiceService.deleteInvoice(id);
+      return { success: true };
+    } catch (err) {
+      if (previous) setInvoices(previous);
+      return { success: false, error: err.message };
+    }
+  }, []);
 
   useEffect(() => {
-    if (invoicesCache) {
-      setInvoices(invoicesCache);
+    fetchInvoices(!hasValidCache);
+
+    const subscriptionOptions = {};
+    if (sortBy) {
+      subscriptionOptions.orderBy = sortBy;
+      subscriptionOptions.direction = sortDirection || 'asc';
     }
-    fetchInvoices();
 
     const unsub = subscribeToCollection("invoices", (docs) => {
-      try {
-        const data = docs.docs
-          ? docs.docs.map((d) => ({ id: d.id, ...d.data() }))
-          : docs;
-        invoicesCache = data;
-        setInvoices(data);
-      } catch (e) { }
-    });
+      // For real-time updates, we should ideally re-fetch or carefully merge
+      // Re-fetching ensures consistency with filters/pagination
+      fetchInvoices(false);
+    }, subscriptionOptions);
 
     return () => {
       if (unsub) unsub();
     };
-  }, [fetchInvoices]);
+  }, [fetchInvoices, hasValidCache]);
 
-  return {
-    invoices,
-    error,
-    pagination,
-    addInvoice,
-    editInvoice,
-    removeInvoice,
-    refetch: fetchInvoices,
-  };
+  return { invoices, loading, error, pagination, addInvoice, editInvoice, removeInvoice, refetch: () => fetchInvoices(true) };
 };
 
 // Payment Management Hook
 export const usePayments = (invoiceId) => {
-  const [payments, setPayments] = useState([]);
+  const hasValidCache = invoiceId && paymentsCache[invoiceId];
+  const [payments, setPayments] = useState(hasValidCache ? paymentsCache[invoiceId] : []);
   const [error, setError] = useState(null);
 
   const fetchPayments = useCallback(async () => {
@@ -405,25 +378,14 @@ export const usePayments = (invoiceId) => {
   );
 
   useEffect(() => {
-    if (invoiceId && paymentsCache[invoiceId]) {
-      setPayments(paymentsCache[invoiceId]);
-    }
     fetchPayments();
 
     // subscribe to payments for this invoice
     if (invoiceId) {
       const unsub = subscribeToCollection(
         "payments",
-        (docs) => {
-          try {
-            const data = docs.docs
-              ? docs.docs.map((d) => ({ id: d.id, ...d.data() }))
-              : docs;
-            paymentsCache[invoiceId] = data.filter(
-              (p) => p.invoiceId === invoiceId
-            );
-            setPayments(paymentsCache[invoiceId]);
-          } catch (e) { }
+        () => {
+          fetchPayments();
         },
         { where: { field: "invoiceId", operator: "==", value: invoiceId } }
       );
@@ -432,7 +394,7 @@ export const usePayments = (invoiceId) => {
         if (unsub) unsub();
       };
     }
-  }, [fetchPayments]);
+  }, [fetchPayments, invoiceId]);
 
   return {
     payments,
@@ -444,13 +406,13 @@ export const usePayments = (invoiceId) => {
 
 // Global payments hook (all payments) for dashboards and payments page
 export const useAllPayments = () => {
-  const [payments, setPayments] = useState(paymentsCache || []);
+  const [payments, setPayments] = useState(paymentsCache['all'] || []);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     // set cached
-    if (paymentsCache) {
-      setPayments(paymentsCache);
+    if (paymentsCache['all']) {
+      setPayments(paymentsCache['all']);
     }
 
     const unsub = subscribeToCollection("payments", (docs) => {
@@ -458,7 +420,7 @@ export const useAllPayments = () => {
         const data = docs.docs
           ? docs.docs.map((d) => ({ id: d.id, ...d.data() }))
           : docs;
-        paymentsCache = data;
+        paymentsCache['all'] = data;
         setPayments(data);
       } catch (e) {
         setError(e.message || "Error parsing payments");
@@ -475,10 +437,6 @@ export const useAllPayments = () => {
 
 // Product Management Hook
 export const useProducts = (options = {}) => {
-  const [products, setProducts] = useState([]);
-  const [error, setError] = useState(null);
-  const [pagination, setPagination] = useState(null);
-
   const {
     search: productSearch = "",
     page: productPage = 1,
@@ -487,7 +445,16 @@ export const useProducts = (options = {}) => {
     sortDirection: productSortDirection,
   } = options;
 
-  const fetchProducts = useCallback(async () => {
+  const currentOptions = { productSearch, productPage, productLimit, productSortBy, productSortDirection };
+  const hasValidCache = productsCache && areOptionsEqual(productsCache.options, currentOptions);
+
+  const [products, setProducts] = useState(hasValidCache ? productsCache.data : []);
+  const [loading, setLoading] = useState(!hasValidCache);
+  const [error, setError] = useState(null);
+  const [pagination, setPagination] = useState(hasValidCache ? productsCache.pagination : null);
+
+  const fetchProducts = useCallback(async (forceLoading = false) => {
+    if (forceLoading) setLoading(true);
     try {
       const result = await productService.getProducts({
         search: productSearch,
@@ -497,121 +464,88 @@ export const useProducts = (options = {}) => {
         sortDirection: productSortDirection,
       });
       setProducts(result.data);
-      productsCache = result.data;
       setPagination({
         total: result.total,
         page: result.page,
         limit: result.limit,
         totalPages: result.totalPages,
       });
+
+      productsCache = {
+        data: result.data,
+        pagination: {
+          total: result.total,
+          page: result.page,
+          limit: result.limit,
+          totalPages: result.totalPages,
+        },
+        options: currentOptions
+      };
+
       setError(null);
     } catch (err) {
       setError(err.message);
     } finally {
+      setLoading(false);
     }
-  }, [
-    productSearch,
-    productPage,
-    productLimit,
-    productSortBy,
-    productSortDirection,
-  ]);
+  }, [productSearch, productPage, productLimit, productSortBy, productSortDirection]);
 
-  const addProduct = useCallback(
-    async (data) => {
-      // Optimistic update for products
-      let previous = null;
-      const tempId = `temp-prod-${Date.now()}`;
-      const optimisticProduct = { id: tempId, ...data };
-      try {
-        setProducts((prev) => {
-          previous = prev;
-          return [optimisticProduct, ...prev];
-        });
+  // CRUD operations...
+  const addProduct = useCallback(async (data) => {
+    let previous = null;
+    const tempId = `temp-prod-${Date.now()}`;
+    const optimisticProduct = { id: tempId, ...data };
+    try {
+      setProducts((prev) => {
+        previous = prev;
+        return [optimisticProduct, ...prev];
+      });
+      const id = await productService.createProduct(data);
+      setProducts((prev) => prev.map((p) => (p.id === tempId ? { id, ...p } : p)));
+      return { success: true, id };
+    } catch (err) {
+      if (previous) setProducts(previous);
+      return { success: false, error: err.message };
+    }
+  }, []);
 
-        const id = await productService.createProduct(data);
+  const editProduct = useCallback(async (id, data) => {
+    let previous = null;
+    try {
+      setProducts((prev) => {
+        previous = prev;
+        return prev.map((p) => (p.id === id ? { ...p, ...data } : p));
+      });
+      await productService.updateProduct(id, data);
+      return { success: true };
+    } catch (err) {
+      if (previous) setProducts(previous);
+      return { success: false, error: err.message };
+    }
+  }, []);
 
-        setProducts((prev) =>
-          prev.map((p) => (p.id === tempId ? { id, ...p } : p))
-        );
-
-        return { success: true, id };
-      } catch (err) {
-        if (previous) setProducts(previous);
-        return { success: false, error: err.message };
-      }
-    },
-    [fetchProducts]
-  );
-
-  const editProduct = useCallback(
-    async (id, data) => {
-      let previous = null;
-      try {
-        setProducts((prev) => {
-          previous = prev;
-          return prev.map((p) => (p.id === id ? { ...p, ...data } : p));
-        });
-
-        await productService.updateProduct(id, data);
-        return { success: true };
-      } catch (err) {
-        if (previous) setProducts(previous);
-        return { success: false, error: err.message };
-      }
-    },
-    [fetchProducts]
-  );
-
-  const removeProduct = useCallback(
-    async (id) => {
-      let previous = null;
-      try {
-        setProducts((prev) => {
-          previous = prev;
-          return prev.filter((p) => p.id !== id);
-        });
-
-        await productService.deleteProduct(id);
-        return { success: true };
-      } catch (err) {
-        if (previous) setProducts(previous);
-        return { success: false, error: err.message };
-      }
-    },
-    [fetchProducts]
-  );
+  const removeProduct = useCallback(async (id) => {
+    let previous = null;
+    try {
+      setProducts((prev) => {
+        previous = prev;
+        return prev.filter((p) => p.id !== id);
+      });
+      await productService.deleteProduct(id);
+      return { success: true };
+    } catch (err) {
+      if (previous) setProducts(previous);
+      return { success: false, error: err.message };
+    }
+  }, []);
 
   useEffect(() => {
-    if (productsCache) {
-      setProducts(productsCache);
-    }
-    fetchProducts();
+    fetchProducts(!hasValidCache);
+    const unsub = subscribeToCollection("products", () => fetchProducts(false));
+    return () => { if (unsub) unsub(); };
+  }, [fetchProducts, hasValidCache]);
 
-    const unsub = subscribeToCollection("products", (docs) => {
-      try {
-        const data = docs.docs
-          ? docs.docs.map((d) => ({ id: d.id, ...d.data() }))
-          : docs;
-        productsCache = data;
-        setProducts(data);
-      } catch (e) { }
-    });
-
-    return () => {
-      if (unsub) unsub();
-    };
-  }, [fetchProducts]);
-
-  return {
-    products,
-    error,
-    pagination,
-    addProduct,
-    editProduct,
-    removeProduct,
-    refetch: fetchProducts,
-  };
+  return { products, loading, error, pagination, addProduct, editProduct, removeProduct, refetch: () => fetchProducts(true) };
 };
 
 // Settings Hook
@@ -645,7 +579,7 @@ export const useSettings = () => {
   );
 
   useEffect(() => {
-    fetchSettings();
+    if (!settingsCache) fetchSettings();
 
     // Subscribe to real-time updates for settings
     const unsubscribeSettings = subscribeToCollection("settings", (docs) => {
@@ -670,7 +604,7 @@ export const useSettings = () => {
     return () => {
       if (unsubscribeSettings) unsubscribeSettings();
     };
-  }, [fetchSettings]);
+  }, [fetchSettings, settingsCache]);
 
   return {
     settings,
