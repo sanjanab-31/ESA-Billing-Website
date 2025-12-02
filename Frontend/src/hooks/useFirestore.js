@@ -7,7 +7,7 @@ import {
   productService,
   settingsService,
   subscribeToCollection,
-} from "../lib/firestore/services";
+} from "../lib/api/services";
 
 // Helper to compare options
 const areOptionsEqual = (opt1, opt2) => {
