@@ -35,6 +35,11 @@ export const invoiceService = {
         return apiClient.getInvoices(options);
     },
 
+    async getNextInvoiceNumber() {
+        const result = await apiClient.getNextInvoiceNumber();
+        return result.nextNumber;
+    },
+
     async createInvoice(invoiceData) {
         const result = await apiClient.createInvoice(invoiceData);
         return result.id;

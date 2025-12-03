@@ -34,6 +34,9 @@ export default function SignIn() {
             alt="ESA Logo"
             className="mx-auto mb-3 h-12 w-12"
           />
+          <p className="mb-4 text-center text-xs font-bold text-red-600">
+            ESA ENGINEERING WORKS
+          </p>
           <h1 className="text-2xl font-semibold text-gray-800">Welcome Back</h1>
           <p className="text-sm text-gray-500">Sign in to continue</p>
         </div>
@@ -87,6 +90,17 @@ export default function SignIn() {
             Sign In
           </button>
         </form>
+        <p className="mt-8 text-center text-sm text-gray-500">
+          Website Maintained By{" "}
+          <a
+            href="https://www.technovanam.com"  
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-bold text-blue-600 hover:underline"
+          >
+            Techno Vanam
+          </a>
+        </p>
       </div>
     </div>
   );

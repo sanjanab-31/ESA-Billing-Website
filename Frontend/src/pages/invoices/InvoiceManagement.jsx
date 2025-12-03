@@ -24,6 +24,7 @@ import "jspdf-autotable";
 import html2canvas from "html2canvas";
 import { useToast } from "../../context/ToastContext";
 import { generateInvoiceHTML } from "../../utils/invoiceGenerator";
+import { invoiceService } from "../../lib/api/services";
 
 const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, message }) => {
   if (!isOpen) return null;
@@ -52,7 +53,7 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, message }) => {
   );
 };
 
-const ClientAutocomplete = ({ clients, selectedClient, onSelect }) => {
+const ClientAutocomplete = ({ clients, selectedClient, onSelect, onAddNewClient }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [suggestions, setSuggestions] = useState([]);
   const [isFocused, setIsFocused] = useState(false);
@@ -100,6 +101,14 @@ const ClientAutocomplete = ({ clients, selectedClient, onSelect }) => {
     setIsFocused(false);
   };
 
+  const handleAddNew = () => {
+    if (onAddNewClient && searchTerm.trim()) {
+      onAddNewClient(searchTerm.trim());
+      setSuggestions([]);
+      setIsFocused(false);
+    }
+  };
+
   return (
     <div className="relative" ref={wrapperRef}>
       <label className="block text-sm text-gray-700 mb-1">Select Client</label>
@@ -111,7 +120,7 @@ const ClientAutocomplete = ({ clients, selectedClient, onSelect }) => {
         placeholder="Type to search for a client..."
         className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
       />
-      {isFocused && suggestions.length > 0 && (
+      {isFocused && (suggestions.length > 0 || (searchTerm.trim() && !suggestions.find(c => c.name.toLowerCase() === searchTerm.toLowerCase()) && onAddNewClient)) && (
         <ul className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-auto">
           {suggestions.map((client) => (
             <li
@@ -122,6 +131,14 @@ const ClientAutocomplete = ({ clients, selectedClient, onSelect }) => {
               {client.name}
             </li>
           ))}
+          {searchTerm.trim() && !suggestions.find(c => c.name.toLowerCase() === searchTerm.toLowerCase()) && onAddNewClient && (
+            <li
+              onClick={handleAddNew}
+              className="px-4 py-2 text-sm cursor-pointer hover:bg-blue-100 border-t border-gray-200 text-blue-600 font-medium"
+            >
+              + Add "{searchTerm}" as new client
+            </li>
+          )}
         </ul>
       )}
     </div>
@@ -217,12 +234,12 @@ const ProductAutocomplete = ({
     setIsFocused(false);
   };
 
-  const Dropdown = () => {
-    const exactMatch = products.find(
-      (p) => p.name.toLowerCase() === searchTerm.toLowerCase()
-    );
-    const showAddOption = searchTerm.trim() && !exactMatch && onAddNewProduct;
+  const exactMatch = products.find(
+    (p) => p.name.toLowerCase() === searchTerm.toLowerCase()
+  );
+  const showAddOption = searchTerm.trim() && !exactMatch && onAddNewProduct;
 
+  const Dropdown = () => {
     return (
       <ul
         ref={dropdownRef}
@@ -261,7 +278,7 @@ const ProductAutocomplete = ({
         className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
       />
       {isFocused &&
-        suggestions.length > 0 &&
+        (suggestions.length > 0 || showAddOption) &&
         createPortal(<Dropdown />, document.body)}
     </div>
   );
@@ -514,7 +531,10 @@ const InvoicePreview = ({
               </div>
               <div className="w-[30%] text-sm">
                 <div className="border-b border-black p-2 h-8 flex items-center">
-                  <span className="font-bold mr-2">J.O. No :</span> {previewData.poNumber}
+                  <span className="font-bold mr-2">P.O. No :</span> {previewData.poNumber}
+                </div>
+                <div className="border-b border-black p-2 h-8 flex items-center">
+                  <span className="font-bold mr-2">P.O. Date :</span> {previewData.poDate}
                 </div>
                 <div className="border-b border-black p-2 h-8 flex items-center">
                   <span className="font-bold mr-2">D.C. No :</span> {previewData.dcNumber}
@@ -615,9 +635,15 @@ const InvoicePreview = ({
                 </tr>
                 <tr>
                   <td className="p-1 border-t border-black align-top" colSpan="2" rowSpan="2">
+                    {previewData.invoiceNotes && (
+                      <div className="mb-2">
+                        <div className="font-bold mb-1">Notes:</div>
+                        <div className="text-xs whitespace-pre-wrap">{previewData.invoiceNotes}</div>
+                      </div>
+                    )}
                     <div className="font-bold mb-1">Declaration</div>
                     <div className="text-xs">
-                      We declare that this invoice shows the actual price of the goods Described and that all Particulars are true and correct
+                      {previewData.declaration}
                     </div>
                   </td>
                   <td className="border-l border-t border-black p-1 font-bold">NET TOTAL</td>
@@ -644,6 +670,208 @@ const InvoicePreview = ({
   );
 };
 
+const AddClientModal = ({ isOpen, onClose, onSave, initialName }) => {
+  const [clientData, setClientData] = useState({
+    name: initialName || "",
+    gstin: "",
+    phone: "",
+    email: "",
+    address: "",
+  });
+
+  useEffect(() => {
+    if (initialName) {
+      setClientData(prev => ({ ...prev, name: initialName }));
+    }
+  }, [initialName]);
+
+  if (!isOpen) return null;
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSave({
+      ...clientData,
+      company: clientData.gstin,
+      taxId: clientData.gstin
+    });
+    setClientData({ name: "", gstin: "", phone: "", email: "", address: "" });
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-bold text-gray-900">Add New Client</h3>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Client Name *</label>
+              <input
+                type="text"
+                required
+                value={clientData.name}
+                onChange={(e) => setClientData({ ...clientData, name: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">GSTIN *</label>
+              <input
+                type="text"
+                required
+                value={clientData.gstin}
+                onChange={(e) => setClientData({ ...clientData, gstin: e.target.value })}
+                placeholder="e.g., 27ABCDE1234F1Z5"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Contact</label>
+              <input
+                type="text"
+                value={clientData.phone}
+                onChange={(e) => setClientData({ ...clientData, phone: e.target.value })}
+                placeholder="+91 900XX 58XXX"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">E-mail</label>
+              <input
+                type="email"
+                value={clientData.email}
+                onChange={(e) => setClientData({ ...clientData, email: e.target.value })}
+                placeholder="contact@example.com"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Address *</label>
+            <textarea
+              required
+              value={clientData.address}
+              onChange={(e) => setClientData({ ...clientData, address: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              rows="3"
+            />
+          </div>
+          <div className="flex justify-end space-x-3 mt-6">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700"
+            >
+              Add Client
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+const AddProductModal = ({ isOpen, onClose, onSave, initialName }) => {
+  const [productData, setProductData] = useState({
+    name: initialName || "",
+    hsn: "",
+    price: "",
+  });
+
+  useEffect(() => {
+    if (initialName) {
+      setProductData(prev => ({ ...prev, name: initialName }));
+    }
+  }, [initialName]);
+
+  if (!isOpen) return null;
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSave({
+      ...productData,
+      price: parseFloat(productData.price) || 0
+    });
+    setProductData({ name: "", hsn: "", price: "" });
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-bold text-gray-900">Add New Product</h3>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Product Name *</label>
+            <input
+              type="text"
+              required
+              value={productData.name}
+              onChange={(e) => setProductData({ ...productData, name: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">HSN Code *</label>
+              <input
+                type="text"
+                required
+                value={productData.hsn}
+                onChange={(e) => setProductData({ ...productData, hsn: e.target.value })}
+                placeholder="e.g., 8479"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Price (₹) *</label>
+              <input
+                type="number"
+                required
+                value={productData.price}
+                onChange={(e) => setProductData({ ...productData, price: e.target.value })}
+                placeholder="0"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+          <div className="flex justify-end space-x-3 mt-6">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700"
+            >
+              Add Product
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
 const CreateInvoiceComponent = ({
   editingInvoice,
   invoiceData,
@@ -658,530 +886,560 @@ const CreateInvoiceComponent = ({
   setInvoiceData,
   handleClientSelect,
   handleAddNewProduct,
+  handleAddNewClient,
   addItem,
   updateItem,
   removeItem,
-}) => (
-  <div className="min-h-screen text-slate-800 font-sans">
-    <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 pb-8 pt-28">
-      <div className="flex justify-between items-center mb-2">
-        <div className="flex items-center">
-          <button
-            onClick={() => setCurrentPage("management")}
-            className="mr-4 p-2 hover:bg-gray-100 rounded-lg"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">
-              {editingInvoice ? "Edit Invoice" : "Create Invoice"}
-            </h1>
-            <p className="text-sm text-gray-600 mt-1">
-              {editingInvoice
-                ? "Update details for an existing invoice"
-                : "Create a new invoice for your client"}
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center space-x-3 text-sm font-medium">
-          <button
-            onClick={() => setCurrentPage("management")}
-            className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={saveDraft}
-            className="flex items-center px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
-          >
-            <Save className="w-4 h-4 mr-2" />
-            Save Draft
-          </button>
-          <button
-            onClick={() => setShowPreview(true)}
-            className="flex items-center px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700"
-          >
-            <Eye className="w-4 h-4 mr-2" />
-            Preview
-          </button>
-          <button
-            onClick={editingInvoice ? updateInvoice : saveInvoice}
-            className="flex items-center px-4 py-2 text-white bg-green-600 rounded-lg hover:bg-green-700"
-          >
-            <FileText className="w-4 h-4 mr-2" />
-            {editingInvoice ? "Update Invoice" : "Save Invoice"}
-          </button>
-        </div>
-      </div>
-      <main className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="col-span-1 lg:col-span-2 space-y-6">
-          <div className="bg-white p-3 lg:p-4 rounded-lg border border-gray-200 shadow-sm">
-            <h3 className="text-lg font-semibold text-gray-900 mb-3">
-              Invoice Details
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm text-gray-700 mb-1">
-                  Invoice Number <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={invoiceData.invoiceNumber}
-                  onChange={(e) =>
-                    setInvoiceData((prev) => ({
-                      ...prev,
-                      invoiceNumber: e.target.value,
-                    }))
-                  }
-                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-gray-700 mb-1">
-                  Invoice Date <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="date"
-                  value={invoiceData.invoiceDate}
-                  onChange={(e) =>
-                    setInvoiceData((prev) => ({
-                      ...prev,
-                      invoiceDate: e.target.value,
-                    }))
-                  }
-                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-gray-700 mb-1">
-                  Due Date
-                </label>
-                <input
-                  type="date"
-                  value={invoiceData.dueDate}
-                  onChange={(e) =>
-                    setInvoiceData((prev) => ({
-                      ...prev,
-                      dueDate: e.target.value,
-                    }))
-                  }
-                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div>
-                {/* CHANGED: Added required indicator */}
-                <label className="block text-sm text-gray-700 mb-1">
-                  J.O. Number <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={invoiceData.poNumber}
-                  onChange={(e) =>
-                    setInvoiceData((prev) => ({
-                      ...prev,
-                      poNumber: e.target.value,
-                    }))
-                  }
-                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-gray-700 mb-1">
-                  D.C Number <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={invoiceData.dcNumber}
-                  onChange={(e) =>
-                    setInvoiceData((prev) => ({
-                      ...prev,
-                      dcNumber: e.target.value,
-                    }))
-                  }
-                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-gray-700 mb-1">
-                  D.C Date <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="date"
-                  value={invoiceData.dcDate}
-                  onChange={(e) =>
-                    setInvoiceData((prev) => ({
-                      ...prev,
-                      dcDate: e.target.value,
-                    }))
-                  }
-                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-            </div>
-          </div>
-          <div className="bg-white p-3 lg:p-4 rounded-lg border border-gray-200 shadow-sm">
-            <h3 className="text-lg font-semibold text-gray-900 mb-3">
-              Client Information <span className="text-red-500">*</span>
-            </h3>
-            <ClientAutocomplete
-              clients={clients}
-              selectedClient={invoiceData.client}
-              onSelect={handleClientSelect}
-            />
-          </div>
-          <div className="bg-white p-3 lg:p-4 rounded-lg border border-gray-200 shadow-sm">
-            <div className="flex justify-between items-center mb-3">
-              <h3 className="text-lg font-semibold text-gray-900">
-                Items & Services <span className="text-red-500">*</span>
-              </h3>
-              <button
-                onClick={addItem}
-                className="flex items-center px-3 py-1.5 text-white bg-blue-600 rounded-lg text-xs font-medium hover:bg-blue-700"
-              >
-                <Plus className="w-4 h-4 mr-1" /> Add Item
-              </button>
-            </div>
+}) => {
+  const [showAddClientModal, setShowAddClientModal] = useState(false);
+  const [showAddProductModal, setShowAddProductModal] = useState(false);
+  const [newClientName, setNewClientName] = useState("");
+  const [newProductName, setNewProductName] = useState("");
+
+  const onAddNewClientRequest = (name) => {
+    setNewClientName(name);
+    setShowAddClientModal(true);
+  };
+
+  const onSaveNewClient = async (clientData) => {
+    const id = await handleAddNewClient(clientData);
+    if (id) {
+      handleClientSelect(id);
+      setShowAddClientModal(false);
+    }
+  };
+
+  const onAddNewProductRequest = (name) => {
+    setNewProductName(name);
+    setShowAddProductModal(true);
+  };
+
+  const onSaveNewProduct = async (productData) => {
+    const dataToSave = {
+      ...productData,
+      associatedClients: invoiceData.clientId ? [invoiceData.clientId] : [],
+    };
+    const newProduct = await handleAddNewProduct(dataToSave);
+    if (newProduct) {
+      setShowAddProductModal(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen text-slate-800 font-sans">
+      <AddClientModal
+        isOpen={showAddClientModal}
+        onClose={() => setShowAddClientModal(false)}
+        onSave={onSaveNewClient}
+        initialName={newClientName}
+      />
+      <AddProductModal
+        isOpen={showAddProductModal}
+        onClose={() => setShowAddProductModal(false)}
+        onSave={onSaveNewProduct}
+        initialName={newProductName}
+      />
+      <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 pb-8 pt-28">
+        <div className="flex justify-between items-center mb-2">
+          <div className="flex items-center">
+            <button
+              onClick={() => setCurrentPage("management")}
+              className="mr-4 p-2 hover:bg-gray-100 rounded-lg"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
             <div>
-              <table className="w-full">
-                <thead className="text-xs uppercase font-semibold text-gray-500">
-                  <tr>
-                    <th className="p-2 text-left w-[5%]">#</th>
-                    <th className="p-2 text-left w-[35%]">Description</th>
-                    <th className="p-2 text-left w-[15%]">HSN</th>
-                    <th className="p-2 text-left w-[10%]">Qty</th>
-                    <th className="p-2 text-left w-[15%]">Rate (₹)</th>
-                    <th className="p-2 text-left w-[15%]">Amount (₹)</th>
-                    <th className="p-2 text-left w-[5%]"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {invoiceData.items.map((item, index) => (
-                    <tr key={item.id} className="border-t">
-                      <td className="p-2 text-sm align-top">{index + 1}</td>
-                      <td className="p-2">
-                        <ProductAutocomplete
-                          products={products}
-                          value={item.description}
-                          onSelect={(product) => {
-                            updateItem(item.id, "description", product.name);
-                            updateItem(item.id, "hsnCode", product.hsn);
-                            updateItem(item.id, "rate", product.price);
-                          }}
-                          onChange={(val) =>
-                            updateItem(item.id, "description", val)
-                          }
-                          onAddNewProduct={handleAddNewProduct}
-                          clientId={invoiceData.clientId}
-                        />
-                      </td>
-                      <td className="p-2 align-top">
-                        <input
-                          type="text"
-                          placeholder="HSN"
-                          value={item.hsnCode}
-                          onChange={(e) =>
-                            updateItem(item.id, "hsnCode", e.target.value)
-                          }
-                          className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                      </td>
-                      <td className="p-2 align-top">
-                        <input
-                          type="number"
-                          value={item.quantity}
-                          onFocus={(e) => e.target.select()}
-                          onChange={(e) =>
-                            updateItem(
-                              item.id,
-                              "quantity",
-                              parseFloat(e.target.value) || 0
-                            )
-                          }
-                          className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          min="0"
-                        />
-                      </td>
-                      <td className="p-2 align-top">
-                        <input
-                          type="number"
-                          value={item.rate}
-                          onFocus={(e) => e.target.select()}
-                          onChange={(e) =>
-                            updateItem(
-                              item.id,
-                              "rate",
-                              parseFloat(e.target.value) || 0
-                            )
-                          }
-                          className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          min="0"
-                        />
-                      </td>
-                      <td className="p-2 align-top">
-                        <input
-                          type="text"
-                          value={item.amount.toLocaleString()}
-                          readOnly
-                          className="w-full px-3 py-2 text-sm bg-gray-200 border-0 rounded-lg text-gray-600"
-                        />
-                      </td>
-                      <td className="p-2 align-top">
-                        <button
-                          onClick={() => removeItem(item.id)}
-                          className="text-red-500 hover:text-red-700"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <h1 className="text-2xl font-bold text-gray-900">
+                {editingInvoice ? "Edit Invoice" : "Create Invoice"}
+              </h1>
+              <p className="text-sm text-gray-600 mt-1">
+                {editingInvoice
+                  ? "Update details for an existing invoice"
+                  : "Create a new invoice for your client"}
+              </p>
             </div>
-            <div className="mt-4">
-              <label className="block text-sm text-gray-700 mb-1">
-                Invoice Notes (Optional)
-              </label>
-              <textarea
-                placeholder="e.g., For labour charges only"
-                value={invoiceData.invoiceNotes}
-                onChange={(e) =>
-                  setInvoiceData((prev) => ({
-                    ...prev,
-                    invoiceNotes: e.target.value,
-                  }))
-                }
-                className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg resize-none h-16 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          </div>
+          <div className="flex items-center space-x-3 text-sm font-medium">
+            <button
+              onClick={() => setCurrentPage("management")}
+              className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={saveDraft}
+              className="flex items-center px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+            >
+              <Save className="w-4 h-4 mr-2" />
+              Save Draft
+            </button>
+            <button
+              onClick={() => setShowPreview(true)}
+              className="flex items-center px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700"
+            >
+              <Eye className="w-4 h-4 mr-2" />
+              Preview
+            </button>
+            <button
+              onClick={editingInvoice ? updateInvoice : saveInvoice}
+              className="flex items-center px-4 py-2 text-white bg-green-600 rounded-lg hover:bg-green-700"
+            >
+              <FileText className="w-4 h-4 mr-2" />
+              {editingInvoice ? "Update Invoice" : "Save Invoice"}
+            </button>
+          </div>
+        </div>
+        <main className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="col-span-1 lg:col-span-2 space-y-6">
+            <div className="bg-white p-3 lg:p-4 rounded-lg border border-gray-200 shadow-sm">
+              <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                Invoice Details
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm text-gray-700 mb-1">
+                    Invoice Number <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={invoiceData.invoiceNumber}
+                    readOnly
+                    className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-not-allowed text-gray-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-700 mb-1">
+                    Invoice Date <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={invoiceData.invoiceDate}
+                    onChange={(e) =>
+                      setInvoiceData((prev) => ({
+                        ...prev,
+                        invoiceDate: e.target.value,
+                      }))
+                    }
+                    className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-700 mb-1">
+                    Due Date <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={invoiceData.dueDate}
+                    onChange={(e) =>
+                      setInvoiceData((prev) => ({
+                        ...prev,
+                        dueDate: e.target.value,
+                      }))
+                    }
+                    className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-700 mb-1">
+                    P.O. Number <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={invoiceData.poNumber}
+                    onChange={(e) =>
+                      setInvoiceData((prev) => ({
+                        ...prev,
+                        poNumber: e.target.value,
+                      }))
+                    }
+                    className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-700 mb-1">
+                    P.O. Date <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={invoiceData.poDate}
+                    onChange={(e) =>
+                      setInvoiceData((prev) => ({
+                        ...prev,
+                        poDate: e.target.value,
+                      }))
+                    }
+                    className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-700 mb-1">
+                    D.C. Number <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={invoiceData.dcNumber}
+                    onChange={(e) =>
+                      setInvoiceData((prev) => ({
+                        ...prev,
+                        dcNumber: e.target.value,
+                      }))
+                    }
+                    className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-700 mb-1">
+                    D.C. Date <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={invoiceData.dcDate}
+                    onChange={(e) =>
+                      setInvoiceData((prev) => ({
+                        ...prev,
+                        dcDate: e.target.value,
+                      }))
+                    }
+                    className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="bg-white p-3 lg:p-4 rounded-lg border border-gray-200 shadow-sm">
+              <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                Client Information <span className="text-red-500">*</span>
+              </h3>
+              <ClientAutocomplete
+                clients={clients}
+                selectedClient={invoiceData.client}
+                onSelect={handleClientSelect}
+                onAddNewClient={onAddNewClientRequest}
               />
             </div>
-          </div>
-        </div>
-        <div className="space-y-8">
-          <div className="p-6 bg-white rounded-xl border border-gray-200">
-            <h3 className="mb-4 text-lg font-bold text-gray-900">
-              Tax & Calculation
-            </h3>
-            <div className="grid grid-cols-3 gap-4 mb-4">
-              <div>
-                <label className="block mb-1 text-sm text-gray-700">
-                  CGST (%)
-                </label>
-                <input
-                  type="number"
-                  value={invoiceData.cgst}
-                  onChange={(e) =>
-                    setInvoiceData((prev) => ({
-                      ...prev,
-                      cgst: parseFloat(e.target.value) || 0,
-                    }))
-                  }
-                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  min="0"
-                  max="100"
-                />
-              </div>
-              <div>
-                <label className="block mb-1 text-sm text-gray-700">
-                  SGST (%)
-                </label>
-                <input
-                  type="number"
-                  value={invoiceData.sgst}
-                  onChange={(e) =>
-                    setInvoiceData((prev) => ({
-                      ...prev,
-                      sgst: parseFloat(e.target.value) || 0,
-                    }))
-                  }
-                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  min="0"
-                  max="100"
-                />
-              </div>
-              <div>
-                <label className="block mb-1 text-sm text-gray-700">
-                  IGST (%)
-                </label>
-                <input
-                  type="number"
-                  value={invoiceData.igst}
-                  onChange={(e) =>
-                    setInvoiceData((prev) => ({
-                      ...prev,
-                      igst: parseFloat(e.target.value) || 0,
-                    }))
-                  }
-                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  min="0"
-                  max="100"
-                />
-              </div>
-            </div>
-            <div className="flex items-center justify-between py-2">
-              <span className="text-sm font-medium text-gray-700 select-none">
-                Enable Round Off
-              </span>
-              <button
-                type="button"
-                className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2 ${invoiceData.isRoundOff ? "bg-blue-600" : "bg-gray-200"
-                  }`}
-                onClick={() =>
-                  setInvoiceData((prev) => ({
-                    ...prev,
-                    isRoundOff: !prev.isRoundOff,
-                  }))
-                }
-              >
-                <span className="sr-only">Enable Round Off</span>
-                <span
-                  aria-hidden="true"
-                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${invoiceData.isRoundOff ? "translate-x-5" : "translate-x-0"
-                    }`}
-                />
-              </button>
-            </div>
-            <div className="p-4 pt-4 bg-gray-50 rounded-lg border-t mt-2">
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Subtotal:</span>
-                  <span className="font-medium">
-                    ₹
-                    {calculations.subtotal.toLocaleString("en-IN", {
-                      minimumFractionDigits: 2,
-                    })}
-                  </span>
-                </div>
-                {invoiceData.cgst > 0 && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">
-                      CGST ({invoiceData.cgst}%):
-                    </span>
-                    <span>
-                      ₹
-                      {calculations.cgstAmount.toLocaleString("en-IN", {
-                        minimumFractionDigits: 2,
-                      })}
-                    </span>
-                  </div>
-                )}
-                {invoiceData.sgst > 0 && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">
-                      SGST ({invoiceData.sgst}%):
-                    </span>
-                    <span>
-                      ₹
-                      {calculations.sgstAmount.toLocaleString("en-IN", {
-                        minimumFractionDigits: 2,
-                      })}
-                    </span>
-                  </div>
-                )}
-                {invoiceData.igst > 0 && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">
-                      IGST ({invoiceData.igst}%):
-                    </span>
-                    <span>
-                      ₹
-                      {calculations.igstAmount.toLocaleString("en-IN", {
-                        minimumFractionDigits: 2,
-                      })}
-                    </span>
-                  </div>
-                )}
-                {invoiceData.isRoundOff && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Round Off:</span>
-                    <span>
-                      ₹
-                      {calculations.roundOffAmount.toLocaleString("en-IN", {
-                        minimumFractionDigits: 2,
-                      })}
-                    </span>
-                  </div>
-                )}
-                <div className="flex justify-between pt-2 font-bold text-base border-t">
-                  <span>Total Amount:</span>
-                  <span>
-                    ₹
-                    {calculations.total.toLocaleString("en-IN", {
-                      minimumFractionDigits: 2,
-                    })}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="p-6 bg-white rounded-xl border border-gray-200">
-            <h3 className="mb-4 text-lg font-bold text-gray-900">Status</h3>
-            <div>
-              <label className="block mb-1 text-sm text-gray-700">
-                Set Invoice Status
-              </label>
-              <select
-                value={invoiceData.status}
-                onChange={(e) =>
-                  setInvoiceData((prev) => ({
-                    ...prev,
-                    status: e.target.value,
-                  }))
-                }
-                className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="Unpaid">Unpaid</option>
-                <option value="Paid">Paid</option>
-                <option value="Draft">Draft</option>
-              </select>
-            </div>
-          </div>
-          <div className="p-6 bg-white rounded-xl border border-gray-200">
-            <h3 className="mb-4 text-lg font-bold text-gray-900">
-              Payment & Notes
-            </h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block mb-1 text-sm text-gray-700">
-                  Bank Details
-                </label>
-                <select
-                  value={invoiceData.bankDetails}
-                  onChange={(e) =>
-                    setInvoiceData((prev) => ({
-                      ...prev,
-                      bankDetails: e.target.value,
-                    }))
-                  }
-                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            <div className="bg-white p-3 lg:p-4 rounded-lg border border-gray-200 shadow-sm">
+              <div className="flex justify-between items-center mb-3">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Items & Services <span className="text-red-500">*</span>
+                </h3>
+                <button
+                  onClick={addItem}
+                  className="flex items-center px-3 py-1.5 text-white bg-blue-600 rounded-lg text-xs font-medium hover:bg-blue-700"
                 >
-                  <option>State Bank Of India</option>
-                  <option>HDFC Bank</option>
-                  <option>ICICI Bank</option>
-                  <option>Axis Bank</option>
-                </select>
+                  <Plus className="w-4 h-4 mr-1" /> Add Item
+                </button>
               </div>
               <div>
-                <label className="block mb-1 text-sm text-gray-700">
-                  Declaration
+                <table className="w-full">
+                  <thead className="text-xs uppercase font-semibold text-gray-500">
+                    <tr>
+                      <th className="p-2 text-left w-[5%]">#</th>
+                      <th className="p-2 text-left w-[35%]">Description</th>
+                      <th className="p-2 text-left w-[15%]">HSN</th>
+                      <th className="p-2 text-left w-[10%]">Qty</th>
+                      <th className="p-2 text-left w-[15%]">Rate (₹)</th>
+                      <th className="p-2 text-left w-[15%]">Amount (₹)</th>
+                      <th className="p-2 text-left w-[5%]"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {invoiceData.items.map((item, index) => (
+                      <tr key={item.id} className="border-t">
+                        <td className="p-2 text-sm align-top">{index + 1}</td>
+                        <td className="p-2">
+                          <ProductAutocomplete
+                            products={products}
+                            value={item.description}
+                            onSelect={(product) => {
+                              updateItem(item.id, "description", product.name);
+                              updateItem(item.id, "hsnCode", product.hsn);
+                              updateItem(item.id, "rate", product.price);
+                            }}
+                            onChange={(val) =>
+                              updateItem(item.id, "description", val)
+                            }
+                            onAddNewProduct={onAddNewProductRequest}
+                            clientId={invoiceData.clientId}
+                          />
+                        </td>
+                        <td className="p-2 align-top">
+                          <input
+                            type="text"
+                            placeholder="HSN"
+                            value={item.hsnCode}
+                            onChange={(e) =>
+                              updateItem(item.id, "hsnCode", e.target.value)
+                            }
+                            className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </td>
+                        <td className="p-2 align-top">
+                          <input
+                            type="number"
+                            value={item.quantity}
+                            onFocus={(e) => e.target.select()}
+                            onChange={(e) =>
+                              updateItem(
+                                item.id,
+                                "quantity",
+                                parseFloat(e.target.value) || 0
+                              )
+                            }
+                            className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            min="0"
+                          />
+                        </td>
+                        <td className="p-2 align-top">
+                          <input
+                            type="number"
+                            value={item.rate}
+                            onFocus={(e) => e.target.select()}
+                            onChange={(e) =>
+                              updateItem(
+                                item.id,
+                                "rate",
+                                parseFloat(e.target.value) || 0
+                              )
+                            }
+                            className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            min="0"
+                          />
+                        </td>
+                        <td className="p-2 align-top">
+                          <input
+                            type="text"
+                            value={item.amount.toLocaleString()}
+                            readOnly
+                            className="w-full px-3 py-2 text-sm bg-gray-200 border-0 rounded-lg text-gray-600"
+                          />
+                        </td>
+                        <td className="p-2 align-top">
+                          <button
+                            onClick={() => removeItem(item.id)}
+                            className="text-red-500 hover:text-red-700"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="mt-4">
+                <label className="block text-sm text-gray-700 mb-1">
+                  Invoice Notes (Optional)
                 </label>
                 <textarea
-                  value={invoiceData.declaration}
+                  placeholder="e.g., For labour charges only"
+                  value={invoiceData.invoiceNotes}
                   onChange={(e) =>
                     setInvoiceData((prev) => ({
                       ...prev,
-                      declaration: e.target.value,
+                      invoiceNotes: e.target.value,
                     }))
                   }
-                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg resize-none h-20 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg resize-none h-16 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
             </div>
           </div>
-        </div>
-      </main>
+          <div className="space-y-8">
+            <div className="p-6 bg-white rounded-xl border border-gray-200">
+              <h3 className="mb-4 text-lg font-bold text-gray-900">
+                Tax & Calculation
+              </h3>
+              <div className="grid grid-cols-3 gap-4 mb-4">
+                <div>
+                  <label className="block mb-1 text-sm text-gray-700">
+                    CGST (%)
+                  </label>
+                  <input
+                    type="number"
+                    value={invoiceData.cgst}
+                    onChange={(e) =>
+                      setInvoiceData((prev) => ({
+                        ...prev,
+                        cgst: parseFloat(e.target.value) || 0,
+                      }))
+                    }
+                    className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    min="0"
+                    max="100"
+                  />
+                </div>
+                <div>
+                  <label className="block mb-1 text-sm text-gray-700">
+                    SGST (%)
+                  </label>
+                  <input
+                    type="number"
+                    value={invoiceData.sgst}
+                    onChange={(e) =>
+                      setInvoiceData((prev) => ({
+                        ...prev,
+                        sgst: parseFloat(e.target.value) || 0,
+                      }))
+                    }
+                    className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    min="0"
+                    max="100"
+                  />
+                </div>
+                <div>
+                  <label className="block mb-1 text-sm text-gray-700">
+                    IGST (%)
+                  </label>
+                  <input
+                    type="number"
+                    value={invoiceData.igst}
+                    onChange={(e) =>
+                      setInvoiceData((prev) => ({
+                        ...prev,
+                        igst: parseFloat(e.target.value) || 0,
+                      }))
+                    }
+                    className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    min="0"
+                    max="100"
+                  />
+                </div>
+              </div>
+              <div className="flex items-center justify-between py-2">
+                <span className="text-sm font-medium text-gray-700 select-none">
+                  Enable Round Off
+                </span>
+                <button
+                  type="button"
+                  className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2 ${invoiceData.isRoundOff ? "bg-blue-600" : "bg-gray-200"
+                    }`}
+                  onClick={() =>
+                    setInvoiceData((prev) => ({
+                      ...prev,
+                      isRoundOff: !prev.isRoundOff,
+                    }))
+                  }
+                >
+                  <span className="sr-only">Enable Round Off</span>
+                  <span
+                    aria-hidden="true"
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${invoiceData.isRoundOff ? "translate-x-5" : "translate-x-0"
+                      }`}
+                  />
+                </button>
+              </div>
+              <div className="p-4 pt-4 bg-gray-50 rounded-lg border-t mt-2">
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Subtotal:</span>
+                    <span className="font-medium">
+                      ₹
+                      {calculations.subtotal.toLocaleString("en-IN", {
+                        minimumFractionDigits: 2,
+                      })}
+                    </span>
+                  </div>
+                  {invoiceData.cgst > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">
+                        CGST ({invoiceData.cgst}%):
+                      </span>
+                      <span>
+                        ₹
+                        {calculations.cgstAmount.toLocaleString("en-IN", {
+                          minimumFractionDigits: 2,
+                        })}
+                      </span>
+                    </div>
+                  )}
+                  {invoiceData.sgst > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">
+                        SGST ({invoiceData.sgst}%):
+                      </span>
+                      <span>
+                        ₹
+                        {calculations.sgstAmount.toLocaleString("en-IN", {
+                          minimumFractionDigits: 2,
+                        })}
+                      </span>
+                    </div>
+                  )}
+                  {invoiceData.igst > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">
+                        IGST ({invoiceData.igst}%):
+                      </span>
+                      <span>
+                        ₹
+                        {calculations.igstAmount.toLocaleString("en-IN", {
+                          minimumFractionDigits: 2,
+                        })}
+                      </span>
+                    </div>
+                  )}
+                  {invoiceData.isRoundOff && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Round Off:</span>
+                      <span>
+                        ₹
+                        {calculations.roundOffAmount.toLocaleString("en-IN", {
+                          minimumFractionDigits: 2,
+                        })}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex justify-between pt-2 font-bold text-base border-t">
+                    <span>Total Amount:</span>
+                    <span>
+                      ₹
+                      {calculations.total.toLocaleString("en-IN", {
+                        minimumFractionDigits: 2,
+                      })}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6 bg-white rounded-xl border border-gray-200">
+              <h3 className="mb-4 text-lg font-bold text-gray-900">
+                Payment & Notes
+              </h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="block mb-1 text-sm text-gray-700">
+                    Bank Details
+                  </label>
+                  <div className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg">
+                    <div className="font-semibold text-gray-900">State Bank Of India</div>
+                    <div className="text-gray-600 mt-1">A/C No: 42455711572</div>
+                    <div className="text-gray-600">IFSC Code: SBIN0015017</div>
+                    <div className="text-gray-600">Branch: Malumichampatti</div>
+                  </div>
+                </div>
+                <div>
+                  <label className="block mb-1 text-sm text-gray-700">
+                    Declaration
+                  </label>
+                  <textarea
+                    value={invoiceData.declaration}
+                    onChange={(e) =>
+                      setInvoiceData((prev) => ({
+                        ...prev,
+                        declaration: e.target.value,
+                      }))
+                    }
+                    className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg resize-none h-20 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 const InvoiceManagementComponent = ({
   activeTab,
@@ -1431,42 +1689,16 @@ const InvoiceManagementSystem = () => {
     setPage(1);
   }, [searchTerm, activeTab]);
 
-  const { customers, error: customersError } = useCustomers();
+  const { customers, error: customersError, addCustomer } = useCustomers();
 
-  const { products, error: productsError } = useProducts();
+  const { products, error: productsError, addProduct } = useProducts();
 
   // Use Settings hook to fetch company info
   const { settings, loading: settingsLoading, error: settingsError } = useSettings();
 
-  const generateNextInvoiceNumber = () => {
-    const today = new Date();
-    const currentYear = today.getFullYear();
-    const financialYearStart =
-      today.getMonth() >= 3 ? currentYear : currentYear - 1; // Financial year starts in April (month 3)
-    const financialYearEnd = financialYearStart + 1;
-    const financialYearString = `${financialYearStart}-${financialYearEnd
-      .toString()
-      .slice(2)}`;
-
-    const invoicesInCurrentYear = invoices.filter((inv) => {
-      const invYearMatch = inv.invoiceNumber.match(/\/(\d{4}-\d{2})$/);
-      return invYearMatch && invYearMatch[1] === financialYearString;
-    });
-
-    if (invoicesInCurrentYear.length === 0) {
-      return `001/${financialYearString}`;
-    }
-
-    const maxNumber = invoicesInCurrentYear.reduce((max, invoice) => {
-      const num = parseInt(invoice.invoiceNumber.split("/")[0], 10);
-      return num > max ? num : max;
-    }, 0);
-
-    return `${String(maxNumber + 1).padStart(3, "0")}/${financialYearString}`;
-  };
 
   const getInitialInvoiceData = () => ({
-    invoiceNumber: generateNextInvoiceNumber(),
+    invoiceNumber: "Loading...",
     invoiceDate: new Date().toISOString().split("T")[0],
     dueDate: "",
     poNumber: "",
@@ -1479,17 +1711,30 @@ const InvoiceManagementSystem = () => {
     cgst: 9,
     sgst: 9,
     igst: 0,
-    bankDetails: "",
+    bankDetails: "State Bank Of India",
     status: "Unpaid",
-    declaration:
-      "We declare that this invoice shows the actual price of the goods Described and that all Particulars are true and correct.",
-    isRoundOff: false,
     invoiceNotes: "",
+    declaration: "We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct."
   });
 
   const [invoiceData, setInvoiceData] = useState(getInitialInvoiceData);
 
-  // Mock data removed - now using Firestore data from hooks above
+  useEffect(() => {
+    const fetchNextNumber = async () => {
+      if (currentPage === "create" && !editingInvoice) {
+        try {
+          const nextNum = await invoiceService.getNextInvoiceNumber();
+          setInvoiceData(prev => ({
+            ...prev,
+            invoiceNumber: nextNum
+          }));
+        } catch (error) {
+          console.error("Failed to fetch next invoice number:", error);
+        }
+      }
+    };
+    fetchNextNumber();
+  }, [currentPage, editingInvoice]);
 
   const [calculations, setCalculations] = useState({
     subtotal: 0,
@@ -1499,8 +1744,6 @@ const InvoiceManagementSystem = () => {
     roundOffAmount: 0,
     total: 0,
   });
-
-  // Sample invoices removed - now using Firestore data
 
   const getDynamicStatus = (invoice) => {
     if (invoice.status === "Paid" || invoice.status === "paid") return "Paid";
@@ -1515,8 +1758,6 @@ const InvoiceManagementSystem = () => {
     if (invoice.dueDate && today > dueDate) return "Overdue";
     return "Unpaid";
   };
-
-
 
   useEffect(() => {
     const subtotal = invoiceData.items.reduce(
@@ -1614,28 +1855,35 @@ const InvoiceManagementSystem = () => {
     }));
   };
 
-  const handleAddNewProduct = async (productName, clientId) => {
+  const handleAddNewClient = async (clientData) => {
     try {
-      // For now, we'll add a basic product structure
-      // This would ideally be connected to a proper addProduct function from useProducts hook
-      const newProduct = {
-        name: productName,
-        description: productName,
-        hsnCode: "",
-        rate: 0,
-        unit: "Nos",
-        associatedClients: clientId ? [clientId] : [],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-
-      // For now, return a mock product with an ID for immediate use
-      return {
-        id: Date.now().toString(),
-        ...newProduct,
-      };
+      const result = await addCustomer(clientData);
+      if (result.success) {
+        success("Client added successfully!", "Client Added");
+        return result.id;
+      } else {
+        showError("Error adding client: " + result.error, "Error");
+        return null;
+      }
     } catch (error) {
-      throw error;
+      showError("Error adding client: " + error.message, "Error");
+      return null;
+    }
+  };
+
+  const handleAddNewProduct = async (productData) => {
+    try {
+      const result = await addProduct(productData);
+      if (result.success) {
+        success("Product added successfully!", "Product Added");
+        return { id: result.id, ...productData };
+      } else {
+        showError("Error adding product: " + result.error, "Error");
+        return null;
+      }
+    } catch (error) {
+      showError("Error adding product: " + error.message, "Error");
+      return null;
     }
   };
 
@@ -1644,25 +1892,29 @@ const InvoiceManagementSystem = () => {
   };
 
   const validateInvoice = () => {
-    // CHANGED: Added poNumber to validation
     const {
       invoiceNumber,
       invoiceDate,
       poNumber,
+      poDate,
       dcNumber,
       dcDate,
       clientId,
       items,
     } = invoiceData;
+
     const missingFields = [];
     if (!invoiceNumber) missingFields.push("Invoice Number");
     if (!invoiceDate) missingFields.push("Invoice Date");
     if (!poNumber) missingFields.push("P.O. Number");
+    if (!poDate) missingFields.push("P.O. Date");
     if (!dcNumber) missingFields.push("D.C Number");
     if (!dcDate) missingFields.push("D.C Date");
     if (!clientId) missingFields.push("Client Information");
     if (items.length === 0) missingFields.push("At least one item");
+
     if (missingFields.length > 0) {
+
       showError(
         `Please fill in all required fields:\n- ${missingFields.join("\n- ")}`,
         "Validation Error"
@@ -1696,7 +1948,7 @@ const InvoiceManagementSystem = () => {
     const newInvoice = {
       ...invoiceData,
       amount: calculations.total,
-      status: "sent", // Set as sent instead of Unpaid
+      status: "Unpaid", // Set as Unpaid when saving invoice
     };
 
     const result = await addInvoice(newInvoice);
@@ -1733,6 +1985,42 @@ const InvoiceManagementSystem = () => {
     setEditingInvoice(null);
     setCurrentPage("create");
   };
+
+  if (showPreview) {
+    return (
+      <InvoicePreview
+        invoice={selectedInvoice}
+        invoiceData={invoiceData}
+        calculations={calculations}
+        setShowPreview={setShowPreview}
+        settings={settings}
+      />
+    );
+  }
+
+  if (currentPage === "create" || currentPage === "edit") {
+    return (
+      <CreateInvoiceComponent
+        editingInvoice={editingInvoice}
+        invoiceData={invoiceData}
+        clients={customers}
+        products={products}
+        calculations={calculations}
+        setCurrentPage={setCurrentPage}
+        saveDraft={saveDraft}
+        setShowPreview={setShowPreview}
+        updateInvoice={updateInvoice}
+        saveInvoice={saveInvoice}
+        setInvoiceData={setInvoiceData}
+        handleClientSelect={handleClientSelect}
+        handleAddNewProduct={handleAddNewProduct}
+        handleAddNewClient={handleAddNewClient}
+        addItem={addItem}
+        updateItem={updateItem}
+        removeItem={removeItem}
+      />
+    );
+  }
   const handleViewInvoice = (invoice) => {
     setSelectedInvoice(invoice);
     setShowPreview(true);

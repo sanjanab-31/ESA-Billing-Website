@@ -24,8 +24,13 @@ export const invoiceService = {
             let query = db.collection('invoices');
 
             // Apply filters
+            // Apply filters
             if (status) {
-                query = query.where('status', '==', status);
+                if (status === 'Overdue') {
+                    query = query.where('status', '==', 'Unpaid');
+                } else {
+                    query = query.where('status', '==', status);
+                }
             }
             if (customerId) {
                 query = query.where('customerId', '==', customerId);
@@ -37,6 +42,18 @@ export const invoiceService = {
                 id: doc.id,
                 ...doc.data()
             }));
+
+            // Apply Overdue filter if requested
+            if (status === 'Overdue') {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                invoices = invoices.filter(invoice => {
+                    if (!invoice.dueDate) return false;
+                    const dueDate = new Date(invoice.dueDate);
+                    dueDate.setHours(0, 0, 0, 0);
+                    return dueDate < today;
+                });
+            }
 
             // Apply search filter
             if (search) {
@@ -76,6 +93,58 @@ export const invoiceService = {
             };
         } catch (error) {
             console.error('Error getting invoices:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Get next invoice number
+     */
+    async getNextInvoiceNumber() {
+        const db = getDb();
+        try {
+            // Calculate financial year
+            const today = new Date();
+            const currentYear = today.getFullYear();
+            const currentMonth = today.getMonth(); // 0-indexed
+
+            let financialYearStart;
+            if (currentMonth < 2) { // Jan, Feb
+                financialYearStart = currentYear - 1;
+            } else if (currentMonth === 2) { // March
+                financialYearStart = currentYear - 1;
+            } else { // April onwards
+                financialYearStart = currentYear;
+            }
+
+            const financialYearEnd = financialYearStart + 1;
+            const financialYearString = `${financialYearStart}-${financialYearEnd}`;
+
+            // Get all invoices to find the max number for the current financial year
+            // This is more robust than relying on createdAt sorting
+            const snapshot = await db.collection('invoices').get();
+
+            if (snapshot.empty) {
+                return `INV 001/${financialYearString}`;
+            }
+
+            let maxNum = 0;
+
+            snapshot.docs.forEach(doc => {
+                const data = doc.data();
+                if (data.invoiceNumber) {
+                    // Match INV followed by optional space, then digits, then /, then year range
+                    const match = data.invoiceNumber.match(/INV\s*(\d+)\/(\d{4}-\d{4})$/);
+                    if (match && match[2] === financialYearString) {
+                        const num = parseInt(match[1], 10);
+                        if (num > maxNum) maxNum = num;
+                    }
+                }
+            });
+
+            return `INV ${String(maxNum + 1).padStart(3, "0")}/${financialYearString}`;
+        } catch (error) {
+            console.error('Error getting next invoice number:', error);
             throw error;
         }
     },

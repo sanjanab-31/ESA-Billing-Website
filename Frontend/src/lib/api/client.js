@@ -72,6 +72,10 @@ class ApiClient {
         return this.client.get('/invoices', { params: options });
     }
 
+    async getNextInvoiceNumber() {
+        return this.client.get('/invoices/next-number');
+    }
+
     async getInvoiceById(id) {
         return this.client.get(`/invoices/${id}`);
     }

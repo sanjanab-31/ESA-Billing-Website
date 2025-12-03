@@ -28,6 +28,20 @@ router.get('/', async (req, res) => {
 });
 
 /**
+ * GET /api/invoices/next-number
+ * Get the next invoice number
+ */
+router.get('/next-number', async (req, res) => {
+    try {
+        const nextNumber = await invoiceService.getNextInvoiceNumber();
+        res.json({ nextNumber });
+    } catch (error) {
+        console.error('Error in GET /api/invoices/next-number:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
  * GET /api/invoices/:id
  * Get invoice by ID
  */
