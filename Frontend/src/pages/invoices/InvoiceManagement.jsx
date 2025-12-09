@@ -15,9 +15,8 @@ import {
   Trash2,
   Printer,
 } from "lucide-react";
-import { useInvoices, useSettings } from "../../hooks/useFirestore";
-import { useCustomers } from "../../hooks/useFirestore";
-import { useProducts } from "../../hooks/useFirestore";
+// Firestore imports removed - database functionality disabled
+import { useInvoices, useSettings, useCustomers, useProducts } from "../../hooks/useFirestore";
 import { AuthContext } from "../../context/AuthContext";
 import jsPDF from "jspdf";
 import "jspdf-autotable";

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import ReactApexChart from "react-apexcharts";
-import { useInvoices, useAllPayments } from "../../hooks/useFirestore";
+// Firestore imports removed - database functionality disabled
+// import { useInvoices, useAllPayments } from "../../hooks/useFirestore";
 
 const RevenueLineChart = () => {
   const { invoices } = useInvoices();

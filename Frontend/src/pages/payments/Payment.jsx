@@ -13,8 +13,9 @@ import {
   Edit,
   Eye,
 } from "lucide-react";
+// Firestore imports removed - database functionality disabled
 import { useInvoices, useAllPayments } from "../../hooks/useFirestore";
-import { paymentService, invoiceService } from "../../lib/firestore/services";
+// import { paymentService, invoiceService } from "../../lib/firestore/services";
 import { AuthContext } from "../../context/AuthContext";
 
 // CHANGE: Updated modal to handle transaction ID

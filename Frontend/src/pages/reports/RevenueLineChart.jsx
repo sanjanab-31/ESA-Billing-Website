@@ -15,6 +15,7 @@ import {
   Search,
 } from "lucide-react";
 import { ResponsivePie } from "@nivo/pie";
+// Firestore imports removed - database functionality disabled
 import {
   useDashboard,
   useInvoices,

@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import Pagination from "../../components/Pagination";
 import { AuthContext } from "../../context/AuthContext";
+// Firestore imports removed - database functionality disabled
 import { useCustomers, useInvoices } from "../../hooks/useFirestore";
 import { useToast } from "../../context/ToastContext";
 const ClientManagement = () => {

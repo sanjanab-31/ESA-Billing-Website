@@ -12,6 +12,7 @@ import {
   Clock,
 } from "lucide-react";
 import { AuthContext } from "../../context/AuthContext";
+// Firestore imports removed - database functionality disabled
 import { useSettings } from "../../hooks/useFirestore";
 
 // A reusable toggle switch component

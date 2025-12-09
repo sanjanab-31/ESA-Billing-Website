@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useContext, memo, useCallback } from "react";
 import { Plus, Search, Eye, Edit, Trash2, X } from "lucide-react";
 import Pagination from "../../components/Pagination";
+// Firestore imports removed - database functionality disabled
 import { useProducts } from "../../hooks/useFirestore";
 import { AuthContext } from "../../context/AuthContext";
 import { useToast } from "../../context/ToastContext";

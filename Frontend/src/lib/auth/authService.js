@@ -11,7 +11,7 @@ import {
   browserSessionPersistence,
   onAuthStateChanged
 } from "firebase/auth";
-import { auth } from "./config.js";
+import { auth } from "../firebase/config.js";
 
 // Auth service functions
 export const authService = {
