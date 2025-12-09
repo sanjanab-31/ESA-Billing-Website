@@ -25,7 +25,6 @@ import {
   Package,
   FileEdit,
 } from "lucide-react";
-// Firestore imports removed - database functionality disabled
 import {
   useDashboard,
   useInvoices,

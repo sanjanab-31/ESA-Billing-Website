@@ -15,7 +15,6 @@ import {
 } from "lucide-react";
 import Pagination from "../../components/Pagination";
 import { AuthContext } from "../../context/AuthContext";
-// Firestore imports removed - database functionality disabled
 import { useCustomers, useInvoices } from "../../hooks/useFirestore";
 import { useToast } from "../../context/ToastContext";
 const ClientManagement = () => {
@@ -34,11 +33,11 @@ const ClientManagement = () => {
   const { user } = useContext(AuthContext);
   const { success, error: showError, warning } = useToast();
 
-  // Use Firestore hooks
+  // Use data hooks
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(20);
 
-  // Use Firestore hooks
+  // Use data hooks
   const { customers, loading, error, pagination, addCustomer, editCustomer, removeCustomer } =
     useCustomers({
       search: searchTerm,

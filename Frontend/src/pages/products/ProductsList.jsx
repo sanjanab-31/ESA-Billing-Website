@@ -1,7 +1,6 @@
 import React, { useState, useMemo, useEffect, useContext, memo, useCallback } from "react";
 import { Plus, Search, Eye, Edit, Trash2, X } from "lucide-react";
 import Pagination from "../../components/Pagination";
-// Firestore imports removed - database functionality disabled
 import { useProducts } from "../../hooks/useFirestore";
 import { AuthContext } from "../../context/AuthContext";
 import { useToast } from "../../context/ToastContext";
@@ -278,7 +277,7 @@ export default function ProductManagement() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(20);
 
-  // Use Firestore hook
+  // Use products hook
   const {
     products,
     loading,
@@ -325,7 +324,7 @@ export default function ProductManagement() {
     setModal({ isOpen: true, type: "delete", data: product });
   }, []);
 
-  // handle save (add or edit) using Firestore
+  // handle save (add or edit)
   const handleSaveProduct = async (productData) => {
     const isEdit = modal.type === "edit" && productData?.id;
     const productName = productData.name;

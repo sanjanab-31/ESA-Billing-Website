@@ -12,7 +12,6 @@ import {
   Clock,
 } from "lucide-react";
 import { AuthContext } from "../../context/AuthContext";
-// Firestore imports removed - database functionality disabled
 import { useSettings } from "../../hooks/useFirestore";
 
 // A reusable toggle switch component
@@ -114,7 +113,7 @@ const ProfileSettings = () => {
         }
       }
 
-      // Save phone and role to Firestore (no photo)
+      // Save phone and role (no photo)
       await updateSettings(
         "userProfile",
         {
@@ -439,10 +438,10 @@ const SystemSettings = () => {
     roundOff: true,
   });
 
-  // Use Firestore settings hook
+  // Use settings hook
   const { settings, error: settingsError, updateSettings } = useSettings();
 
-  // Load settings from Firestore
+  // Load settings
   useEffect(() => {
     if (settings) {
       if (settings.systemSettings?.value?.systemConfig) {
@@ -641,7 +640,7 @@ const SecuritySettings = () => {
   const [message, setMessage] = useState({ text: "", type: "" });
 
   useEffect(() => {
-    // Load session timeout settings from Firestore
+    // Load session timeout settings
     if (settings?.securitySettings?.value?.sessionTimeoutMinutes) {
       setLocalTimeoutMinutes(
         settings.securitySettings.value.sessionTimeoutMinutes
@@ -668,7 +667,7 @@ const SecuritySettings = () => {
     toggleSessionTimeout();
     const newState = !isSessionTimeoutEnabled;
 
-    // Save to Firestore
+    // Save settings
     try {
       await updateSettings(
         "securitySettings",
@@ -701,7 +700,7 @@ const SecuritySettings = () => {
   const handleTimeoutChange = async (newMinutes) => {
     setLocalTimeoutMinutes(newMinutes);
 
-    // Save to Firestore
+    // Save settings
     try {
       await updateSettings(
         "securitySettings",
@@ -805,7 +804,7 @@ const SettingsPage = () => {
   // Get authentication context
   const { user } = useContext(AuthContext);
 
-  // Use Firestore settings hook
+  // Use settings hook
   const { settings, error: settingsError } = useSettings();
 
   const renderContent = () => {

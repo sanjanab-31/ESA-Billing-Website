@@ -13,9 +13,7 @@ import {
   Edit,
   Eye,
 } from "lucide-react";
-// Firestore imports removed - database functionality disabled
 import { useInvoices, useAllPayments } from "../../hooks/useFirestore";
-// import { paymentService, invoiceService } from "../../lib/firestore/services";
 import { AuthContext } from "../../context/AuthContext";
 
 // CHANGE: Updated modal to handle transaction ID
@@ -570,7 +568,7 @@ const PaymentsPage = () => {
   // Get authentication context
   const { user } = useContext(AuthContext);
 
-  // Use Firestore hooks
+  // Use data hooks
   const {
     invoices: allInvoices = [],
     error: invoicesError,
@@ -706,7 +704,7 @@ const PaymentsPage = () => {
     }
   };
 
-  // Function now accepts transactionId and updates Firestore
+  // Function now accepts transactionId and updates local data
   const confirmMarkAsPaid = async (method, transactionId) => {
     try {
       const today = new Date().toLocaleDateString("en-GB");

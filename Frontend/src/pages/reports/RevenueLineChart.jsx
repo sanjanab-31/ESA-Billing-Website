@@ -15,7 +15,6 @@ import {
   Search,
 } from "lucide-react";
 import { ResponsivePie } from "@nivo/pie";
-// Firestore imports removed - database functionality disabled
 import {
   useDashboard,
   useInvoices,
@@ -1107,7 +1106,7 @@ const ReportsAnalytics = () => {
   // Get authentication context
   const { user } = useContext(AuthContext);
 
-  // Use Firestore hooks
+  // Use data hooks
   const { stats, error: statsError } = useDashboard();
   const { invoices, error: invoicesError } = useInvoices();
   const { customers, error: customersError } = useCustomers();

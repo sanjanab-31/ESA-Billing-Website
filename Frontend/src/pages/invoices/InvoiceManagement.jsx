@@ -15,7 +15,6 @@ import {
   Trash2,
   Printer,
 } from "lucide-react";
-// Firestore imports removed - database functionality disabled
 import { useInvoices, useSettings, useCustomers, useProducts } from "../../hooks/useFirestore";
 import { AuthContext } from "../../context/AuthContext";
 import jsPDF from "jspdf";
@@ -1401,7 +1400,7 @@ const InvoiceManagementSystem = () => {
     }
   }, [location]);
 
-  // Use Firestore hooks
+  // Use data hooks
   const statusParam = useMemo(() => {
     if (activeTab === "All Invoices") return undefined;
     if (activeTab === "Drafts") return "Draft";
@@ -1488,7 +1487,7 @@ const InvoiceManagementSystem = () => {
 
   const [invoiceData, setInvoiceData] = useState(getInitialInvoiceData);
 
-  // Mock data removed - now using Firestore data from hooks above
+  // Mock data removed - now using data from hooks above
 
   const [calculations, setCalculations] = useState({
     subtotal: 0,
@@ -1499,7 +1498,7 @@ const InvoiceManagementSystem = () => {
     total: 0,
   });
 
-  // Sample invoices removed - now using Firestore data
+  // Sample invoices removed - now using data
 
   const getDynamicStatus = (invoice) => {
     if (invoice.status === "Paid" || invoice.status === "paid") return "Paid";
