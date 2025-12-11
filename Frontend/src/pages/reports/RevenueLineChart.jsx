@@ -1,15 +1,12 @@
 import React, { useState, useRef, useEffect, useContext } from "react";
 import {
   ChevronDown,
-  Calendar,
   TrendingUp,
   FileText,
   Percent,
   Users,
   Printer,
   UserCheck,
-  ChevronLeft,
-  ChevronRight,
   IndianRupee,
   X,
   Search,
@@ -27,118 +24,7 @@ import autoTable from "jspdf-autotable";
 import html2canvas from "html2canvas";
 import { generateInvoiceHTML } from "../../utils/invoiceGenerator";
 
-// Calendar Popup Component
-const CalendarPopup = ({ onDateSelect, onClose }) => {
-  const [currentDate, setCurrentDate] = useState(new Date());
-  const calendarRef = useRef(null);
 
-  const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  const monthNames = [
-    "January",
-    "February",
-    "March",
-    "April",
-    "May",
-    "June",
-    "July",
-    "August",
-    "September",
-    "October",
-    "November",
-    "December",
-  ];
-
-  const getDaysInMonth = (year, month) =>
-    new Date(year, month + 1, 0).getDate();
-  const getFirstDayOfMonth = (year, month) => new Date(year, month, 1).getDay();
-
-  const handlePrevMonth = () => {
-    setCurrentDate(
-      new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1)
-    );
-  };
-
-  const handleNextMonth = () => {
-    setCurrentDate(
-      new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1)
-    );
-  };
-
-  const handleDateClick = (day) => {
-    const selected = new Date(
-      currentDate.getFullYear(),
-      currentDate.getMonth(),
-      day
-    );
-    onDateSelect(selected);
-    onClose();
-  };
-
-  // Close calendar on outside click
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (calendarRef.current && !calendarRef.current.contains(event.target)) {
-        onClose();
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [onClose]);
-
-  const year = currentDate.getFullYear();
-  const month = currentDate.getMonth();
-  const daysInMonth = getDaysInMonth(year, month);
-  const firstDay = getFirstDayOfMonth(year, month);
-
-  const blanks = Array(firstDay).fill(null);
-  const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
-
-  return (
-    <div
-      ref={calendarRef}
-      className="absolute top-full mt-2 w-72 bg-white border border-gray-200 rounded-lg shadow-xl z-10 p-4"
-    >
-      <div className="flex justify-between items-center mb-4">
-        <button
-          onClick={handlePrevMonth}
-          className="p-2 rounded-full hover:bg-gray-100"
-        >
-          <ChevronLeft size={18} />
-        </button>
-        <div className="font-bold text-base">
-          {monthNames[month]} {year}
-        </div>
-        <button
-          onClick={handleNextMonth}
-          className="p-2 rounded-full hover:bg-gray-100"
-        >
-          <ChevronRight size={18} />
-        </button>
-      </div>
-      <div className="grid grid-cols-7 gap-1 text-center text-xs text-gray-500 mb-2">
-        {daysOfWeek.map((day) => (
-          <div key={day}>{day}</div>
-        ))}
-      </div>
-      <div className="grid grid-cols-7 gap-1 text-center text-sm">
-        {blanks.map((_, i) => (
-          <div key={`blank-${i}`}></div>
-        ))}
-        {days.map((day) => (
-          <button
-            key={day}
-            onClick={() => handleDateClick(day)}
-            className="p-2 rounded-full hover:bg-blue-100 hover:text-blue-600"
-          >
-            {day}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-};
 
 // Dynamic line chart component using real data
 const RevenueLineChart = ({ invoices = [] }) => {
@@ -1088,10 +974,8 @@ const ReportsAnalytics = () => {
   const [timePeriod, setTimePeriod] = useState("This Month");
   const [showFromCalendar, setShowFromCalendar] = useState(false);
   const [showToCalendar, setShowToCalendar] = useState(false);
-  const [fromDate, setFromDate] = useState(null);
-  const [toDate, setToDate] = useState(null);
-  const [fromDateString, setFromDateString] = useState("");
-  const [toDateString, setToDateString] = useState("");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
   // New state for the new charts
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
@@ -1224,14 +1108,7 @@ const ReportsAnalytics = () => {
 
   const realTimeStats = calculateRealTimeStats();
 
-  const formatDate = (date) => {
-    if (!date) return "";
-    const d = new Date(date);
-    let day = ("0" + d.getDate()).slice(-2);
-    let month = ("0" + (d.getMonth() + 1)).slice(-2);
-    let year = d.getFullYear();
-    return `${day}-${month}-${year}`;
-  };
+
 
   const handleReportTypeChange = (e) => {
     const newReportType = e.target.value;
@@ -1244,17 +1121,7 @@ const ReportsAnalytics = () => {
     }
   };
 
-  const handleFromDateSelect = (date) => {
-    setFromDate(date);
-    setFromDateString(formatDate(date));
-    setShowFromCalendar(false);
-  };
 
-  const handleToDateSelect = (date) => {
-    setToDate(date);
-    setToDateString(formatDate(date));
-    setShowToCalendar(false);
-  };
 
   const renderContent = () => {
     // Show error state
@@ -1504,25 +1371,12 @@ const ReportsAnalytics = () => {
                 </label>
                 <div className="relative">
                   <input
-                    value={fromDateString}
-                    onChange={(e) => setFromDateString(e.target.value)}
-                    type="text"
-                    placeholder="dd-mm-yyyy"
+                    value={fromDate}
+                    onChange={(e) => setFromDate(e.target.value)}
+                    type="date"
                     className="w-full bg-gray-100 border-0 rounded-md text-sm p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
-                  <button
-                    onClick={() => setShowFromCalendar(!showFromCalendar)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
-                  >
-                    <Calendar size={18} />
-                  </button>
                 </div>
-                {showFromCalendar && (
-                  <CalendarPopup
-                    onDateSelect={handleFromDateSelect}
-                    onClose={() => setShowFromCalendar(false)}
-                  />
-                )}
               </div>
 
               {/* To Date */}
@@ -1535,25 +1389,12 @@ const ReportsAnalytics = () => {
                 </label>
                 <div className="relative">
                   <input
-                    value={toDateString}
-                    onChange={(e) => setToDateString(e.target.value)}
-                    type="text"
-                    placeholder="dd-mm-yyyy"
+                    value={toDate}
+                    onChange={(e) => setToDate(e.target.value)}
+                    type="date"
                     className="w-full bg-gray-100 border-0 rounded-md text-sm p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
-                  <button
-                    onClick={() => setShowToCalendar(!showToCalendar)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
-                  >
-                    <Calendar size={18} />
-                  </button>
                 </div>
-                {showToCalendar && (
-                  <CalendarPopup
-                    onDateSelect={handleToDateSelect}
-                    onClose={() => setShowToCalendar(false)}
-                  />
-                )}
               </div>
             </div>
           </div>

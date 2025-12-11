@@ -836,7 +836,7 @@ const SettingsPage = () => {
 
         <main className="mt-6 flex flex-col gap-6">
           <div>
-            <div className="bg-gray-100 rounded-lg p-1 flex items-center space-x-1 max-w-full overflow-x-auto scrollbar-hide">
+            <div className="bg-gray-100 rounded-lg p-1 flex items-center space-x-1 max-w-fit overflow-x-auto scrollbar-hide">
               {tabs.map((tab) => (
                 <button
                   key={tab}

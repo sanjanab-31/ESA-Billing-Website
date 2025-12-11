@@ -1217,7 +1217,7 @@ const InvoiceManagementComponent = ({
         </header>
         <main className="mt-6 flex flex-col gap-6">
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-            <div className="w-full lg:w-auto overflow-x-auto pb-1">
+            <div className="w-fit lg:w-auto overflow-x-auto pb-1">
               <div className="flex p-1 bg-gray-100 rounded-lg whitespace-nowrap">
                 {tabs.map((tab) => (
                   <button
