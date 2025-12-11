@@ -344,9 +344,10 @@ const RecentActivity = memo(({ invoices = [], payments = [] }) => {
         color = "bg-blue-500";
       }
 
+      const clientName = inv.client?.name ? ` for ${inv.client.name}` : "";
+
       activities.push({
-        text: `Invoice #${inv.invoiceNumber} ${action}${inv.client?.name ? ` for ${inv.client.name}` : ""
-          }`,
+        text: `Invoice #${inv.invoiceNumber} ${action}${clientName}`,
         time: timeAgo,
         color: color,
         timestamp: createdDate,

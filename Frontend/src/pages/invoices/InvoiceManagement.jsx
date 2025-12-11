@@ -114,12 +114,14 @@ const ClientAutocomplete = ({ clients, selectedClient, onSelect }) => {
       {isFocused && suggestions.length > 0 && (
         <ul className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-auto">
           {suggestions.map((client) => (
-            <li
-              key={client.id}
-              onClick={() => handleSelectSuggestion(client)}
-              className="px-4 py-2 text-sm cursor-pointer hover:bg-gray-100"
-            >
-              {client.name}
+            <li key={client.id}>
+              <button
+                type="button"
+                onClick={() => handleSelectSuggestion(client)}
+                className="w-full text-left px-4 py-2 text-sm cursor-pointer hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
+              >
+                {client.name}
+              </button>
             </li>
           ))}
         </ul>
@@ -230,20 +232,25 @@ const ProductAutocomplete = ({
         className="z-50 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-auto"
       >
         {suggestions.map((product) => (
-          <li
-            key={product.id}
-            onClick={() => handleSelectSuggestion(product)}
-            className="px-4 py-2 text-sm cursor-pointer hover:bg-gray-100"
-          >
-            {product.name} - ₹{product.price}
+          <li key={product.id}>
+            <button
+              type="button"
+              onClick={() => handleSelectSuggestion(product)}
+              className="w-full text-left px-4 py-2 text-sm cursor-pointer hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
+            >
+              {product.name} - ₹{product.price}
+            </button>
           </li>
         ))}
         {showAddOption && (
-          <li
-            onClick={handleAddNewProduct}
-            className="px-4 py-2 text-sm cursor-pointer hover:bg-blue-100 border-t border-gray-200 text-blue-600 font-medium"
-          >
-            + Add "{searchTerm}" as new product
+          <li>
+            <button
+              type="button"
+              onClick={handleAddNewProduct}
+              className="w-full text-left px-4 py-2 text-sm cursor-pointer hover:bg-blue-100 border-t border-gray-200 text-blue-600 font-medium focus:outline-none focus:bg-blue-100"
+            >
+              + Add "{searchTerm}" as new product
+            </button>
           </li>
         )}
       </ul>
@@ -1278,7 +1285,7 @@ const InvoiceManagementComponent = ({
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {loading ? (
-                  [...Array(5)].map((_, i) => (
+                  [...new Array(5)].map((_, i) => (
                     <tr key={i} className="animate-pulse">
                       <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-24"></div></td>
                       <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-24"></div></td>
@@ -1385,6 +1392,42 @@ const InvoiceManagementComponent = ({
   );
 };
 
+InvoiceManagementComponent.propTypes = {
+  activeTab: PropTypes.string.isRequired,
+  searchTerm: PropTypes.string.isRequired,
+  filteredInvoices: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.string.isRequired,
+      invoiceNumber: PropTypes.string.isRequired,
+      invoiceDate: PropTypes.string.isRequired,
+      dueDate: PropTypes.string,
+      amount: PropTypes.number.isRequired,
+      status: PropTypes.string.isRequired,
+      client: PropTypes.shape({
+        name: PropTypes.string.isRequired,
+      }).isRequired,
+    })
+  ).isRequired,
+  setActiveTab: PropTypes.func.isRequired,
+  setSearchTerm: PropTypes.func.isRequired,
+  handleCreateInvoice: PropTypes.func.isRequired,
+  getStatusColor: PropTypes.func.isRequired,
+  handleViewInvoice: PropTypes.func.isRequired,
+  handleEditInvoice: PropTypes.func.isRequired,
+  handleDownloadInvoice: PropTypes.func.isRequired,
+  getDynamicStatus: PropTypes.func.isRequired,
+  pagination: PropTypes.shape({
+    page: PropTypes.number,
+    totalPages: PropTypes.number,
+    total: PropTypes.number,
+    limit: PropTypes.number,
+  }),
+  onPageChange: PropTypes.func,
+  itemsPerPage: PropTypes.number,
+  onItemsPerPageChange: PropTypes.func,
+  loading: PropTypes.bool,
+};
+
 const InvoiceManagementSystem = () => {
   const location = useLocation();
   const [currentPage, setCurrentPage] = useState("management");
@@ -1458,7 +1501,7 @@ const InvoiceManagementSystem = () => {
 
     const invoicesInCurrentYear = invoices.filter((inv) => {
       const invYearMatch = inv.invoiceNumber.match(/\/(\d{4}-\d{2})$/);
-      return invYearMatch && invYearMatch[1] === financialYearString;
+      return invYearMatch?.[1] === financialYearString;
     });
 
     if (invoicesInCurrentYear.length === 0) {
@@ -1467,7 +1510,7 @@ const InvoiceManagementSystem = () => {
 
     const maxNumber = invoicesInCurrentYear.reduce((max, invoice) => {
       const num = parseInt(invoice.invoiceNumber.split("/")[0], 10);
-      return num > max ? num : max;
+      return Math.max(num, max);
     }, 0);
 
     return `${String(maxNumber + 1).padStart(3, "0")}/${financialYearString}`;

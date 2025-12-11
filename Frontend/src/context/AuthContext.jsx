@@ -13,7 +13,10 @@ export const AuthProvider = ({ children }) => {
 
     const [isSessionTimeoutEnabled, setIsSessionTimeoutEnabled] = useState(() => {
         const saved = localStorage.getItem('sessionTimeoutEnabled');
-        return saved !== null ? JSON.parse(saved) : true;
+        if (saved === null) {
+            return true;
+        }
+        return JSON.parse(saved);
     });
 
     const [sessionTimeoutMinutes, setSessionTimeoutMinutes] = useState(() => {
