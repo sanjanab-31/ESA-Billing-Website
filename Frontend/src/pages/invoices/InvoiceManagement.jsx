@@ -109,21 +109,25 @@ const ClientAutocomplete = ({ clients, selectedClient, onSelect }) => {
         onChange={handleInputChange}
         onFocus={() => setIsFocused(true)}
         placeholder="Type to search for a client..."
-        className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-0"
       />
-      {isFocused && suggestions.length > 0 && (
+      {isFocused && searchTerm && (
         <ul className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-auto">
-          {suggestions.map((client) => (
-            <li key={client.id}>
-              <button
-                type="button"
-                onClick={() => handleSelectSuggestion(client)}
-                className="w-full text-left px-4 py-2 text-sm cursor-pointer hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
-              >
-                {client.name}
-              </button>
-            </li>
-          ))}
+          {suggestions.length > 0 ? (
+            suggestions.map((client) => (
+              <li key={client.id}>
+                <button
+                  type="button"
+                  onClick={() => handleSelectSuggestion(client)}
+                  className="w-full text-left px-4 py-2 text-sm cursor-pointer hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
+                >
+                  {client.name}
+                </button>
+              </li>
+            ))
+          ) : (
+            <li className="px-4 py-2 text-sm text-gray-500">No client found</li>
+          )}
         </ul>
       )}
     </div>
@@ -231,17 +235,25 @@ const ProductAutocomplete = ({
         style={{ ...dropdownStyle, position: "fixed" }}
         className="z-50 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-auto"
       >
-        {suggestions.map((product) => (
-          <li key={product.id}>
-            <button
-              type="button"
-              onClick={() => handleSelectSuggestion(product)}
-              className="w-full text-left px-4 py-2 text-sm cursor-pointer hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
-            >
-              {product.name} - ₹{product.price}
-            </button>
-          </li>
-        ))}
+        {suggestions.length > 0 ? (
+          suggestions.map((product) => (
+            <li key={product.id}>
+              <button
+                type="button"
+                onClick={() => handleSelectSuggestion(product)}
+                className="w-full text-left px-4 py-2 text-sm cursor-pointer hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
+              >
+                {product.name} - ₹{product.price}
+              </button>
+            </li>
+          ))
+        ) : (
+          !showAddOption && (
+            <li className="px-4 py-2 text-sm text-gray-500">
+              No item found
+            </li>
+          )
+        )}
         {showAddOption && (
           <li>
             <button
@@ -265,10 +277,10 @@ const ProductAutocomplete = ({
         value={searchTerm}
         onChange={handleInputChange}
         onFocus={() => setIsFocused(true)}
-        className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-0"
       />
       {isFocused &&
-        suggestions.length > 0 &&
+        searchTerm &&
         createPortal(<Dropdown />, document.body)}
     </div>
   );
@@ -748,7 +760,7 @@ const CreateInvoiceComponent = ({
                       invoiceNumber: e.target.value,
                     }))
                   }
-                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-0"
                 />
               </div>
               <div>
@@ -764,7 +776,7 @@ const CreateInvoiceComponent = ({
                       invoiceDate: e.target.value,
                     }))
                   }
-                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-0"
                 />
               </div>
               <div>
@@ -780,7 +792,7 @@ const CreateInvoiceComponent = ({
                       dueDate: e.target.value,
                     }))
                   }
-                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-0"
                 />
               </div>
               <div>
@@ -797,7 +809,7 @@ const CreateInvoiceComponent = ({
                       poNumber: e.target.value,
                     }))
                   }
-                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-0"
                 />
               </div>
               <div>
@@ -813,7 +825,7 @@ const CreateInvoiceComponent = ({
                       dcNumber: e.target.value,
                     }))
                   }
-                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-0"
                 />
               </div>
               <div>
@@ -829,7 +841,7 @@ const CreateInvoiceComponent = ({
                       dcDate: e.target.value,
                     }))
                   }
-                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-0"
                 />
               </div>
             </div>
@@ -897,7 +909,7 @@ const CreateInvoiceComponent = ({
                           onChange={(e) =>
                             updateItem(item.id, "hsnCode", e.target.value)
                           }
-                          className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-0"
                         />
                       </td>
                       <td className="p-2 align-top">
@@ -912,7 +924,7 @@ const CreateInvoiceComponent = ({
                               Number.parseFloat(e.target.value) || 0
                             )
                           }
-                          className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-0"
                           min="0"
                         />
                       </td>
@@ -928,7 +940,7 @@ const CreateInvoiceComponent = ({
                               Number.parseFloat(e.target.value) || 0
                             )
                           }
-                          className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-0"
                           min="0"
                         />
                       </td>
@@ -943,9 +955,9 @@ const CreateInvoiceComponent = ({
                       <td className="p-2 align-top">
                         <button
                           onClick={() => removeItem(item.id)}
-                          className="text-red-500 hover:text-red-700"
+                          className="flex items-center gap-1 text-xs text-red-500 hover:text-red-700 hover:bg-red-50 px-2 py-1 rounded"
                         >
-                          <X className="w-4 h-4" />
+                          <Trash2 className="w-4 h-7" />
                         </button>
                       </td>
                     </tr>
@@ -966,7 +978,7 @@ const CreateInvoiceComponent = ({
                     invoiceNotes: e.target.value,
                   }))
                 }
-                className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg resize-none h-16 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg resize-none h-16 focus:outline-none focus:ring-0"
               />
             </div>
           </div>
@@ -991,7 +1003,7 @@ const CreateInvoiceComponent = ({
                       cgst: Number.parseFloat(e.target.value) || 0,
                     }))
                   }
-                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-0"
                   min="0"
                   max="100"
                 />
@@ -1010,7 +1022,7 @@ const CreateInvoiceComponent = ({
                       sgst: Number.parseFloat(e.target.value) || 0,
                     }))
                   }
-                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-0"
                   min="0"
                   max="100"
                 />
@@ -1029,7 +1041,7 @@ const CreateInvoiceComponent = ({
                       igst: Number.parseFloat(e.target.value) || 0,
                     }))
                   }
-                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-0"
                   min="0"
                   max="100"
                 />
@@ -1145,7 +1157,7 @@ const CreateInvoiceComponent = ({
                     status: e.target.value,
                   }))
                 }
-                className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-0"
               >
                 <option value="Unpaid">Unpaid</option>
                 <option value="Paid">Paid</option>
@@ -1170,7 +1182,7 @@ const CreateInvoiceComponent = ({
                       bankDetails: e.target.value,
                     }))
                   }
-                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-0"
                 >
                   <option>State Bank Of India</option>
                   <option>HDFC Bank</option>
@@ -1190,7 +1202,7 @@ const CreateInvoiceComponent = ({
                       declaration: e.target.value,
                     }))
                   }
-                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg resize-none h-20 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg resize-none h-20 focus:outline-none focus:ring-0"
                 />
               </div>
             </div>
@@ -1261,7 +1273,7 @@ const InvoiceManagementComponent = ({
                   placeholder="Search invoices..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full sm:w-80 bg-gray-100 rounded-lg pl-9 pr-4 py-2 text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full sm:w-80 bg-gray-100 rounded-lg pl-9 pr-4 py-2 text-sm placeholder-gray-500 focus:outline-none focus:ring-0"
                 />
               </div>
               <button
@@ -1502,21 +1514,30 @@ const InvoiceManagementSystem = () => {
       .toString()
       .slice(2)}`;
 
+    // Get prefix from settings or default to "INV"
+    const prefix = settings?.systemSettings?.value?.systemConfig?.invoicePrefix || "INV";
+
     const invoicesInCurrentYear = invoices.filter((inv) => {
-      const invYearMatch = inv.invoiceNumber.match(/\/(\d{4}-\d{2})$/);
-      return invYearMatch?.[1] === financialYearString;
+      // Check if invoice belongs to current financial year
+      return inv.invoiceNumber && inv.invoiceNumber.endsWith(`/${financialYearString}`);
     });
 
     if (invoicesInCurrentYear.length === 0) {
-      return `001/${financialYearString}`;
+      return `${prefix} 001/${financialYearString}`;
     }
 
     const maxNumber = invoicesInCurrentYear.reduce((max, invoice) => {
-      const num = Number.parseInt(invoice.invoiceNumber.split("/")[0], 10);
-      return Math.max(num, max);
+      // Extract number part: "INV 001/2025-26" -> "001"
+      // Split by space first, then take the last part (number/year), then split by slash
+      // Or regex match
+      const match = invoice.invoiceNumber.match(/(\d+)\/\d{4}-\d{2}$/);
+      if (match && match[1]) {
+        return Math.max(Number.parseInt(match[1], 10), max);
+      }
+      return max;
     }, 0);
 
-    return `${String(maxNumber + 1).padStart(3, "0")}/${financialYearString}`;
+    return `${prefix} ${String(maxNumber + 1).padStart(3, "0")}/${financialYearString}`;
   };
 
   const getInitialInvoiceData = () => ({
