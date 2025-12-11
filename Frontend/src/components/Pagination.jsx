@@ -12,7 +12,7 @@ const Pagination = ({
     startIndex,
     endIndex
 }) => {
-    if (totalItems <= itemsPerPage) return null;
+    if (totalItems <= 20) return null;
 
     return (
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-6 py-4 border-t border-gray-200 bg-white rounded-b-xl">
