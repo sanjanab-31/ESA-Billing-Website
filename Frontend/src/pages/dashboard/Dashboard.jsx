@@ -1,4 +1,17 @@
+import React, { useMemo, memo } from "react";
 import PropTypes from "prop-types";
+import { useNavigate } from "react-router-dom";
+import {
+  Plus,
+  Receipt,
+  TrendingUp,
+  CreditCard,
+  Package,
+  UserCheck,
+  FileEdit,
+  ArrowUpRight,
+  ArrowDownRight,
+} from "lucide-react";
 import {
   useDashboard,
   useInvoices,
