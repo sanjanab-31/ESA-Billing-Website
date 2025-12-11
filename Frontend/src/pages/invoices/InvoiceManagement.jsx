@@ -18,7 +18,8 @@ import {
 import { useInvoices, useSettings, useCustomers, useProducts } from "../../hooks/useFirestore";
 import { AuthContext } from "../../context/AuthContext";
 import { useToast } from "../../context/ToastContext";
-
+import { generateInvoiceHTML } from "../../utils/invoiceGenerator";
+import PropTypes from "prop-types";
 
 const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, message }) => {
   if (!isOpen) return null;
@@ -97,26 +98,33 @@ const ClientAutocomplete = ({ clients, selectedClient, onSelect }) => {
 
   return (
     <div className="relative" ref={wrapperRef}>
-      <label className="block text-sm text-gray-700 mb-1">Select Client</label>
+      <label htmlFor="client-search" className="block text-sm text-gray-700 mb-1">Select Client</label>
       <input
+        id="client-search"
         type="text"
         value={searchTerm}
         onChange={handleInputChange}
         onFocus={() => setIsFocused(true)}
         placeholder="Type to search for a client..."
-        className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-0"
       />
-      {isFocused && suggestions.length > 0 && (
+      {isFocused && searchTerm && (
         <ul className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-auto">
-          {suggestions.map((client) => (
-            <li
-              key={client.id}
-              onClick={() => handleSelectSuggestion(client)}
-              className="px-4 py-2 text-sm cursor-pointer hover:bg-gray-100"
-            >
-              {client.name}
-            </li>
-          ))}
+          {suggestions.length > 0 ? (
+            suggestions.map((client) => (
+              <li key={client.id}>
+                <button
+                  type="button"
+                  onClick={() => handleSelectSuggestion(client)}
+                  className="w-full text-left px-4 py-2 text-sm cursor-pointer hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
+                >
+                  {client.name}
+                </button>
+              </li>
+            ))
+          ) : (
+            <li className="px-4 py-2 text-sm text-gray-500">No client found</li>
+          )}
         </ul>
       )}
     </div>
@@ -224,21 +232,34 @@ const ProductAutocomplete = ({
         style={{ ...dropdownStyle, position: "fixed" }}
         className="z-50 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-auto"
       >
-        {suggestions.map((product) => (
-          <li
-            key={product.id}
-            onClick={() => handleSelectSuggestion(product)}
-            className="px-4 py-2 text-sm cursor-pointer hover:bg-gray-100"
-          >
-            {product.name} - ₹{product.price}
-          </li>
-        ))}
+        {suggestions.length > 0 ? (
+          suggestions.map((product) => (
+            <li key={product.id}>
+              <button
+                type="button"
+                onClick={() => handleSelectSuggestion(product)}
+                className="w-full text-left px-4 py-2 text-sm cursor-pointer hover:bg-gray-100 focus:bg-gray-100 focus:outline-none"
+              >
+                {product.name} - ₹{product.price}
+              </button>
+            </li>
+          ))
+        ) : (
+          !showAddOption && (
+            <li className="px-4 py-2 text-sm text-gray-500">
+              No item found
+            </li>
+          )
+        )}
         {showAddOption && (
-          <li
-            onClick={handleAddNewProduct}
-            className="px-4 py-2 text-sm cursor-pointer hover:bg-blue-100 border-t border-gray-200 text-blue-600 font-medium"
-          >
-            + Add "{searchTerm}" as new product
+          <li>
+            <button
+              type="button"
+              onClick={handleAddNewProduct}
+              className="w-full text-left px-4 py-2 text-sm cursor-pointer hover:bg-blue-100 border-t border-gray-200 text-blue-600 font-medium focus:outline-none focus:bg-blue-100"
+            >
+              + Add "{searchTerm}" as new product
+            </button>
           </li>
         )}
       </ul>
@@ -253,10 +274,10 @@ const ProductAutocomplete = ({
         value={searchTerm}
         onChange={handleInputChange}
         onFocus={() => setIsFocused(true)}
-        className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-0"
       />
       {isFocused &&
-        suggestions.length > 0 &&
+        searchTerm &&
         createPortal(<Dropdown />, document.body)}
     </div>
   );
@@ -268,7 +289,7 @@ const InvoicePreview = ({
   calculations,
   setShowPreview,
 }) => {
-
+  const { error: toastError } = useToast();
   const previewData = invoice || invoiceData;
   const previewCalcs = invoice
     ? {
@@ -340,8 +361,80 @@ const InvoicePreview = ({
 
   const amountInWords = convertToWords(Math.floor(previewCalcs.total));
 
+
+
+  const handleDownloadPdf = async () => {
+    try {
+      // Create a temporary div for HTML to PDF conversion
+      const tempDiv = document.createElement("div");
+      tempDiv.innerHTML = generateInvoiceHTML(previewData, settings);
+      tempDiv.style.position = "absolute";
+      tempDiv.style.left = "-9999px";
+      tempDiv.style.top = "-9999px";
+      tempDiv.style.width = "800px";
+      document.body.appendChild(tempDiv);
+
+      // Convert HTML to canvas
+      const canvas = await html2canvas(tempDiv, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: "#ffffff",
+        width: 800,
+        height: tempDiv.scrollHeight,
+      });
+
+      // Remove temporary div
+      document.body.removeChild(tempDiv);
+
+      // Create PDF
+      const pdf = new jsPDF("p", "mm", "a4");
+      const imgData = canvas.toDataURL("image/png");
+
+      // Calculate dimensions to fit A4
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = pdfWidth - 20; // 10mm margin on each side
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+      let heightLeft = imgHeight;
+      let position = 10; // 10mm top margin
+
+      // Add first page
+      pdf.addImage(imgData, "PNG", 10, position, imgWidth, imgHeight);
+      heightLeft -= pdfHeight - 20; // Account for margins
+
+      // Add additional pages if needed
+      while (heightLeft >= 0) {
+        position = heightLeft - imgHeight + 10;
+        pdf.addPage();
+        pdf.addImage(imgData, "PNG", 10, position, imgWidth, imgHeight);
+        heightLeft -= pdfHeight - 20;
+      }
+
+      // Download the PDF
+      const fileName = `Invoice_${previewData.invoiceNumber.replaceAll(
+        "/",
+        "_"
+      )}.pdf`;
+      pdf.save(fileName);
+    } catch (error) {
+      console.error("PDF Generation Error:", error);
+      toastError("Failed to generate PDF. Please try again.");
+    }
+  };
+
   const handlePrint = () => {
-    window.print();
+    const iframe = document.createElement("iframe");
+    iframe.style.display = "none";
+    document.body.appendChild(iframe);
+    const invoiceHTML = generateInvoiceHTML(previewData, settings);
+    iframe.contentDocument.write(invoiceHTML);
+    iframe.contentDocument.close();
+    iframe.onload = () => {
+      iframe.contentWindow.print();
+      setTimeout(() => iframe.remove(), 100);
+    };
   };
 
 
@@ -466,7 +559,8 @@ const InvoicePreview = ({
                     <td className="p-1 text-right">{item.amount}</td>
                   </tr>
                 ))}
-                {Array(Math.max(0, 12 - previewData.items.length))
+
+                {new Array(Math.max(0, 12 - previewData.items.length))
                   .fill(0)
                   .map((_, index) => (
                     <tr key={`empty-${index}`}>
@@ -485,9 +579,9 @@ const InvoicePreview = ({
             <table className="w-full text-sm">
               <tbody>
                 <tr>
-                  <td className="w-[15%] p-1">Bank Details :</td>
+                  <th scope="row" className="w-[15%] p-1 font-normal text-left">Bank Details :</th>
                   <td className="w-[55%] p-1">Bank Name : State Bank Of India</td>
-                  <td className="w-[15%] border-l border-b border-black p-1">SUB TOTAL</td>
+                  <th scope="row" className="w-[15%] border-l border-b border-black p-1 font-normal text-left">SUB TOTAL</th>
                   <td className="w-[15%] border-l border-b border-black p-1 text-right">
                     {previewCalcs.subtotal.toFixed(2)}
                   </td>
@@ -497,7 +591,9 @@ const InvoicePreview = ({
                     <span className="inline-block w-20">&nbsp;</span>
                     A/C No : 42455711572
                   </td>
-                  <td className="border-l border-b border-black p-1">CGST &nbsp;&nbsp;&nbsp; {previewData.cgst}%</td>
+                  <th scope="row" className="border-l border-b border-black p-1 font-normal text-left">
+                    CGST <span className="ml-6">{previewData.cgst}%</span>
+                  </th>
                   <td className="border-l border-b border-black p-1 text-right">
                     {previewCalcs.cgstAmount.toFixed(2)}
                   </td>
@@ -507,7 +603,9 @@ const InvoicePreview = ({
                     <span className="inline-block w-20">&nbsp;</span>
                     IFSC Code : SBIN0015017
                   </td>
-                  <td className="border-l border-b border-black p-1">SGST &nbsp;&nbsp;&nbsp; {previewData.sgst}%</td>
+                  <th scope="row" className="border-l border-b border-black p-1 font-normal text-left">
+                    SGST <span className="ml-6">{previewData.sgst}%</span>
+                  </th>
                   <td className="border-l border-b border-black p-1 text-right">
                     {previewCalcs.sgstAmount.toFixed(2)}
                   </td>
@@ -517,9 +615,12 @@ const InvoicePreview = ({
                     <span className="inline-block w-20">&nbsp;</span>
                     Branch : Malumichampatti
                   </td>
-                  <td className="border-l border-b border-black p-1">IGST &nbsp;&nbsp;&nbsp; {previewData.igst}%</td>
+                  <th scope="row" className="border-l border-b border-black p-1 font-normal text-left">
+                    IGST <span className="ml-6">{previewData.igst}%</span>
+                  </th>
                   <td className="border-l border-b border-black p-1 text-right">
                     {previewCalcs.igstAmount.toFixed(2)}
+                    
                   </td>
                 </tr>
                 <tr>
@@ -550,7 +651,6 @@ const InvoicePreview = ({
     {previewCalcs.total.toFixed(2)}
   </td>
 </tr>
-
                 <tr>
                   <td className=" border-t border-black align-top" colSpan="2" rowSpan="2">
                     <div className="font-bold mb-1">Declaration</div>
@@ -668,7 +768,7 @@ const CreateInvoiceComponent = ({
                       invoiceNumber: e.target.value,
                     }))
                   }
-                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-0"
                 />
               </div>
               <div>
@@ -684,7 +784,7 @@ const CreateInvoiceComponent = ({
                       invoiceDate: e.target.value,
                     }))
                   }
-                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-0"
                 />
               </div>
               <div>
@@ -700,7 +800,7 @@ const CreateInvoiceComponent = ({
                       dueDate: e.target.value,
                     }))
                   }
-                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-0"
                 />
               </div>
               <div>
@@ -717,7 +817,7 @@ const CreateInvoiceComponent = ({
                       poNumber: e.target.value,
                     }))
                   }
-                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-0"
                 />
               </div>
               <div>
@@ -733,7 +833,7 @@ const CreateInvoiceComponent = ({
                       dcNumber: e.target.value,
                     }))
                   }
-                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-0"
                 />
               </div>
               <div>
@@ -749,7 +849,7 @@ const CreateInvoiceComponent = ({
                       dcDate: e.target.value,
                     }))
                   }
-                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-0"
                 />
               </div>
             </div>
@@ -817,7 +917,7 @@ const CreateInvoiceComponent = ({
                           onChange={(e) =>
                             updateItem(item.id, "hsnCode", e.target.value)
                           }
-                          className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-0"
                         />
                       </td>
                       <td className="p-2 align-top">
@@ -829,10 +929,10 @@ const CreateInvoiceComponent = ({
                             updateItem(
                               item.id,
                               "quantity",
-                              parseFloat(e.target.value) || 0
+                              Number.parseFloat(e.target.value) || 0
                             )
                           }
-                          className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-0"
                           min="0"
                         />
                       </td>
@@ -845,10 +945,10 @@ const CreateInvoiceComponent = ({
                             updateItem(
                               item.id,
                               "rate",
-                              parseFloat(e.target.value) || 0
+                              Number.parseFloat(e.target.value) || 0
                             )
                           }
-                          className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-0"
                           min="0"
                         />
                       </td>
@@ -863,9 +963,9 @@ const CreateInvoiceComponent = ({
                       <td className="p-2 align-top">
                         <button
                           onClick={() => removeItem(item.id)}
-                          className="text-red-500 hover:text-red-700"
+                          className="flex items-center gap-1 text-xs text-red-500 hover:text-red-700 hover:bg-red-50 px-2 py-1 rounded"
                         >
-                          <X className="w-4 h-4" />
+                          <Trash2 className="w-4 h-7" />
                         </button>
                       </td>
                     </tr>
@@ -886,7 +986,7 @@ const CreateInvoiceComponent = ({
                     invoiceNotes: e.target.value,
                   }))
                 }
-                className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg resize-none h-16 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg resize-none h-16 focus:outline-none focus:ring-0"
               />
             </div>
           </div>
@@ -898,55 +998,58 @@ const CreateInvoiceComponent = ({
             </h3>
             <div className="grid grid-cols-3 gap-4 mb-4">
               <div>
-                <label className="block mb-1 text-sm text-gray-700">
+                <label htmlFor="cgstInput" className="block mb-1 text-sm text-gray-700">
                   CGST (%)
                 </label>
                 <input
+                  id="cgstInput"
                   type="number"
                   value={invoiceData.cgst}
                   onChange={(e) =>
                     setInvoiceData((prev) => ({
                       ...prev,
-                      cgst: parseFloat(e.target.value) || 0,
+                      cgst: Number.parseFloat(e.target.value) || 0,
                     }))
                   }
-                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-0"
                   min="0"
                   max="100"
                 />
               </div>
               <div>
-                <label className="block mb-1 text-sm text-gray-700">
+                <label htmlFor="sgstInput" className="block mb-1 text-sm text-gray-700">
                   SGST (%)
                 </label>
                 <input
+                  id="sgstInput"
                   type="number"
                   value={invoiceData.sgst}
                   onChange={(e) =>
                     setInvoiceData((prev) => ({
                       ...prev,
-                      sgst: parseFloat(e.target.value) || 0,
+                      sgst: Number.parseFloat(e.target.value) || 0,
                     }))
                   }
-                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-0"
                   min="0"
                   max="100"
                 />
               </div>
               <div>
-                <label className="block mb-1 text-sm text-gray-700">
+                <label htmlFor="igstInput" className="block mb-1 text-sm text-gray-700">
                   IGST (%)
                 </label>
                 <input
+                  id="igstInput"
                   type="number"
                   value={invoiceData.igst}
                   onChange={(e) =>
                     setInvoiceData((prev) => ({
                       ...prev,
-                      igst: parseFloat(e.target.value) || 0,
+                      igst: Number.parseFloat(e.target.value) || 0,
                     }))
                   }
-                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-0"
                   min="0"
                   max="100"
                 />
@@ -1062,7 +1165,7 @@ const CreateInvoiceComponent = ({
                     status: e.target.value,
                   }))
                 }
-                className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-0"
               >
                 <option value="Unpaid">Unpaid</option>
                 <option value="Paid">Paid</option>
@@ -1087,7 +1190,7 @@ const CreateInvoiceComponent = ({
                       bankDetails: e.target.value,
                     }))
                   }
-                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-0"
                 >
                   <option>State Bank Of India</option>
                   <option>HDFC Bank</option>
@@ -1107,7 +1210,7 @@ const CreateInvoiceComponent = ({
                       declaration: e.target.value,
                     }))
                   }
-                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg resize-none h-20 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg resize-none h-20 focus:outline-none focus:ring-0"
                 />
               </div>
             </div>
@@ -1178,7 +1281,7 @@ const InvoiceManagementComponent = ({
                   placeholder="Search invoices..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full sm:w-80 bg-gray-100 rounded-lg pl-9 pr-4 py-2 text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full sm:w-80 bg-gray-100 rounded-lg pl-9 pr-4 py-2 text-sm placeholder-gray-500 focus:outline-none focus:ring-0"
                 />
               </div>
               <button
@@ -1194,19 +1297,19 @@ const InvoiceManagementComponent = ({
             <table className="w-full min-w-[800px]">
               <thead className="text-xs font-semibold text-gray-500 uppercase bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left">Invoice No</th>
-                  <th className="px-6 py-3 text-left">Date</th>
-                  <th className="px-6 py-3 text-left">Client</th>
-                  <th className="px-6 py-3 text-left">Amount</th>
-                  <th className="px-6 py-3 text-left">Due Date</th>
-                  <th className="px-6 py-3 text-left">Status</th>
-                  <th className="px-6 py-3 text-left">Actions</th>
+                  <th scope="col" className="px-6 py-3 text-left">Invoice No</th>
+                  <th scope="col" className="px-6 py-3 text-left">Date</th>
+                  <th scope="col" className="px-6 py-3 text-left">Client</th>
+                  <th scope="col" className="px-6 py-3 text-left">Amount</th>
+                  <th scope="col" className="px-6 py-3 text-left">Due Date</th>
+                  <th scope="col" className="px-6 py-3 text-left">Status</th>
+                  <th scope="col" className="px-6 py-3 text-left">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {loading ? (
-                  [...Array(5)].map((_, i) => (
-                    <tr key={i} className="animate-pulse">
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <tr key={`skeleton-${i}`} className="animate-pulse">
                       <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-24"></div></td>
                       <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-24"></div></td>
                       <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-32"></div></td>
@@ -1231,7 +1334,7 @@ const InvoiceManagementComponent = ({
                           {invoice.invoiceDate}
                         </td>
                         <td className="px-6 py-4 text-gray-700">
-                          {invoice.client.name}
+                          {invoice.client?.name || "Unknown"}
                         </td>
                         <td className="px-6 py-4 font-medium text-gray-900">
                           ₹{invoice.amount.toLocaleString()}
@@ -1312,6 +1415,42 @@ const InvoiceManagementComponent = ({
   );
 };
 
+InvoiceManagementComponent.propTypes = {
+  activeTab: PropTypes.string.isRequired,
+  searchTerm: PropTypes.string.isRequired,
+  filteredInvoices: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.string.isRequired,
+      invoiceNumber: PropTypes.string.isRequired,
+      invoiceDate: PropTypes.string.isRequired,
+      dueDate: PropTypes.string,
+      amount: PropTypes.number.isRequired,
+      status: PropTypes.string.isRequired,
+      client: PropTypes.shape({
+        name: PropTypes.string.isRequired,
+      }).isRequired,
+    })
+  ).isRequired,
+  setActiveTab: PropTypes.func.isRequired,
+  setSearchTerm: PropTypes.func.isRequired,
+  handleCreateInvoice: PropTypes.func.isRequired,
+  getStatusColor: PropTypes.func.isRequired,
+  handleViewInvoice: PropTypes.func.isRequired,
+  handleEditInvoice: PropTypes.func.isRequired,
+  handleDownloadInvoice: PropTypes.func.isRequired,
+  getDynamicStatus: PropTypes.func.isRequired,
+  pagination: PropTypes.shape({
+    page: PropTypes.number,
+    totalPages: PropTypes.number,
+    total: PropTypes.number,
+    limit: PropTypes.number,
+  }),
+  onPageChange: PropTypes.func,
+  itemsPerPage: PropTypes.number,
+  onItemsPerPageChange: PropTypes.func,
+  loading: PropTypes.bool,
+};
+
 const InvoiceManagementSystem = () => {
   const location = useLocation();
   const [currentPage, setCurrentPage] = useState("management");
@@ -1383,21 +1522,30 @@ const InvoiceManagementSystem = () => {
       .toString()
       .slice(2)}`;
 
+    // Get prefix from settings or default to "INV"
+    const prefix = settings?.systemSettings?.value?.systemConfig?.invoicePrefix || "INV";
+
     const invoicesInCurrentYear = invoices.filter((inv) => {
-      const invYearMatch = inv.invoiceNumber.match(/\/(\d{4}-\d{2})$/);
-      return invYearMatch && invYearMatch[1] === financialYearString;
+      // Check if invoice belongs to current financial year
+      return inv.invoiceNumber && inv.invoiceNumber.endsWith(`/${financialYearString}`);
     });
 
     if (invoicesInCurrentYear.length === 0) {
-      return `001/${financialYearString}`;
+      return `${prefix} 001/${financialYearString}`;
     }
 
     const maxNumber = invoicesInCurrentYear.reduce((max, invoice) => {
-      const num = parseInt(invoice.invoiceNumber.split("/")[0], 10);
-      return num > max ? num : max;
+      // Extract number part: "INV 001/2025-26" -> "001"
+      // Split by space first, then take the last part (number/year), then split by slash
+      // Or regex match
+      const match = invoice.invoiceNumber.match(/(\d+)\/\d{4}-\d{2}$/);
+      if (match && match[1]) {
+        return Math.max(Number.parseInt(match[1], 10), max);
+      }
+      return max;
     }, 0);
 
-    return `${String(maxNumber + 1).padStart(3, "0")}/${financialYearString}`;
+    return `${prefix} ${String(maxNumber + 1).padStart(3, "0")}/${financialYearString}`;
   };
 
   const getInitialInvoiceData = () => ({
@@ -1519,8 +1667,8 @@ const InvoiceManagementSystem = () => {
           const updatedItem = { ...item, [field]: value };
           if (field === "quantity" || field === "rate") {
             updatedItem.amount =
-              (parseFloat(updatedItem.quantity) || 0) *
-              (parseFloat(updatedItem.rate) || 0);
+              (Number.parseFloat(updatedItem.quantity) || 0) *
+              (Number.parseFloat(updatedItem.rate) || 0);
           }
           return updatedItem;
         }
@@ -1748,8 +1896,8 @@ const InvoiceManagementSystem = () => {
       }
 
       // Download the PDF
-      const fileName = `Invoice_${invoiceData.invoiceNumber.replace(
-        /\//g,
+      const fileName = `Invoice_${invoiceData.invoiceNumber.replaceAll(
+        "/",
         "_"
       )}.pdf`;
       pdf.save(fileName);
@@ -1957,8 +2105,8 @@ const InvoiceManagementSystem = () => {
               `
         )
         .join("")}
-                  ${Array(Math.max(0, 12 - invoice.items.length))
-        .fill(
+                  ${Array.from({ length: Math.max(0, 12 - invoice.items.length) })
+        .map(() =>
           '<tr><td style="border-right: 1px solid black; border-bottom: none;">&nbsp;</td><td style="border-right: 1px solid black; border-bottom: none;"></td><td style="border-right: 1px solid black; border-bottom: none;"></td><td style="border-right: 1px solid black; border-bottom: none;"></td><td style="border-right: 1px solid black; border-bottom: none;"></td><td style="border-bottom: none;"></td></tr>'
         )
         .join("")}
@@ -2109,6 +2257,71 @@ const InvoiceManagementSystem = () => {
       )}
     </div>
   );
+};
+
+// Add PropTypes
+ConfirmationModal.propTypes = {
+  isOpen: PropTypes.bool.isRequired,
+  onClose: PropTypes.func.isRequired,
+  onConfirm: PropTypes.func.isRequired,
+  title: PropTypes.string.isRequired,
+  message: PropTypes.string.isRequired,
+};
+
+ClientAutocomplete.propTypes = {
+  clients: PropTypes.array.isRequired,
+  selectedClient: PropTypes.shape({ // Or PropTypes.object if structure variable
+    id: PropTypes.string, // Assuming id exists
+    name: PropTypes.string,
+  }),
+  onSelect: PropTypes.func.isRequired,
+};
+
+ProductAutocomplete.propTypes = {
+  products: PropTypes.array.isRequired,
+  value: PropTypes.string,
+  onSelect: PropTypes.func.isRequired,
+  onChange: PropTypes.func.isRequired,
+  onAddNewProduct: PropTypes.func,
+  clientId: PropTypes.string,
+};
+
+InvoicePreview.propTypes = {
+  invoice: PropTypes.object, // Consider specific shape
+  invoiceData: PropTypes.shape({
+    items: PropTypes.arrayOf(PropTypes.shape({ // Nested validation
+      description: PropTypes.string,
+      hsnCode: PropTypes.string,
+      quantity: PropTypes.number,
+      rate: PropTypes.number,
+      amount: PropTypes.number
+    })),
+    invoiceNotes: PropTypes.string,
+    isRoundOff: PropTypes.bool,
+    // Add other properties...
+  }),
+  calculations: PropTypes.object,
+  setShowPreview: PropTypes.func.isRequired,
+  settings: PropTypes.object,
+};
+
+CreateInvoiceComponent.propTypes = {
+  editingInvoice: PropTypes.object,
+  invoiceData: PropTypes.object.isRequired,
+  clients: PropTypes.array.isRequired,
+  products: PropTypes.array.isRequired,
+  calculations: PropTypes.object.isRequired,
+  setCurrentPage: PropTypes.func.isRequired,
+  saveDraft: PropTypes.func.isRequired,
+  setShowPreview: PropTypes.func.isRequired,
+  updateInvoice: PropTypes.func.isRequired,
+  saveInvoice: PropTypes.func.isRequired,
+  setInvoiceData: PropTypes.func.isRequired,
+  handleClientSelect: PropTypes.func.isRequired,
+  handleAddNewProduct: PropTypes.func.isRequired,
+  addItem: PropTypes.func.isRequired,
+  updateItem: PropTypes.func.isRequired,
+  removeItem: PropTypes.func.isRequired,
 };
 
 export default InvoiceManagementSystem;

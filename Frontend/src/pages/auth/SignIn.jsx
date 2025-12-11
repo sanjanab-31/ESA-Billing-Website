@@ -41,8 +41,9 @@ export default function SignIn() {
         <form onSubmit={handleLogin} className="space-y-5">
           {/* Email */}
           <div>
-            <label className="block text-sm font-medium text-gray-700">Email</label>
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email</label>
             <input
+              id="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               type="email"
@@ -54,8 +55,9 @@ export default function SignIn() {
 
           {/* Password with Eye Toggle */}
           <div className="relative">
-            <label className="block text-sm font-medium text-gray-700">Password</label>
+            <label htmlFor="password" className="block text-sm font-medium text-gray-700">Password</label>
             <input
+              id="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               type={showPassword ? "text" : "password"}

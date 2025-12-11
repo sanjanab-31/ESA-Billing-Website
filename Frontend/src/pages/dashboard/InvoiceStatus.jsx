@@ -1,3 +1,4 @@
+import PropTypes from "prop-types";
 import { ResponsivePie } from "@nivo/pie";
 
 const InvoiceStatus = ({ stats }) => {
@@ -108,6 +109,16 @@ const InvoiceStatus = ({ stats }) => {
       </div>
     </div>
   );
+};
+
+InvoiceStatus.propTypes = {
+  stats: PropTypes.shape({
+    paidInvoices: PropTypes.number,
+    unpaidInvoices: PropTypes.number,
+    overdueInvoices: PropTypes.number,
+    draftInvoices: PropTypes.number,
+    financialYearLabel: PropTypes.string,
+  }),
 };
 
 export default InvoiceStatus;

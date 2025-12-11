@@ -5,16 +5,14 @@ import {
   AlertCircle,
   Clock,
   Search,
-  Send,
   Check,
-  Bell,
   Save,
   X,
   Edit,
-  Eye,
 } from "lucide-react";
 import { useInvoices, useAllPayments } from "../../hooks/useFirestore";
 import { AuthContext } from "../../context/AuthContext";
+import PropTypes from "prop-types";
 
 // CHANGE: Updated modal to handle transaction ID
 const PaymentMethodModal = ({ isOpen, onClose, onConfirm }) => {
@@ -114,10 +112,11 @@ const PaymentMethodModal = ({ isOpen, onClose, onConfirm }) => {
         {/* Transaction ID input */}
         {(method === "UPI" || method === "Bank Transfer") && (
           <div className="mt-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="transactionId" className="block text-sm font-medium text-gray-700 mb-1">
               Transaction ID
             </label>
             <input
+              id="transactionId"
               type="text"
               value={transactionId}
               onChange={(e) => setTransactionId(e.target.value)}
@@ -281,10 +280,11 @@ const EditPaymentModal = ({ isOpen, onClose, onSave, payment }) => {
         {/* Transaction ID input */}
         {(method === "UPI" || method === "Bank Transfer") && (
           <div className="mt-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="editTransactionId" className="block text-sm font-medium text-gray-700 mb-1">
               Transaction ID
             </label>
             <input
+              id="editTransactionId"
               type="text"
               value={transactionId}
               onChange={(e) => setTransactionId(e.target.value)}
@@ -328,6 +328,25 @@ const StatCard = ({ title, amount, subtitle, icon: Icon, iconBgColor }) => (
   </div>
 );
 
+const StatusBadge = ({ status, overdueDays }) => {
+  const styles = {
+    Paid: "bg-green-100 text-green-700",
+    Unpaid: "bg-yellow-100 text-yellow-700",
+    Overdue: "bg-red-100 text-red-700",
+    Partial: "bg-purple-100 text-purple-700"
+  };
+
+  const className = `text-xs font-medium px-2.5 py-1 rounded-full ${styles[status] || ""}`;
+
+  if (!styles[status]) return null;
+
+  return (
+    <span className={className}>
+      {status} {status === "Overdue" ? `(${overdueDays}d)` : ""}
+    </span>
+  );
+};
+
 // PERFORMANCE: Memoized PaymentRow to prevent unnecessary re-renders
 const PaymentRow = memo(({
   invoiceNo,
@@ -339,37 +358,6 @@ const PaymentRow = memo(({
   overdueDays,
   onEdit,
 }) => {
-  const getStatusBadge = () => {
-    switch (status) {
-      case "Paid":
-        return (
-          <span className="bg-green-100 text-green-700 text-xs font-medium px-2.5 py-1 rounded-full">
-            Paid
-          </span>
-        );
-      case "Unpaid":
-        return (
-          <span className="bg-yellow-100 text-yellow-700 text-xs font-medium px-2.5 py-1 rounded-full">
-            Unpaid
-          </span>
-        );
-      case "Overdue":
-        return (
-          <span className="bg-red-100 text-red-700 text-xs font-medium px-2.5 py-1 rounded-full">
-            Overdue ({overdueDays}d)
-          </span>
-        );
-      case "Partial":
-        return (
-          <span className="bg-purple-100 text-purple-700 text-xs font-medium px-2.5 py-1 rounded-full">
-            Partial
-          </span>
-        );
-      default:
-        return null;
-    }
-  };
-
   const isOverdue = status === "Overdue";
 
   return (
@@ -390,7 +378,9 @@ const PaymentRow = memo(({
       >
         {dueDate}
       </td>
-      <td className="py-3 px-4">{getStatusBadge()}</td>
+      <td className="py-3 px-4">
+        <StatusBadge status={status} overdueDays={overdueDays} />
+      </td>
       <td className="py-3 px-4">
         <button
           onClick={() => onEdit({ invoiceNo, client, amount, received, dueDate, status, overdueDays })}
@@ -419,16 +409,18 @@ const PendingPaymentCard = memo(({
   const isEditing = editingPaymentId === invoiceNo;
 
   // Calculate remaining amount more accurately
-  const currentPaidAmount = parseFloat(received || 0) || 0;
-  const invoiceAmount = parseFloat(amount || 0) || 0;
+  const currentPaidAmount = Number.parseFloat(received || 0) || 0;
+  const invoiceAmount = Number.parseFloat(amount || 0) || 0;
   const remainingAmount = invoiceAmount - currentPaidAmount;
 
-  const iconBgColor =
-    status === "Overdue"
-      ? "bg-red-500"
-      : status === "Partial"
-        ? "bg-purple-500"
-        : "bg-yellow-500";
+  const getStatusColor = (status) => {
+    switch (status) {
+      case "Overdue": return "bg-red-500";
+      case "Partial": return "bg-purple-500";
+      default: return "bg-yellow-500";
+    }
+  };
+  const iconBgColor = getStatusColor(status);
   const Icon = status === "Overdue" ? AlertCircle : Clock;
 
   const handleEnterAmountClick = () => {
@@ -577,8 +569,7 @@ const PaymentsPage = () => {
   const { payments: allPayments = [], error: paymentsError } = useAllPayments();
 
   // Handle errors gracefully
-  if (invoicesError || paymentsError) {
-  }
+
 
   // Memoized status calculation function matching InvoiceManagement.jsx
   const getDynamicInvoiceStatus = useCallback((invoice) => {
@@ -668,7 +659,7 @@ const PaymentsPage = () => {
       );
 
       if (invoiceToUpdate) {
-        const invoiceAmount = parseFloat(invoiceToUpdate.total || invoiceToUpdate.amount || invoiceToUpdate.totalAmount) || 0;
+        const invoiceAmount = Number.parseFloat(invoiceToUpdate.total || invoiceToUpdate.amount || invoiceToUpdate.totalAmount) || 0;
 
         // Determine paid amount based on status
         let paidAmount;
@@ -676,7 +667,7 @@ const PaymentsPage = () => {
           paidAmount = invoiceAmount; // Full amount if paid
         } else if (updatedPayment.status === "Partial") {
           // Keep existing paid amount or calculate based on some logic
-          paidAmount = parseFloat(invoiceToUpdate.paidAmount || 0) || 0;
+          paidAmount = Number.parseFloat(invoiceToUpdate.paidAmount || 0) || 0;
         } else {
           paidAmount = 0; // No amount paid if unpaid
         }
@@ -714,7 +705,7 @@ const PaymentsPage = () => {
         (inv) => inv.invoiceNumber === paymentToMarkPaid
       );
       if (invoiceToUpdate) {
-        const invoiceAmount = parseFloat(invoiceToUpdate.total || invoiceToUpdate.amount || invoiceToUpdate.totalAmount) || 0;
+        const invoiceAmount = Number.parseFloat(invoiceToUpdate.total || invoiceToUpdate.amount || invoiceToUpdate.totalAmount) || 0;
 
         // Update invoice status to paid with full amount
         await invoiceService.updateInvoice(invoiceToUpdate.id, {
@@ -745,8 +736,8 @@ const PaymentsPage = () => {
   };
 
   const handleSavePayment = async (invoiceNo, paidAmountStr) => {
-    const paidAmount = parseFloat(paidAmountStr);
-    if (isNaN(paidAmount) || paidAmount <= 0) {
+    const paidAmount = Number.parseFloat(paidAmountStr);
+    if (Number.isNaN(paidAmount) || paidAmount <= 0) {
       alert("Please enter a valid amount.");
       return;
     }
@@ -764,8 +755,8 @@ const PaymentsPage = () => {
         return;
       }
 
-      const invoiceAmount = parseFloat(invoiceToUpdate.total || invoiceToUpdate.amount || invoiceToUpdate.totalAmount) || 0;
-      const currentPaidAmount = parseFloat(invoiceToUpdate.paidAmount || 0) || 0;
+      const invoiceAmount = Number.parseFloat(invoiceToUpdate.total || invoiceToUpdate.amount || invoiceToUpdate.totalAmount) || 0;
+      const currentPaidAmount = Number.parseFloat(invoiceToUpdate.paidAmount || 0) || 0;
       const newTotalPaidAmount = currentPaidAmount + paidAmount;
 
       // Determine new status based on payment amount
@@ -1015,7 +1006,7 @@ const PaymentsPage = () => {
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Unable to load payments</h3>
             <p className="text-sm text-gray-600 mb-4">{invoicesError || "Please sign in to view payment data"}</p>
             <button
-              onClick={() => window.location.reload()}
+              onClick={() => globalThis.location.reload()}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
               Try Again
@@ -1143,6 +1134,74 @@ const PaymentsPage = () => {
       </div>
     </div>
   );
+};
+
+// Add PropTypes
+PaymentMethodModal.propTypes = {
+  isOpen: PropTypes.bool.isRequired,
+  onClose: PropTypes.func.isRequired,
+  onConfirm: PropTypes.func.isRequired,
+};
+
+EditPaymentModal.propTypes = {
+  isOpen: PropTypes.bool.isRequired,
+  onClose: PropTypes.func.isRequired,
+  onSave: PropTypes.func.isRequired,
+  payment: PropTypes.shape({
+    method: PropTypes.string,
+    status: PropTypes.string,
+    transactionId: PropTypes.string,
+    invoiceNo: PropTypes.string,
+  }),
+};
+
+StatCard.propTypes = {
+  title: PropTypes.string.isRequired,
+  amount: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+  subtitle: PropTypes.string,
+  icon: PropTypes.elementType.isRequired, // For components like Icons
+  iconBgColor: PropTypes.string,
+};
+
+StatusBadge.propTypes = {
+  status: PropTypes.string.isRequired,
+  overdueDays: PropTypes.number,
+};
+
+PaymentRow.propTypes = {
+  invoiceNo: PropTypes.string.isRequired,
+  client: PropTypes.string.isRequired,
+  amount: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+  received: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  dueDate: PropTypes.string.isRequired,
+  status: PropTypes.string.isRequired,
+  overdueDays: PropTypes.number,
+  onEdit: PropTypes.func.isRequired,
+};
+
+PendingPaymentCard.propTypes = {
+  invoice: PropTypes.shape({
+    invoiceNo: PropTypes.string.isRequired,
+    client: PropTypes.string.isRequired,
+    amount: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+    received: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    dueDate: PropTypes.string.isRequired,
+    status: PropTypes.string.isRequired,
+  }).isRequired,
+  onMarkPaid: PropTypes.func.isRequired,
+  editingPaymentId: PropTypes.string,
+  setEditingPaymentId: PropTypes.func.isRequired,
+  onSavePayment: PropTypes.func.isRequired,
+};
+
+PaidPaymentRow.propTypes = {
+  invoiceNo: PropTypes.string.isRequired,
+  client: PropTypes.string.isRequired,
+  amount: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+  paymentDate: PropTypes.string,
+  method: PropTypes.string,
+  transactionId: PropTypes.string,
+  onEdit: PropTypes.func.isRequired,
 };
 
 export default PaymentsPage;

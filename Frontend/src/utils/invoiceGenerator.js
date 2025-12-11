@@ -1,94 +1,94 @@
 export const convertToWords = (num) => {
-    if (num === 0) return "Zero";
-    const a = [
-        "",
-        "One",
-        "Two",
-        "Three",
-        "Four",
-        "Five",
-        "Six",
-        "Seven",
-        "Eight",
-        "Nine",
-        "Ten",
-        "Eleven",
-        "Twelve",
-        "Thirteen",
-        "Fourteen",
-        "Fifteen",
-        "Sixteen",
-        "Seventeen",
-        "Eighteen",
-        "Nineteen",
-    ];
-    const b = [
-        "",
-        "",
-        "Twenty",
-        "Thirty",
-        "Forty",
-        "Fifty",
-        "Sixty",
-        "Seventy",
-        "Eighty",
-        "Ninety",
-    ];
+  if (num === 0) return "Zero";
+  const a = [
+    "",
+    "One",
+    "Two",
+    "Three",
+    "Four",
+    "Five",
+    "Six",
+    "Seven",
+    "Eight",
+    "Nine",
+    "Ten",
+    "Eleven",
+    "Twelve",
+    "Thirteen",
+    "Fourteen",
+    "Fifteen",
+    "Sixteen",
+    "Seventeen",
+    "Eighteen",
+    "Nineteen",
+  ];
+  const b = [
+    "",
+    "",
+    "Twenty",
+    "Thirty",
+    "Forty",
+    "Fifty",
+    "Sixty",
+    "Seventy",
+    "Eighty",
+    "Ninety",
+  ];
 
-    const inWords = (n) => {
-        let str = "";
-        if (n > 99) {
-            str += a[Math.floor(n / 100)] + " Hundred ";
-            n %= 100;
-        }
-        if (n > 19) {
-            str += b[Math.floor(n / 10)] + " " + a[n % 10];
-        } else {
-            str += a[n];
-        }
-        return str.trim();
-    };
+  const inWords = (n) => {
+    let str = "";
+    if (n > 99) {
+      str += a[Math.floor(n / 100)] + " Hundred ";
+      n %= 100;
+    }
+    if (n > 19) {
+      str += b[Math.floor(n / 10)] + " " + a[n % 10];
+    } else {
+      str += a[n];
+    }
+    return str.trim();
+  };
 
-    let number = Math.floor(num);
-    const fraction = Math.round((num - number) * 100);
-    let words = "";
+  let number = Math.floor(num);
+  const fraction = Math.round((num - number) * 100);
+  let words = "";
 
-    if (number > 9999999) {
-        words += inWords(Math.floor(number / 10000000)) + " Crore ";
-        number %= 10000000;
-    }
-    if (number > 99999) {
-        words += inWords(Math.floor(number / 100000)) + " Lakh ";
-        number %= 100000;
-    }
-    if (number > 999) {
-        words += inWords(Math.floor(number / 1000)) + " Thousand ";
-        number %= 1000;
-    }
-    if (number > 0) {
-        words += inWords(number);
-    }
+  if (number > 9999999) {
+    words += inWords(Math.floor(number / 10000000)) + " Crore ";
+    number %= 10000000;
+  }
+  if (number > 99999) {
+    words += inWords(Math.floor(number / 100000)) + " Lakh ";
+    number %= 100000;
+  }
+  if (number > 999) {
+    words += inWords(Math.floor(number / 1000)) + " Thousand ";
+    number %= 1000;
+  }
+  if (number > 0) {
+    words += inWords(number);
+  }
 
-    if (fraction > 0) {
-        words += " and " + inWords(fraction) + " Paise";
-    }
+  if (fraction > 0) {
+    words += " and " + inWords(fraction) + " Paise";
+  }
 
-    return "Indian Rupees " + words.trim() + " Only";
+  return "Indian Rupees " + words.trim() + " Only";
 };
 
 export const generateInvoiceHTML = (invoice, settings) => {
-    // Calculate totals if not present
-    const subtotal = invoice.items.reduce((sum, item) => sum + (item.amount || 0), 0);
-    const cgstAmount = (subtotal * (invoice.cgst || 0)) / 100;
-    const sgstAmount = (subtotal * (invoice.sgst || 0)) / 100;
-    const igstAmount = (subtotal * (invoice.igst || 0)) / 100;
-    const total = subtotal + cgstAmount + sgstAmount + igstAmount;
-    const roundOffAmount = invoice.isRoundOff ? Math.round(total) - total : 0;
-    const finalTotal = invoice.isRoundOff ? Math.round(total) : total;
+  // Calculate totals if not present
+  const subtotal = invoice.items.reduce((sum, item) => sum + (item.amount || 0), 0);
+  const cgstAmount = (subtotal * (invoice.cgst || 0)) / 100;
+  const sgstAmount = (subtotal * (invoice.sgst || 0)) / 100;
+  const igstAmount = (subtotal * (invoice.igst || 0)) / 100;
+  const total = subtotal + cgstAmount + sgstAmount + igstAmount;
+  const roundOffAmount = invoice.isRoundOff ? Math.round(total) - total : 0;
+  const finalTotal = invoice.isRoundOff ? Math.round(total) : total;
 
-    const amountInWords = convertToWords(finalTotal);
+  const amountInWords = convertToWords(finalTotal);
 
-    return `
+  return `
     <!DOCTYPE html>
     <html>
     <head>
@@ -189,8 +189,8 @@ export const generateInvoiceHTML = (invoice, settings) => {
                 <td class="text-right">${item.amount}</td>
               </tr>
             `).join("")}
-            ${Array(Math.max(0, 12 - (invoice.items?.length || 0))).fill(
-        `<tr>
+            ${new Array(Math.max(0, 12 - (invoice.items?.length || 0))).fill(
+    `<tr>
                 <td style="height: 20px;">&nbsp;</td>
                 <td></td>
                 <td></td>
@@ -198,7 +198,7 @@ export const generateInvoiceHTML = (invoice, settings) => {
                 <td></td>
                 <td></td>
               </tr>`
-    ).join("")}
+  ).join("")}
           </tbody>
         </table>
 

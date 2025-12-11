@@ -15,11 +15,11 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
 // Force session persistence
-setPersistence(auth, browserSessionPersistence)
-  .then(() => {
-  })
-  .catch((error) => {
-  });
+try {
+  await setPersistence(auth, browserSessionPersistence);
+} catch (error) {
+  console.error("Firebase persistence error:", error);
+}
 
 // Export only auth and app
 export { auth, app };

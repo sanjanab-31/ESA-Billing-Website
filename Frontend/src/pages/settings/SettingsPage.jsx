@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { AuthContext } from "../../context/AuthContext";
 import { useSettings } from "../../hooks/useFirestore";
+import PropTypes from "prop-types";
 
 // A reusable toggle switch component
 const ToggleSwitch = ({ enabled, setEnabled }) => (
@@ -27,6 +28,11 @@ const ToggleSwitch = ({ enabled, setEnabled }) => (
     />
   </button>
 );
+
+ToggleSwitch.propTypes = {
+  enabled: PropTypes.bool.isRequired,
+  setEnabled: PropTypes.func.isRequired,
+};
 
 const ProfileSettings = () => {
   const { user, updateUserEmail, updateUserPassword, updateUserProfile } =
@@ -249,10 +255,11 @@ const ProfileSettings = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="text-sm text-gray-800 mb-1 block">
+              <label htmlFor="fullName" className="text-sm text-gray-800 mb-1 block">
                 Full Name
               </label>
               <input
+                id="fullName"
                 type="text"
                 name="fullName"
                 value={profileInfo.fullName}
@@ -262,12 +269,13 @@ const ProfileSettings = () => {
               />
             </div>
             <div>
-              <label className="text-sm text-gray-800 mb-1 block">
+              <label htmlFor="email" className="text-sm text-gray-800 mb-1 block">
                 Email Address
               </label>
               {isEditing ? (
                 <>
                   <input
+                    id="email"
                     type="email"
                     name="email"
                     value={profileInfo.email}
@@ -276,10 +284,11 @@ const ProfileSettings = () => {
                     disabled={isUpdating}
                   />
                   <div className="mt-2">
-                    <label className="text-sm text-gray-800 mb-1 block">
+                    <label htmlFor="currentPassword" className="text-sm text-gray-800 mb-1 block">
                       Confirm Current Password
                     </label>
                     <input
+                      id="currentPassword"
                       type={showPassword ? "text" : "password"}
                       name="current"
                       value={password.current}
@@ -292,6 +301,7 @@ const ProfileSettings = () => {
                 </>
               ) : (
                 <input
+                  id="email"
                   type="email"
                   value={profileInfo.email}
                   readOnly
@@ -316,8 +326,9 @@ const ProfileSettings = () => {
               />
             </div>
             <div>
-              <label className="text-sm text-gray-800 mb-1 block">Role</label>
+              <label htmlFor="role" className="text-sm text-gray-800 mb-1 block">Role</label>
               <input
+                id="role"
                 type="text"
                 name="role"
                 value={profileInfo.role}
@@ -337,11 +348,12 @@ const ProfileSettings = () => {
         </h2>
         <div className="space-y-4 max-w-lg">
           <div>
-            <label className="text-sm text-gray-800 mb-1 block">
+            <label htmlFor="currentPasswordMain" className="text-sm text-gray-800 mb-1 block">
               Current Password
             </label>
             <div className="relative">
               <input
+                id="currentPasswordMain"
                 type={showPassword ? "text" : "password"}
                 name="current"
                 value={password.current}
@@ -363,10 +375,11 @@ const ProfileSettings = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="text-sm text-gray-800 mb-1 block">
+              <label htmlFor="newPassword" className="text-sm text-gray-800 mb-1 block">
                 New Password
               </label>
               <input
+                id="newPassword"
                 type={showPassword ? "text" : "password"}
                 name="new"
                 value={password.new}
@@ -377,10 +390,11 @@ const ProfileSettings = () => {
               />
             </div>
             <div>
-              <label className="text-sm text-gray-800 mb-1 block">
+              <label htmlFor="confirmPassword" className="text-sm text-gray-800 mb-1 block">
                 Confirm Password
               </label>
               <input
+                id="confirmPassword"
                 type={showPassword ? "text" : "password"}
                 name="confirm"
                 value={password.confirm}
@@ -423,6 +437,23 @@ const ProfileSettings = () => {
       </div>
     </div>
   );
+};
+
+const FeatureItem = ({ title, description, enabled, onToggle }) => (
+  <div className="flex items-center justify-between">
+    <div>
+      <h4 className="font-medium text-gray-900 text-sm">{title}</h4>
+      <p className="text-xs text-gray-500">{description}</p>
+    </div>
+    <ToggleSwitch enabled={enabled} setEnabled={onToggle} />
+  </div>
+);
+
+FeatureItem.propTypes = {
+  title: PropTypes.string.isRequired,
+  description: PropTypes.string.isRequired,
+  enabled: PropTypes.bool.isRequired,
+  onToggle: PropTypes.func.isRequired,
 };
 
 const SystemSettings = () => {
@@ -497,16 +528,6 @@ const SystemSettings = () => {
     }
   };
 
-  const FeatureItem = ({ title, description, enabled, onToggle }) => (
-    <div className="flex items-center justify-between">
-      <div>
-        <h4 className="font-medium text-gray-900 text-sm">{title}</h4>
-        <p className="text-xs text-gray-500">{description}</p>
-      </div>
-      <ToggleSwitch enabled={enabled} setEnabled={onToggle} />
-    </div>
-  );
-
   return (
     <div className="p-6 border border-gray-200 rounded-xl">
       <div className="flex items-center gap-3 mb-6">
@@ -533,10 +554,11 @@ const SystemSettings = () => {
       <div className="space-y-8">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="text-sm text-gray-800 mb-1 block">
+            <label htmlFor="currency" className="text-sm text-gray-800 mb-1 block">
               Default Currency
             </label>
             <input
+              id="currency"
               type="text"
               value={config.currency}
               readOnly
@@ -544,10 +566,11 @@ const SystemSettings = () => {
             />
           </div>
           <div>
-            <label className="text-sm text-gray-800 mb-1 block">
+            <label htmlFor="timeZone" className="text-sm text-gray-800 mb-1 block">
               Time Zone
             </label>
             <input
+              id="timeZone"
               type="text"
               value={config.timeZone}
               readOnly
@@ -555,10 +578,11 @@ const SystemSettings = () => {
             />
           </div>
           <div>
-            <label className="text-sm text-gray-800 mb-1 block">
+            <label htmlFor="dateFormat" className="text-sm text-gray-800 mb-1 block">
               Date Format
             </label>
             <input
+              id="dateFormat"
               type="text"
               value={config.dateFormat}
               readOnly
@@ -566,10 +590,11 @@ const SystemSettings = () => {
             />
           </div>
           <div>
-            <label className="text-sm text-gray-800 mb-1 block">
+            <label htmlFor="invoicePrefix" className="text-sm text-gray-800 mb-1 block">
               Invoice Prefix
             </label>
             <input
+              id="invoicePrefix"
               type="text"
               value={config.invoicePrefix}
               onChange={(e) =>
@@ -625,6 +650,26 @@ const SystemSettings = () => {
       </div>
     </div>
   );
+};
+
+const SecurityItem = ({ icon: Icon, title, description, control }) => (
+  <div className="p-4 border border-gray-200 rounded-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+    <div className="flex items-center gap-4">
+      <Icon size={20} className="text-gray-500 flex-shrink-0" />
+      <div>
+        <h4 className="font-medium text-gray-900 text-sm">{title}</h4>
+        <p className="text-xs text-gray-500">{description}</p>
+      </div>
+    </div>
+    {control && <div className="w-full sm:w-auto">{control}</div>}
+  </div>
+);
+
+SecurityItem.propTypes = {
+  icon: PropTypes.elementType.isRequired,
+  title: PropTypes.string.isRequired,
+  description: PropTypes.string.isRequired,
+  control: PropTypes.element,
 };
 
 const SecuritySettings = () => {
@@ -715,19 +760,6 @@ const SecuritySettings = () => {
     }
   };
 
-  const SecurityItem = ({ icon: Icon, title, description, control }) => (
-    <div className="p-4 border border-gray-200 rounded-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-      <div className="flex items-center gap-4">
-        <Icon size={20} className="text-gray-500 flex-shrink-0" />
-        <div>
-          <h4 className="font-medium text-gray-900 text-sm">{title}</h4>
-          <p className="text-xs text-gray-500">{description}</p>
-        </div>
-      </div>
-      {control && <div className="w-full sm:w-auto">{control}</div>}
-    </div>
-  );
-
   return (
     <div className="p-6 border border-gray-200 rounded-xl">
       <div className="flex items-center gap-3 mb-6">
@@ -753,6 +785,7 @@ const SecuritySettings = () => {
             control={
               <div className="flex items-center gap-3">
                 <select
+                  aria-label="Session timeout duration"
                   value={localTimeoutMinutes}
                   onChange={(e) => handleTimeoutChange(Number(e.target.value))}
                   className="px-2 py-1 border border-gray-300 rounded text-sm"
@@ -857,5 +890,21 @@ const SettingsPage = () => {
     </div>
   );
 };
+
+// PropTypes
+ToggleSwitch.propTypes = {
+  enabled: PropTypes.bool.isRequired,
+  setEnabled: PropTypes.func.isRequired,
+};
+
+// Internal component prop validations
+// Note: ProfileSettings, SystemSettings, SecuritySettings usually don't take props directly in this implementation, 
+// but if they did, we'd add them here. 
+// FeatureItem within SystemSettings takes props.
+
+// We can't easily attach propTypes to FeatureItem since it's defined INSIDE SystemSettings (another code smell actually).
+// Best practice: Move FeatureItem OUTSIDE SystemSettings.
+
+// Move SecurityItem OUTSIDE SecuritySettings as well.
 
 export default SettingsPage;

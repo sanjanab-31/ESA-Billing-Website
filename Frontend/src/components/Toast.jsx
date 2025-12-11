@@ -1,6 +1,7 @@
 import React from 'react';
 import { CheckCircle, XCircle, AlertTriangle, Info, X } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
+import PropTypes from 'prop-types';
 
 const Toast = ({ toast }) => {
   const { removeToast } = useToast();
@@ -84,16 +85,17 @@ const Toast = ({ toast }) => {
           <X className="w-4 h-4" />
         </button>
       </div>
-      
+
       {/* Progress bar */}
       <div className="mt-2 w-full bg-gray-200 rounded-full h-1">
         <div
-          className={`h-1 rounded-full transition-all duration-100 ease-linear ${
-            toast.type === 'success' ? 'bg-green-500' :
-            toast.type === 'error' ? 'bg-red-500' :
-            toast.type === 'warning' ? 'bg-yellow-500' :
-            'bg-blue-500'
-          }`}
+          className={`h-1 rounded-full transition-all duration-100 ease-linear ${{
+              success: 'bg-green-500',
+              error: 'bg-red-500',
+              warning: 'bg-yellow-500',
+              info: 'bg-blue-500'
+            }[toast.type] || 'bg-blue-500'
+            }`}
           style={{
             width: '100%',
             animation: `shrink ${toast.duration}ms linear forwards`,
@@ -102,6 +104,16 @@ const Toast = ({ toast }) => {
       </div>
     </div>
   );
+};
+
+Toast.propTypes = {
+  toast: PropTypes.shape({
+    id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+    type: PropTypes.oneOf(['success', 'error', 'warning', 'info']),
+    title: PropTypes.string,
+    message: PropTypes.string,
+    duration: PropTypes.number,
+  }).isRequired,
 };
 
 const ToastContainer = () => {

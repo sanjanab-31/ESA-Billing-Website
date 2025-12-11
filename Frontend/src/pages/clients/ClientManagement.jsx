@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useContext, useMemo, memo, useCallback } from "react";
+import React, { useState, useRef, useEffect, useContext, useMemo, memo } from "react";
 import {
   Search,
   Plus,
@@ -9,7 +9,6 @@ import {
   FileText,
   Phone,
   Mail,
-  MapPin,
   TrendingUp,
   AlertCircle,
 } from "lucide-react";
@@ -17,6 +16,7 @@ import Pagination from "../../components/Pagination";
 import { AuthContext } from "../../context/AuthContext";
 import { useCustomers, useInvoices } from "../../hooks/useFirestore";
 import { useToast } from "../../context/ToastContext";
+import PropTypes from "prop-types";
 const ClientManagement = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
@@ -30,7 +30,8 @@ const ClientManagement = () => {
   const [clientToDelete, setClientToDelete] = useState(null);
 
   // Get authentication context
-  const { user } = useContext(AuthContext);
+  // Get authentication context
+  // const { user } = useContext(AuthContext); // Removed unused user
   const { success, error: showError, warning } = useToast();
 
   // Use data hooks
@@ -55,6 +56,8 @@ const ClientManagement = () => {
   // Fetch all invoices for calculating client statistics
   const { invoices } = useInvoices();
 
+
+
   // Memoized calculation of all client statistics to avoid re-calculation on every render
   const clientStatsMap = useMemo(() => {
     if (!invoices || invoices.length === 0) return {};
@@ -75,8 +78,8 @@ const ClientManagement = () => {
         };
       }
 
-      const invoiceAmount = parseFloat(invoice.totalAmount || invoice.amount || invoice.total) || 0;
-      const paidAmount = parseFloat(invoice.paidAmount || 0) || 0;
+      const invoiceAmount = Number.parseFloat(invoice.totalAmount || invoice.amount || invoice.total) || 0;
+      const paidAmount = Number.parseFloat(invoice.paidAmount || 0) || 0;
       const isPaidByStatus = invoice.status === 'Paid' || invoice.status === 'paid';
 
       stats[clientId].totalInvoices += 1;
@@ -276,9 +279,9 @@ const ClientManagement = () => {
     setEditFormData({ name: "", gstin: "", phone: "", email: "", address: "" });
   };
 
-  const toggleDropdown = (clientId) => {
-    setDropdownOpen(dropdownOpen === clientId ? null : clientId);
-  };
+  // const toggleDropdown = (clientId) => {
+  //   setDropdownOpen(dropdownOpen === clientId ? null : clientId);
+  // };
 
 
   useEffect(() => {
@@ -294,72 +297,73 @@ const ClientManagement = () => {
     };
   }, []);
 
-  // PERFORMANCE: Memoized ClientRow component to prevent unnecessary re-renders
-  const ClientRow = memo(({ client, stats, serialNumber }) => {
+
+
+
+
+  const renderTableBody = () => {
+    if (loading) {
+      return Array.from({ length: 5 }).map((_, i) => (
+        <tr key={`skeleton-${i}`} className="animate-pulse">
+          <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-8"></div></td>
+          <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-32"></div></td>
+          <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-32"></div></td>
+          <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-24"></div></td>
+          <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-16"></div></td>
+          <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-20"></div></td>
+          <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-20"></div></td>
+          <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-16"></div></td>
+        </tr>
+      ));
+    }
+
+    if (error) {
+      return (
+        <tr>
+          <td colSpan="8" className="px-4 py-8 text-center">
+            <div className="text-red-600">
+              <p>Error loading clients: {error}</p>
+              <button
+                onClick={() => globalThis.location.reload()}
+                className="mt-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                Retry
+              </button>
+            </div>
+          </td>
+        </tr>
+      );
+    }
+
+    if (customers && customers.length > 0) {
+      return customers.map((client, index) => {
+        const stats = getClientStats(client.id);
+        return (
+          <ClientRow
+            key={client.id}
+            client={client}
+            stats={stats}
+            serialNumber={String((currentPage - 1) * itemsPerPage + index + 1).padStart(2, '0')}
+            onView={handleViewClient}
+            onEdit={handleEditClient}
+            onDelete={handleDeleteClient}
+          />
+        );
+      });
+    }
+
     return (
-      <tr
-        key={client.id}
-        className="text-sm transition-colors hover:bg-gray-50"
-      >
-        <td className="px-6 py-4 font-medium text-gray-900">
-          {serialNumber}
-        </td>
-        <td className="px-6 py-4">
-          <div className="font-medium text-gray-900">
-            {client.name}
-          </div>
-          <div className="text-gray-500 text-xs">
-            {client.email}
-          </div>
-        </td>
-        <td className="px-6 py-4 text-gray-700">
-          {client.taxId || client.company || "-"}
-        </td>
-        <td className="px-6 py-4 text-gray-700">
-          {client.phone || "-"}
-        </td>
-        <td className="px-6 py-4 text-gray-700">
-          {stats.totalInvoices}
-        </td>
-        <td className="px-6 py-4 font-medium text-gray-900">
-          ₹{stats.totalRevenue.toLocaleString('en-IN')}
-        </td>
-        <td className="px-6 py-4 text-gray-700">
-          <span className={stats.outstanding > 0 ? "text-red-600 font-medium" : "text-green-600"}>
-            ₹{stats.outstanding.toLocaleString('en-IN')}
-          </span>
-        </td>
-        <td className="px-6 py-4">
-          <div className="flex items-center space-x-3">
-            <button
-              onClick={() => handleViewClient(client)}
-              className="p-1 text-gray-600 transition-colors hover:text-blue-600"
-              title="View Details"
-            >
-              <Eye className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => handleEditClient(client)}
-              className="p-1 text-gray-600 transition-colors hover:text-green-600"
-              title="Edit Client"
-            >
-              <Edit className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => handleDeleteClient(client)}
-              className="p-1 text-gray-600 transition-colors hover:text-red-600"
-              title="Delete Client"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
-          </div>
+      <tr>
+        <td
+          colSpan="8"
+          className="px-4 py-8 text-center text-gray-500"
+        >
+          No clients found.{" "}
+          {searchTerm && "Try adjusting your search criteria."}
         </td>
       </tr>
     );
-  });
-
-  ClientRow.displayName = 'ClientRow';
-
+  };
 
   return (
     <div className="min-h-screen text-slate-800 font-sans">
@@ -399,67 +403,18 @@ const ClientManagement = () => {
             <table className="w-full min-w-[800px]">
               <thead className="text-xs font-semibold text-gray-500 uppercase bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left">S.No</th>
-                  <th className="px-6 py-3 text-left">Client Name</th>
-                  <th className="px-6 py-3 text-left">GST Number</th>
-                  <th className="px-6 py-3 text-left">Phone Number</th>
-                  <th className="px-6 py-3 text-left">Total Invoices</th>
-                  <th className="px-6 py-3 text-left">Total Revenue</th>
-                  <th className="px-6 py-3 text-left">Outstanding</th>
-                  <th className="px-6 py-3 text-left">Actions</th>
+                  <th scope="col" className="px-6 py-3 text-left">S.No</th>
+                  <th scope="col" className="px-6 py-3 text-left">Client Name</th>
+                  <th scope="col" className="px-6 py-3 text-left">GST Number</th>
+                  <th scope="col" className="px-6 py-3 text-left">Phone Number</th>
+                  <th scope="col" className="px-6 py-3 text-left">Total Invoices</th>
+                  <th scope="col" className="px-6 py-3 text-left">Total Revenue</th>
+                  <th scope="col" className="px-6 py-3 text-left">Outstanding</th>
+                  <th scope="col" className="px-6 py-3 text-left">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {loading ? (
-                  [...Array(5)].map((_, i) => (
-                    <tr key={i} className="animate-pulse">
-                      <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-8"></div></td>
-                      <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-32"></div></td>
-                      <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-32"></div></td>
-                      <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-24"></div></td>
-                      <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-16"></div></td>
-                      <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-20"></div></td>
-                      <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-20"></div></td>
-                      <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-16"></div></td>
-                    </tr>
-                  ))
-                ) : error ? (
-                  <tr>
-                    <td colSpan="8" className="px-4 py-8 text-center">
-                      <div className="text-red-600">
-                        <p>Error loading clients: {error}</p>
-                        <button
-                          onClick={() => window.location.reload()}
-                          className="mt-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                        >
-                          Retry
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ) : customers && customers.length > 0 ? (
-                  customers.map((client, index) => {
-                    const stats = getClientStats(client.id);
-                    return (
-                      <ClientRow
-                        key={client.id}
-                        client={client}
-                        stats={stats}
-                        serialNumber={String((currentPage - 1) * itemsPerPage + index + 1).padStart(2, '0')}
-                      />
-                    );
-                  })
-                ) : (
-                  <tr>
-                    <td
-                      colSpan="8"
-                      className="px-4 py-8 text-center text-gray-500"
-                    >
-                      No clients found.{" "}
-                      {searchTerm && "Try adjusting your search criteria."}
-                    </td>
-                  </tr>
-                )}
+                {renderTableBody()}
               </tbody>
             </table>
           </div>
@@ -909,6 +864,98 @@ const ClientManagement = () => {
       )}
     </div>
   );
+};
+
+const ClientRow = memo(({
+  client,
+  stats,
+  serialNumber,
+  onView,
+  onEdit,
+  onDelete
+}) => {
+  return (
+    <tr
+      key={client.id}
+      className="text-sm transition-colors hover:bg-gray-50"
+    >
+      <td className="px-6 py-4 font-medium text-gray-900">
+        {serialNumber}
+      </td>
+      <td className="px-6 py-4">
+        <div className="font-medium text-gray-900">
+          {client.name}
+        </div>
+        <div className="text-gray-500 text-xs">
+          {client.email}
+        </div>
+      </td>
+      <td className="px-6 py-4 text-gray-700">
+        {client.taxId || client.company || "-"}
+      </td>
+      <td className="px-6 py-4 text-gray-700">
+        {client.phone || "-"}
+      </td>
+      <td className="px-6 py-4 text-gray-700">
+        {stats.totalInvoices}
+      </td>
+      <td className="px-6 py-4 font-medium text-gray-900">
+        ₹{stats.totalRevenue.toLocaleString('en-IN')}
+      </td>
+      <td className="px-6 py-4 text-gray-700">
+        <span className={stats.outstanding > 0 ? "text-red-600 font-medium" : "text-green-600"}>
+          ₹{stats.outstanding.toLocaleString('en-IN')}
+        </span>
+      </td>
+      <td className="px-6 py-4">
+        <div className="flex items-center space-x-3">
+          <button
+            onClick={() => onView(client)}
+            className="p-1 text-gray-600 transition-colors hover:text-blue-600"
+            title="View Details"
+          >
+            <Eye className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => onEdit(client)}
+            className="p-1 text-gray-600 transition-colors hover:text-green-600"
+            title="Edit Client"
+          >
+            <Edit className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => onDelete(client)}
+            className="p-1 text-gray-600 transition-colors hover:text-red-600"
+            title="Delete Client"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
+      </td>
+    </tr>
+  );
+});
+
+ClientRow.displayName = 'ClientRow';
+
+ClientRow.propTypes = {
+  client: PropTypes.shape({
+    id: PropTypes.string.isRequired,
+    name: PropTypes.string.isRequired,
+    email: PropTypes.string,
+    taxId: PropTypes.string,
+    company: PropTypes.string,
+    phone: PropTypes.string,
+  }).isRequired,
+  stats: PropTypes.shape({
+    totalInvoices: PropTypes.number,
+    totalRevenue: PropTypes.number,
+    outstanding: PropTypes.number,
+  }).isRequired,
+  serialNumber: PropTypes.string.isRequired,
+  onView: PropTypes.func.isRequired,
+  onEdit: PropTypes.func.isRequired,
+  onDelete: PropTypes.func.isRequired,
 };
 
 export default ClientManagement;

@@ -10,6 +10,8 @@ export const useToast = () => {
   return context;
 };
 
+import PropTypes from 'prop-types';
+
 export const ToastProvider = ({ children }) => {
   const [toasts, setToasts] = useState([]);
 
@@ -59,7 +61,7 @@ export const ToastProvider = ({ children }) => {
     return addToast({ type: 'info', title, message });
   }, [addToast]);
 
-  const value = {
+  const value = React.useMemo(() => ({
     toasts,
     addToast,
     removeToast,
@@ -68,13 +70,17 @@ export const ToastProvider = ({ children }) => {
     error,
     warning,
     info,
-  };
+  }), [toasts, addToast, removeToast, clearAllToasts, success, error, warning, info]);
 
   return (
     <ToastContext.Provider value={value}>
       {children}
     </ToastContext.Provider>
   );
+};
+
+ToastProvider.propTypes = {
+  children: PropTypes.node.isRequired,
 };
 
 
