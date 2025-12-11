@@ -10,12 +10,15 @@ const ModalWrapper = ({ children, onClose }) => (
   <div
     className="fixed inset-0 bg-black bg-opacity-50 modal-backdrop flex justify-center items-center z-50 p-4"
     onClick={onClose}
-    role="dialog"
-    aria-modal="true"
+    role="button"
+    tabIndex={-1}
+    onKeyDown={(e) => e.key === 'Escape' && onClose()}
   >
     <div
       className="bg-white rounded-lg shadow-xl w-full max-w-md relative"
       onClick={(e) => e.stopPropagation()}
+      role="dialog"
+      aria-modal="true"
     >
       {children}
     </div>
@@ -319,7 +322,7 @@ export default function ProductManagement() {
   const [searchTerm, setSearchTerm] = useState("");
   const [modal, setModal] = useState({ isOpen: false, type: null, data: null });
 
-  const { user } = useContext(AuthContext);
+  // const { user } = useContext(AuthContext); // Removed unused used
   const { success, error: showError, warning } = useToast();
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -410,7 +413,7 @@ export default function ProductManagement() {
   };
 
   const confirmDelete = async () => {
-    if (modal.data && modal.data.id) {
+    if (modal.data?.id) {
       const productName = modal.data.name;
       const productId = modal.data.id;
 
@@ -427,6 +430,77 @@ export default function ProductManagement() {
         showError(`Failed to delete product: ${result.error}`, "Error");
       }
     }
+  };
+
+  const renderTableBody = () => {
+    if (loading) {
+      return Array.from({ length: 5 }).map((_, i) => (
+        <tr key={`skeleton-${i}`} className="animate-pulse">
+          <td className="px-6 py-4">
+            <div className="h-4 bg-gray-200 rounded w-8"></div>
+          </td>
+          <td className="px-6 py-4">
+            <div className="h-4 bg-gray-200 rounded w-48"></div>
+          </td>
+          <td className="px-6 py-4">
+            <div className="h-4 bg-gray-200 rounded w-24"></div>
+          </td>
+          <td className="px-6 py-4">
+            <div className="h-4 bg-gray-200 rounded w-20"></div>
+          </td>
+          <td className="px-6 py-4">
+            <div className="h-4 bg-gray-200 rounded w-24"></div>
+          </td>
+        </tr>
+      ));
+    }
+
+    if (error) {
+      return (
+        <tr>
+          <td colSpan="5" className="text-center text-sm text-gray-500 py-12">
+            <div className="text-red-600">
+              <p>Error loading products: {error}</p>
+              <button
+                onClick={() => globalThis.location.reload()}
+                className="mt-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                Retry
+              </button>
+            </div>
+          </td>
+        </tr>
+      );
+    }
+
+    if (products && products.length > 0) {
+      return products.map((product, index) => (
+        <ProductRow
+          key={product.id}
+          product={{
+            ...product,
+            price: `₹${Number(product.price).toLocaleString('en-IN')}`,
+            revenue: 'N/A'
+          }}
+          serialNumber={String((currentPage - 1) * itemsPerPage + index + 1).padStart(2, '0')}
+          onView={handleViewProduct}
+          onEdit={handleEditProduct}
+          onDelete={handleDeleteProduct}
+        />
+      ));
+    }
+
+    return (
+      <tr>
+        <td
+          colSpan="5"
+          className="text-center text-sm text-gray-500 py-12"
+        >
+          No products found.{" "}
+          {searchTerm && "Try adjusting your search criteria."}
+        </td>
+      </tr>
+    );
   };
 
   return (
@@ -479,68 +553,7 @@ export default function ProductManagement() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {loading ? (
-                    [...new Array(5)].map((_, i) => (
-                      <tr key={i} className="animate-pulse">
-                        <td className="px-6 py-4">
-                          <div className="h-4 bg-gray-200 rounded w-8"></div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="h-4 bg-gray-200 rounded w-48"></div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="h-4 bg-gray-200 rounded w-24"></div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="h-4 bg-gray-200 rounded w-20"></div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="h-4 bg-gray-200 rounded w-24"></div>
-                        </td>
-                      </tr>
-                    ))
-                  ) : error ? (
-                    <tr>
-                      <td colSpan="5" className="text-center text-sm text-gray-500 py-12">
-                        <div className="text-red-600">
-                          <p>Error loading products: {error}</p>
-                          <button
-                            onClick={() => window.location.reload()}
-                            className="mt-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                          >
-                            Retry
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ) : products && products.length > 0 ? (
-                    products.map((product, index) => {
-                      return (
-                        <ProductRow
-                          key={product.id}
-                          product={{
-                            ...product,
-                            price: `₹${Number(product.price).toLocaleString('en-IN')}`,
-                            revenue: 'N/A'
-                          }}
-                          serialNumber={String((currentPage - 1) * itemsPerPage + index + 1).padStart(2, '0')}
-                          onView={handleViewProduct}
-                          onEdit={handleEditProduct}
-                          onDelete={handleDeleteProduct}
-                        />
-                      );
-                    })
-                  ) : (
-                    <tr>
-                      <td
-                        colSpan="5"
-                        className="text-center text-sm text-gray-500 py-12"
-                      >
-                        No products found.{" "}
-                        {searchTerm && "Try adjusting your search criteria."}
-                      </td>
-                    </tr>
-                  )}
+                  {renderTableBody()}
                 </tbody>
               </table>
             </div>

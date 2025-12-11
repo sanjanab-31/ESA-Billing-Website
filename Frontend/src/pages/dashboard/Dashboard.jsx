@@ -313,7 +313,7 @@ const RecentActivity = memo(({ invoices = [], payments = [] }) => {
     const safePayments = Array.isArray(payments) ? payments : [];
 
     // Add recent invoices with better status handling
-    const recentInvoices = safeInvoices
+    const recentInvoices = [...safeInvoices]
       .sort((a, b) => {
         const dateA = new Date(
           a.createdAt?.toDate?.() || a.createdAt || a.invoiceDate || 0
@@ -356,7 +356,7 @@ const RecentActivity = memo(({ invoices = [], payments = [] }) => {
     });
 
     // Add recent payments
-    const recentPayments = safePayments
+    const recentPayments = [...safePayments]
       .sort((a, b) => {
         const dateA = new Date(
           a.createdAt?.toDate?.() || a.createdAt || a.paymentDate || 0
@@ -390,7 +390,7 @@ const RecentActivity = memo(({ invoices = [], payments = [] }) => {
     });
 
     // Sort all activities by actual timestamp and take the most recent 5
-    return activities.sort((a, b) => b.timestamp - a.timestamp).slice(0, 5);
+    return [...activities].sort((a, b) => b.timestamp - a.timestamp).slice(0, 5);
   };
 
   const getDiffs = (date) => {
@@ -432,7 +432,7 @@ const RecentActivity = memo(({ invoices = [], payments = [] }) => {
         {activities.length > 0 ? (
           activities.map((activity, index) => (
             <li
-              key={index}
+              key={`${activity.type}-${activity.timestamp.getTime()}-${index}`}
               className="flex items-start gap-3 p-3 rounded-lg hover:bg-slate-50"
             >
               <div

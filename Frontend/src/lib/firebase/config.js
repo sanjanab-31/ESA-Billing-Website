@@ -18,7 +18,7 @@ const auth = getAuth(app);
 try {
   await setPersistence(auth, browserSessionPersistence);
 } catch (error) {
-  // Silent error during persistence setup
+  console.error("Firebase persistence error:", error);
 }
 
 // Export only auth and app

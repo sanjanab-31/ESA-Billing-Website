@@ -5,9 +5,7 @@ import {
   AlertCircle,
   Clock,
   Search,
-  Send,
   Check,
-  Bell,
   Save,
   X,
   Edit,
@@ -415,12 +413,14 @@ const PendingPaymentCard = memo(({
   const invoiceAmount = Number.parseFloat(amount || 0) || 0;
   const remainingAmount = invoiceAmount - currentPaidAmount;
 
-  const iconBgColor =
-    status === "Overdue"
-      ? "bg-red-500"
-      : status === "Partial"
-        ? "bg-purple-500"
-        : "bg-yellow-500";
+  const getStatusColor = (status) => {
+    switch (status) {
+      case "Overdue": return "bg-red-500";
+      case "Partial": return "bg-purple-500";
+      default: return "bg-yellow-500";
+    }
+  };
+  const iconBgColor = getStatusColor(status);
   const Icon = status === "Overdue" ? AlertCircle : Clock;
 
   const handleEnterAmountClick = () => {
@@ -569,8 +569,7 @@ const PaymentsPage = () => {
   const { payments: allPayments = [], error: paymentsError } = useAllPayments();
 
   // Handle errors gracefully
-  if (invoicesError || paymentsError) {
-  }
+
 
   // Memoized status calculation function matching InvoiceManagement.jsx
   const getDynamicInvoiceStatus = useCallback((invoice) => {
@@ -1007,7 +1006,7 @@ const PaymentsPage = () => {
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Unable to load payments</h3>
             <p className="text-sm text-gray-600 mb-4">{invoicesError || "Please sign in to view payment data"}</p>
             <button
-              onClick={() => window.location.reload()}
+              onClick={() => globalThis.location.reload()}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
               Try Again

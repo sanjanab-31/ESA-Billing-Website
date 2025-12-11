@@ -89,10 +89,12 @@ const Toast = ({ toast }) => {
       {/* Progress bar */}
       <div className="mt-2 w-full bg-gray-200 rounded-full h-1">
         <div
-          className={`h-1 rounded-full transition-all duration-100 ease-linear ${toast.type === 'success' ? 'bg-green-500' :
-            toast.type === 'error' ? 'bg-red-500' :
-              toast.type === 'warning' ? 'bg-yellow-500' :
-                'bg-blue-500'
+          className={`h-1 rounded-full transition-all duration-100 ease-linear ${{
+              success: 'bg-green-500',
+              error: 'bg-red-500',
+              warning: 'bg-yellow-500',
+              info: 'bg-blue-500'
+            }[toast.type] || 'bg-blue-500'
             }`}
           style={{
             width: '100%',

@@ -1288,8 +1288,8 @@ const InvoiceManagementComponent = ({
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {loading ? (
-                  [...new Array(5)].map((_, i) => (
-                    <tr key={i} className="animate-pulse">
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <tr key={`skeleton-${i}`} className="animate-pulse">
                       <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-24"></div></td>
                       <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-24"></div></td>
                       <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-32"></div></td>
@@ -2076,8 +2076,8 @@ const InvoiceManagementSystem = () => {
               `
         )
         .join("")}
-                  ${new Array(Math.max(0, 12 - invoice.items.length))
-        .fill(
+                  ${Array.from({ length: Math.max(0, 12 - invoice.items.length) })
+        .map(() =>
           '<tr><td style="border-right: 1px solid black; border-bottom: none;">&nbsp;</td><td style="border-right: 1px solid black; border-bottom: none;"></td><td style="border-right: 1px solid black; border-bottom: none;"></td><td style="border-right: 1px solid black; border-bottom: none;"></td><td style="border-right: 1px solid black; border-bottom: none;"></td><td style="border-bottom: none;"></td></tr>'
         )
         .join("")}

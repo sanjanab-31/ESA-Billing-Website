@@ -15,6 +15,7 @@ import {
   Calendar,
   Filter,
 } from "lucide-react";
+import PropTypes from "prop-types";
 import { ResponsivePie } from "@nivo/pie";
 
 import {
@@ -76,6 +77,12 @@ const DonutChart = ({ cgst, sgst, igst }) => {
       </svg>
     </div>
   );
+};
+
+DonutChart.propTypes = {
+  cgst: PropTypes.number.isRequired,
+  sgst: PropTypes.number.isRequired,
+  igst: PropTypes.number.isRequired,
 };
 
 // Component for the GST Summary tab content using real data
@@ -243,6 +250,11 @@ const GSTSummary = ({ invoices = [], getDynamicInvoiceStatus }) => {
       </div>
     </div>
   );
+};
+
+GSTSummary.propTypes = {
+  invoices: PropTypes.array,
+  getDynamicInvoiceStatus: PropTypes.func.isRequired,
 };
 
 const PDFExportModal = ({ isOpen, onClose, invoices, customers, payments, stats, onExport }) => {
@@ -545,6 +557,16 @@ const PDFExportModal = ({ isOpen, onClose, invoices, customers, payments, stats,
   );
 };
 
+PDFExportModal.propTypes = {
+  isOpen: PropTypes.bool.isRequired,
+  onClose: PropTypes.func.isRequired,
+  invoices: PropTypes.array,
+  customers: PropTypes.array,
+  payments: PropTypes.array,
+  stats: PropTypes.object,
+  onExport: PropTypes.func.isRequired,
+};
+
 const ReportsAnalytics = () => {
   const [activeTab, setActiveTab] = useState("Overview");
   const currentYear = new Date().getFullYear();
@@ -632,7 +654,7 @@ const ReportsAnalytics = () => {
         break;
       default:
         // Yearly report (Financial Year: April 1st to March 31st of next year)
-        const year = parseInt(timePeriod);
+        const year = Number.parseInt(timePeriod);
         if (!isNaN(year)) {
           startDate = new Date(year, 3, 1); // April 1st of selected year
           endDate = new Date(year + 1, 2, 31); // March 31st of next year
@@ -665,7 +687,15 @@ const ReportsAnalytics = () => {
     return "Unpaid";
   };
 
-  const realTimeStats = useRealTimeStats(filteredInvoices, getDynamicInvoiceStatus);
+  const realTimeStats = React.useMemo(() => {
+    const paidInvoices = filteredInvoices.filter(inv => getDynamicInvoiceStatus(inv) === "Paid");
+    const totalRevenue = paidInvoices.reduce((sum, inv) => sum + (Number.parseFloat(inv.total || inv.amount || 0) || 0), 0);
+    return {
+      totalInvoices: filteredInvoices.length,
+      paidInvoices,
+      totalRevenue
+    };
+  }, [filteredInvoices, getDynamicInvoiceStatus]); // Replaced missing useRealTimeStats
   const handleReportTypeChange = (e) => {
     const newReportType = e.target.value;
     setReportType(newReportType);
@@ -690,7 +720,7 @@ const ReportsAnalytics = () => {
               {statsError || invoicesError || customersError || paymentsError}
             </p>
             <button
-              onClick={() => window.location.reload()}
+              onClick={() => globalThis.location.reload()}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
             >
               Retry

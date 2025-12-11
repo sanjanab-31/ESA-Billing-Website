@@ -21,7 +21,7 @@ export const AuthProvider = ({ children }) => {
 
     const [sessionTimeoutMinutes, setSessionTimeoutMinutes] = useState(() => {
         const saved = localStorage.getItem('sessionTimeoutMinutes');
-        return saved !== null ? JSON.parse(saved) : 15;
+        return saved === null ? 15 : JSON.parse(saved);
     });
 
     useEffect(() => {
