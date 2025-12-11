@@ -6,6 +6,8 @@ import {
   Percent,
   Users,
   Printer,
+  ChevronLeft,
+  ChevronRight,
   UserCheck,
   IndianRupee,
   X,
