@@ -781,6 +781,11 @@ const PDFExportModal = ({ isOpen, onClose, invoices, customers, payments, stats,
       subtitle = `Financial Year ${selectedYear}-${selectedYear + 1}`;
     }
 
+    if (filteredInvoices.length === 0) {
+      alert("No bills found for the selected period.");
+      return;
+    }
+
     onExport(filteredInvoices, customers, payments, stats, title, subtitle);
     onClose();
   };
