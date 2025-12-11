@@ -693,6 +693,7 @@ const PDFExportModal = ({ isOpen, onClose, invoices, customers, payments, stats,
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [searchTerm, setSearchTerm] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
 
   const months = [
     "January", "February", "March", "April", "May", "June",
@@ -711,6 +712,7 @@ const PDFExportModal = ({ isOpen, onClose, invoices, customers, payments, stats,
       setSearchTerm("");
       setSelectedMonth(new Date().getMonth());
       setSelectedYear(new Date().getFullYear());
+      setErrorMessage("");
     }
   }, [isOpen]);
 
@@ -723,6 +725,7 @@ const PDFExportModal = ({ isOpen, onClose, invoices, customers, payments, stats,
 
   const handleTypeSelect = (type) => {
     setReportType(type);
+    setErrorMessage("");
     if (type === "client") {
       setStep("client-selection");
     } else {
@@ -741,6 +744,7 @@ const PDFExportModal = ({ isOpen, onClose, invoices, customers, payments, stats,
   };
 
   const handleGenerate = () => {
+    setErrorMessage("");
     let filteredInvoices = [...invoices];
     let title = "Business Report";
     let subtitle = "";
@@ -782,7 +786,8 @@ const PDFExportModal = ({ isOpen, onClose, invoices, customers, payments, stats,
     }
 
     if (filteredInvoices.length === 0) {
-      alert("No bills found for the selected period.");
+      setErrorMessage("No bills found for the selected period.");
+      setTimeout(() => setErrorMessage(""), 3000);
       return;
     }
 
@@ -808,6 +813,12 @@ const PDFExportModal = ({ isOpen, onClose, invoices, customers, payments, stats,
             {step === "client-options" && "Select Bill Type"}
             {step === "date-selection" && "Select Period"}
           </h2>
+
+          {errorMessage && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
+              {errorMessage}
+            </div>
+          )}
 
           {step === "type-selection" && (
             <div className="space-y-3">
@@ -986,7 +997,10 @@ const ReportsAnalytics = () => {
   // New state for the new charts
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [revenueYear, setRevenueYear] = useState(new Date().getFullYear());
+  const [globalError, setGlobalError] = useState(""); // For main page errors like summary export failure
 
   // PDF Modal State
   const [showPDFModal, setShowPDFModal] = useState(false);
@@ -1279,6 +1293,7 @@ const ReportsAnalytics = () => {
                     onClick={() => {
                       setShowPDFModal(true);
                       setShowExportDropdown(false);
+                      setErrorMessage(""); // Clear any previous error
                     }}
                     className="w-full flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors text-left"
                   >
@@ -1293,7 +1308,11 @@ const ReportsAnalytics = () => {
 
                   <button
                     onClick={() => {
-                      exportSummaryReport(invoices, customers);
+                      const result = exportSummaryReport(invoices, customers);
+                      if (!result.success) {
+                        setGlobalError(result.message);
+                        setTimeout(() => setGlobalError(""), 3000);
+                      }
                       setShowExportDropdown(false);
                     }}
                     className="w-full flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors text-left"
@@ -1311,6 +1330,18 @@ const ReportsAnalytics = () => {
             )}
           </div>
         </header>
+
+        {/* Global Error Message for Summary Report */}
+        {globalError && (
+          <div className="fixed top-24 right-4 z-50">
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg shadow-lg flex items-center">
+              <span>{globalError}</span>
+              <button onClick={() => setGlobalError("")} className="ml-3">
+                <X size={16} />
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Main Content */}
         <main className="mt-6 flex flex-col gap-6">
@@ -1639,6 +1670,10 @@ const exportToPDF = async (invoices, customers, payments, stats, title = "Busine
 };
 
 const exportSummaryReport = (invoices, customers) => {
+  if (!invoices || invoices.length === 0) {
+    return { success: false, message: "No bills found to generate summary report." };
+  }
+
   const doc = new jsPDF();
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth();
@@ -1738,6 +1773,7 @@ const exportSummaryReport = (invoices, customers) => {
   });
 
   doc.save(`summary_report_${new Date().toISOString().split('T')[0]}.pdf`);
+  return { success: true };
 };
 
 const exportDetailed = (invoices, customers, payments, stats) => {
