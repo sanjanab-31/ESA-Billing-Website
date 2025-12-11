@@ -17,11 +17,8 @@ import {
 } from "lucide-react";
 import { useInvoices, useSettings, useCustomers, useProducts } from "../../hooks/useFirestore";
 import { AuthContext } from "../../context/AuthContext";
-import jsPDF from "jspdf";
-import "jspdf-autotable";
-import html2canvas from "html2canvas";
 import { useToast } from "../../context/ToastContext";
-import { generateInvoiceHTML } from "../../utils/invoiceGenerator";
+
 
 const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, message }) => {
   if (!isOpen) return null;
@@ -270,7 +267,6 @@ const InvoicePreview = ({
   invoiceData,
   calculations,
   setShowPreview,
-  settings,
 }) => {
 
   const previewData = invoice || invoiceData;
@@ -344,79 +340,8 @@ const InvoicePreview = ({
 
   const amountInWords = convertToWords(Math.floor(previewCalcs.total));
 
-
-
-  const handleDownloadPdf = async () => {
-    try {
-      // Create a temporary div for HTML to PDF conversion
-      const tempDiv = document.createElement("div");
-      tempDiv.innerHTML = generateInvoiceHTML(previewData, settings);
-      tempDiv.style.position = "absolute";
-      tempDiv.style.left = "-9999px";
-      tempDiv.style.top = "-9999px";
-      tempDiv.style.width = "800px";
-      document.body.appendChild(tempDiv);
-
-      // Convert HTML to canvas
-      const canvas = await html2canvas(tempDiv, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: "#ffffff",
-        width: 800,
-        height: tempDiv.scrollHeight,
-      });
-
-      // Remove temporary div
-      document.body.removeChild(tempDiv);
-
-      // Create PDF
-      const pdf = new jsPDF("p", "mm", "a4");
-      const imgData = canvas.toDataURL("image/png");
-
-      // Calculate dimensions to fit A4
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
-      const imgWidth = pdfWidth - 20; // 10mm margin on each side
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-      let heightLeft = imgHeight;
-      let position = 10; // 10mm top margin
-
-      // Add first page
-      pdf.addImage(imgData, "PNG", 10, position, imgWidth, imgHeight);
-      heightLeft -= pdfHeight - 20; // Account for margins
-
-      // Add additional pages if needed
-      while (heightLeft >= 0) {
-        position = heightLeft - imgHeight + 10;
-        pdf.addPage();
-        pdf.addImage(imgData, "PNG", 10, position, imgWidth, imgHeight);
-        heightLeft -= pdfHeight - 20;
-      }
-
-      // Download the PDF
-      const fileName = `Invoice_${previewData.invoiceNumber.replace(
-        /\//g,
-        "_"
-      )}.pdf`;
-      pdf.save(fileName);
-    } catch (error) {
-      alert("Error generating PDF. Please try again.");
-    }
-  };
-
   const handlePrint = () => {
-    const iframe = document.createElement("iframe");
-    iframe.style.display = "none";
-    document.body.appendChild(iframe);
-    const invoiceHTML = generateInvoiceHTML(previewData, settings);
-    iframe.contentDocument.write(invoiceHTML);
-    iframe.contentDocument.close();
-    iframe.onload = () => {
-      iframe.contentWindow.print();
-      setTimeout(() => document.body.removeChild(iframe), 100);
-    };
+    window.print();
   };
 
 
@@ -435,13 +360,6 @@ const InvoicePreview = ({
               Print
             </button>
             <button
-              onClick={handleDownloadPdf}
-              className="flex items-center px-3 py-1.5 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700"
-            >
-              <Download className="w-4 h-4 mr-2" />
-              Download PDF
-            </button>
-            <button
               onClick={() => setShowPreview(false)}
               className="p-2 text-gray-500 hover:bg-gray-200 rounded-full"
             >
@@ -452,7 +370,7 @@ const InvoicePreview = ({
         <div className="overflow-y-auto bg-gray-100 p-8">
           <div
             className="bg-white shadow-lg mx-auto border-2 border-black"
-            style={{ maxWidth: "800px", padding: "0" }}
+            style={{ maxWidth: "750px", padding: "0" }}
           >
             {/* Header Phone Numbers */}
             <div className="flex justify-between px-4 py-2 font-bold text-sm">
@@ -461,29 +379,31 @@ const InvoicePreview = ({
             </div>
 
             {/* Main Header */}
-            <div className="text-center border-b border-black pb-4">
-              <div className="flex items-center justify-center gap-4">
+            <div className="text-center border-b border-black pb-2 ">
+              <div className="flex pl-8">
                 <img
                   src="https://res.cloudinary.com/dnmvriw3e/image/upload/v1756868204/ESA_uggt8u.png"
                   alt="ESA Logo"
                   className="h-16"
                 />
+                <div className="flex">
                 <div className="text-center">
                   <h1
-                    className="text-3xl font-bold"
+                    className="text-4xl font-bold"
                     style={{
                       fontFamily: '"Times New Roman", serif',
-                      color: "#FF0000",
+                      color: "#d00000ff",
                       margin: 0,
                     }}
                   >
                     ESA ENGINEERING WORKS
                   </h1>
-                  <div className="text-xs text-black mt-1 space-y-1">
+                  <div className="text-md text-black">
                     <p>All Kinds of Lathe and Milling Works</p>
                     <p>Specialist in : Press Tools, Die Casting Tools, Precision Components</p>
                     <p>1/100, Chettipalayam Road, E.B. Compound, Malumichampatti, CBE - 641 050.</p>
                     <p>E-Mail : esaengineeringworks@gmail.com | GSTIN : 33AMWPB2116Q1ZS</p>
+                  </div>
                   </div>
                 </div>
               </div>
@@ -491,33 +411,33 @@ const InvoicePreview = ({
 
             {/* Invoice Title */}
             <div className="flex border-b border-black">
-              <div className="w-[20%] border-r border-black p-2 flex items-center text-sm">
+              <div className="w-[20%] border-r border-black pl-2 flex items-center text-sm">
                 <span className="font-bold mr-2">NO :</span> {previewData.invoiceNumber}
               </div>
-              <div className="w-[60%] text-center font-bold text-xl p-2">
+              <div className="w-[60%] text-center font-bold text-2xl pl-2">
                 INVOICE
               </div>
-              <div className="w-[20%] border-l border-black p-2 flex items-center text-sm">
+              <div className="w-[20%] border-l border-black pl-2 flex items-center text-sm">
                 <span className="font-bold mr-2">DATE :</span> {previewData.invoiceDate}
               </div>
             </div>
 
             {/* Client & Invoice Details */}
             <div className="flex border-b border-black">
-              <div className="w-[70%] border-r border-black p-2 text-sm">
-                <div>To, M/s,</div>
+              <div className="w-[70%] border-r border-black  text-sm">
+                <div className="pl-2">To, M/s,</div>
                 <div className="font-bold ml-4">{previewData.client?.name}</div>
                 <div className="ml-4 h-10">{previewData.client?.address}</div>
-                <div className="mt-2">GSTIN : {previewData.client?.gst}</div>
+                <div className="mt-2 border-t border-black pl-2">GSTIN : {previewData.client?.gst}</div>
               </div>
               <div className="w-[30%] text-sm">
-                <div className="border-b border-black p-2 h-8 flex items-center">
+                <div className="border-b border-black pl-2 h-8 flex items-center">
                   <span className="font-bold mr-2">J.O. No :</span> {previewData.poNumber}
                 </div>
-                <div className="border-b border-black p-2 h-8 flex items-center">
+                <div className="border-b border-black pl-2 h-8 flex items-center">
                   <span className="font-bold mr-2">D.C. No :</span> {previewData.dcNumber}
                 </div>
-                <div className="p-2 h-8 flex items-center">
+                <div className="pl-2 h-8 flex items-center">
                   <span className="font-bold mr-2">D.C. Date :</span> {previewData.dcDate}
                 </div>
               </div>
@@ -528,10 +448,10 @@ const InvoicePreview = ({
               <thead>
                 <tr className="border-b border-black">
                   <th className="w-[5%] border-r border-black p-1 text-center">S.No.</th>
-                  <th className="w-[45%] border-r border-black p-1 text-center">PARTICULARS</th>
-                  <th className="w-[15%] border-r border-black p-1 text-center">HSN CODE</th>
-                  <th className="w-[10%] border-r border-black p-1 text-center">QTY.</th>
-                  <th className="w-[10%] border-r border-black p-1 text-center">RATE</th>
+                  <th className="w-[50%] border-r border-black p-1 text-center">PARTICULARS</th>
+                  <th className="w-[12%] border-r border-black p-1 text-center">HSN CODE</th>
+                  <th className="w-[8%] border-r border-black p-1 text-center">QTY.</th>
+                  <th className="w-[12.%] border-r border-black p-1 text-center">RATE</th>
                   <th className="w-[15%] p-1 text-center">AMOUNT</th>
                 </tr>
               </thead>
@@ -567,72 +487,89 @@ const InvoicePreview = ({
                 <tr>
                   <td className="w-[15%] p-1">Bank Details :</td>
                   <td className="w-[55%] p-1">Bank Name : State Bank Of India</td>
-                  <td className="w-[15%] border-l border-black p-1">SUB TOTAL</td>
-                  <td className="w-[15%] border-l border-black p-1 text-right">
+                  <td className="w-[15%] border-l border-b border-black p-1">SUB TOTAL</td>
+                  <td className="w-[15%] border-l border-b border-black p-1 text-right">
                     {previewCalcs.subtotal.toFixed(2)}
                   </td>
                 </tr>
                 <tr>
-                  <td className="p-1" colSpan="2">
+                  <td className="p-1 pl-9" colSpan="2">
                     <span className="inline-block w-20">&nbsp;</span>
                     A/C No : 42455711572
                   </td>
-                  <td className="border-l border-black p-1">CGST &nbsp;&nbsp;&nbsp; {previewData.cgst}%</td>
-                  <td className="border-l border-black p-1 text-right">
+                  <td className="border-l border-b border-black p-1">CGST &nbsp;&nbsp;&nbsp; {previewData.cgst}%</td>
+                  <td className="border-l border-b border-black p-1 text-right">
                     {previewCalcs.cgstAmount.toFixed(2)}
                   </td>
                 </tr>
                 <tr>
-                  <td className="p-1" colSpan="2">
+                  <td className="p-1 pl-9" colSpan="2">
                     <span className="inline-block w-20">&nbsp;</span>
                     IFSC Code : SBIN0015017
                   </td>
-                  <td className="border-l border-black p-1">SGST &nbsp;&nbsp;&nbsp; {previewData.sgst}%</td>
-                  <td className="border-l border-black p-1 text-right">
+                  <td className="border-l border-b border-black p-1">SGST &nbsp;&nbsp;&nbsp; {previewData.sgst}%</td>
+                  <td className="border-l border-b border-black p-1 text-right">
                     {previewCalcs.sgstAmount.toFixed(2)}
                   </td>
                 </tr>
                 <tr>
-                  <td className="p-1" colSpan="2">
+                  <td className="p-1 pl-9" colSpan="2">
                     <span className="inline-block w-20">&nbsp;</span>
                     Branch : Malumichampatti
                   </td>
-                  <td className="border-l border-black p-1">IGST &nbsp;&nbsp;&nbsp; {previewData.igst}%</td>
-                  <td className="border-l border-black p-1 text-right">
+                  <td className="border-l border-b border-black p-1">IGST &nbsp;&nbsp;&nbsp; {previewData.igst}%</td>
+                  <td className="border-l border-b border-black p-1 text-right">
                     {previewCalcs.igstAmount.toFixed(2)}
                   </td>
                 </tr>
                 <tr>
-                  <td className="p-1 border-t border-black font-bold" colSpan="2">
-                    Rupees : <span className="font-normal">{amountInWords}</span>
-                  </td>
-                  <td className="border-l border-t border-black p-1">ROUND OFF</td>
-                  <td className="border-l border-t border-black p-1 text-right">
-                    {(previewCalcs.roundOffAmount || 0).toFixed(2)}
-                  </td>
-                </tr>
+  {/* LEFT SIDE — Rupees spanning 2 rows */}
+  <td
+    className="border-t border-black font-bold align-top"
+    rowSpan={2}
+    colSpan={2}
+  >
+    Rupees : <span className="font-normal">{amountInWords}</span>
+  </td>
+
+  {/* RIGHT SIDE ROW 1 */}
+  <td className="border-l border-t border-b border-black text-right font-bold">
+    ROUND OFF
+  </td>
+  <td className="border-l border-t border-b border-black text-right">
+    {(previewCalcs.roundOffAmount || 0).toFixed(2)}
+  </td>
+</tr>
+
+<tr>
+  {/* RIGHT SIDE ROW 2 */}
+  <td className="border-l border-t border-b border-black font-bold text-right">
+    NET TOTAL
+  </td>
+  <td className="border-l border-t border-b border-black  text-right font-bold">
+    {previewCalcs.total.toFixed(2)}
+  </td>
+</tr>
+
                 <tr>
-                  <td className="p-1 border-t border-black align-top" colSpan="2" rowSpan="2">
+                  <td className=" border-t border-black align-top" colSpan="2" rowSpan="2">
                     <div className="font-bold mb-1">Declaration</div>
-                    <div className="text-xs">
+                    <div className="text-md">
                       We declare that this invoice shows the actual price of the goods Described and that all Particulars are true and correct
                     </div>
                   </td>
-                  <td className="border-l border-t border-black p-1 font-bold">NET TOTAL</td>
-                  <td className="border-l border-t border-black p-1 text-right font-bold">
-                    {previewCalcs.total.toFixed(2)}
-                  </td>
+                  
                 </tr>
                 <tr>
-                  <td className="border-l border-black p-1 h-20 align-bottom text-right" colSpan="2">
+                  <td className="border-l border-black h-20 align-bottom text-left" colSpan="2">
                     <div className="font-bold text-red-600 mb-8">For ESA Engineering Works</div>
-                    <div className="text-xs">Authorized Signatory</div>
+                    <div className="text-md text-right">Authorized Signatory</div>
                   </td>
                 </tr>
               </tbody>
             </table>
 
-            <div className="text-center font-bold text-xs bg-gray-200 p-1 border-t border-black">
+            <div className="text-center font-bold text-md bg-gray-200 p-1 border-t border-black">
               This is a Computer generated bill
             </div>
           </div>
@@ -2168,7 +2105,6 @@ const InvoiceManagementSystem = () => {
           invoiceData={currentPage !== "management" ? invoiceData : null}
           calculations={calculations}
           setShowPreview={setShowPreview}
-          settings={settings}
         />
       )}
     </div>
