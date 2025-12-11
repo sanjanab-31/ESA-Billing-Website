@@ -145,7 +145,7 @@ export const useInvoices = (options = {}) => {
     setAll(latest);
   }, []);
 
-  return { invoices: view, loading: false, error: null, pagination: pageInfo, addInvoice, editInvoice, removeInvoice, refetch };
+  return { invoices: view, allInvoices: all, loading: false, error: null, pagination: pageInfo, addInvoice, editInvoice, removeInvoice, refetch };
 };
 
 // Payments

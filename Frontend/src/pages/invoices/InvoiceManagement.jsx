@@ -21,7 +21,16 @@ import { useToast } from "../../context/ToastContext";
 import { generateInvoiceHTML } from "../../utils/invoiceGenerator";
 import PropTypes from "prop-types";
 
-const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, message }) => {
+const ConfirmationModal = ({
+  isOpen,
+  onClose,
+  onConfirm,
+  title,
+  message,
+  confirmLabel = "Delete",
+  cancelLabel = "Cancel",
+  confirmClass = "bg-red-600 hover:bg-red-700"
+}) => {
   if (!isOpen) return null;
 
   return (
@@ -34,13 +43,13 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, message }) => {
             onClick={onClose}
             className="px-4 py-2 button-text text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
           >
-            Cancel
+            {cancelLabel}
           </button>
           <button
             onClick={onConfirm}
-            className="px-4 py-2 button-text text-white bg-red-600 rounded-lg hover:bg-red-700"
+            className={`px-4 py-2 button-text text-white rounded-lg ${confirmClass}`}
           >
-            Delete
+            {confirmLabel}
           </button>
         </div>
       </div>
@@ -480,23 +489,23 @@ const InvoicePreview = ({
                   className="h-16"
                 />
                 <div className="flex">
-                <div className="text-center">
-                  <h1
-                    className="text-4xl font-bold"
-                    style={{
-                      fontFamily: '"Times New Roman", serif',
-                      color: "#d00000ff",
-                      margin: 0,
-                    }}
-                  >
-                    ESA ENGINEERING WORKS
-                  </h1>
-                  <div className="text-md text-black">
-                    <p>All Kinds of Lathe and Milling Works</p>
-                    <p>Specialist in : Press Tools, Die Casting Tools, Precision Components</p>
-                    <p>1/100, Chettipalayam Road, E.B. Compound, Malumichampatti, CBE - 641 050.</p>
-                    <p>E-Mail : esaengineeringworks@gmail.com | GSTIN : 33AMWPB2116Q1ZS</p>
-                  </div>
+                  <div className="text-center">
+                    <h1
+                      className="text-4xl font-bold"
+                      style={{
+                        fontFamily: '"Times New Roman", serif',
+                        color: "#d00000ff",
+                        margin: 0,
+                      }}
+                    >
+                      ESA ENGINEERING WORKS
+                    </h1>
+                    <div className="text-md text-black">
+                      <p>All Kinds of Lathe and Milling Works</p>
+                      <p>Specialist in : Press Tools, Die Casting Tools, Precision Components</p>
+                      <p>1/100, Chettipalayam Road, E.B. Compound, Malumichampatti, CBE - 641 050.</p>
+                      <p>E-Mail : esaengineeringworks@gmail.com | GSTIN : 33AMWPB2116Q1ZS</p>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -525,13 +534,19 @@ const InvoicePreview = ({
               </div>
               <div className="w-[30%] text-sm">
                 <div className="border-b border-black pl-2 h-8 flex items-center">
-                  <span className="font-bold mr-2">J.O. No :</span> {previewData.poNumber}
+                  <span className="font-bold mr-2">P.O. No :</span> {previewData.poNumber}
+                </div>
+                <div className="border-b border-black pl-2 h-8 flex items-center">
+                  <span className="font-bold mr-2">P.O. Date :</span> {previewData.poDate}
                 </div>
                 <div className="border-b border-black pl-2 h-8 flex items-center">
                   <span className="font-bold mr-2">D.C. No :</span> {previewData.dcNumber}
                 </div>
-                <div className="pl-2 h-8 flex items-center">
+                <div className="border-b border-black pl-2 h-8 flex items-center">
                   <span className="font-bold mr-2">D.C. Date :</span> {previewData.dcDate}
+                </div>
+                <div className="pl-2 h-8 flex items-center">
+                  <span className="font-bold mr-2">Due Date :</span> {previewData.dueDate}
                 </div>
               </div>
             </div>
@@ -620,37 +635,37 @@ const InvoicePreview = ({
                   </th>
                   <td className="border-l border-b border-black p-1 text-right">
                     {previewCalcs.igstAmount.toFixed(2)}
-                    
+
                   </td>
                 </tr>
                 <tr>
-  {/* LEFT SIDE — Rupees spanning 2 rows */}
-  <td
-    className="border-t border-black font-bold align-top"
-    rowSpan={2}
-    colSpan={2}
-  >
-    Rupees : <span className="font-normal">{amountInWords}</span>
-  </td>
+                  {/* LEFT SIDE — Rupees spanning 2 rows */}
+                  <td
+                    className="border-t border-black font-bold align-top"
+                    rowSpan={2}
+                    colSpan={2}
+                  >
+                    Rupees : <span className="font-normal">{amountInWords}</span>
+                  </td>
 
-  {/* RIGHT SIDE ROW 1 */}
-  <td className="border-l border-t border-b border-black text-right font-bold">
-    ROUND OFF
-  </td>
-  <td className="border-l border-t border-b border-black text-right">
-    {(previewCalcs.roundOffAmount || 0).toFixed(2)}
-  </td>
-</tr>
+                  {/* RIGHT SIDE ROW 1 */}
+                  <td className="border-l border-t border-b border-black text-right font-bold">
+                    ROUND OFF
+                  </td>
+                  <td className="border-l border-t border-b border-black text-right">
+                    {(previewCalcs.roundOffAmount || 0).toFixed(2)}
+                  </td>
+                </tr>
 
-<tr>
-  {/* RIGHT SIDE ROW 2 */}
-  <td className="border-l border-t border-b border-black font-bold text-right">
-    NET TOTAL
-  </td>
-  <td className="border-l border-t border-b border-black  text-right font-bold">
-    {previewCalcs.total.toFixed(2)}
-  </td>
-</tr>
+                <tr>
+                  {/* RIGHT SIDE ROW 2 */}
+                  <td className="border-l border-t border-b border-black font-bold text-right">
+                    NET TOTAL
+                  </td>
+                  <td className="border-l border-t border-b border-black  text-right font-bold">
+                    {previewCalcs.total.toFixed(2)}
+                  </td>
+                </tr>
                 <tr>
                   <td className=" border-t border-black align-top" colSpan="2" rowSpan="2">
                     <div className="font-bold mb-1">Declaration</div>
@@ -658,7 +673,7 @@ const InvoicePreview = ({
                       We declare that this invoice shows the actual price of the goods Described and that all Particulars are true and correct
                     </div>
                   </td>
-                  
+
                 </tr>
                 <tr>
                   <td className="border-l border-black h-20 align-bottom text-left" colSpan="2">
@@ -687,7 +702,8 @@ const CreateInvoiceComponent = ({
   calculations,
   setCurrentPage,
   saveDraft,
-  setShowPreview,
+  handlePreview, // Renamed/Passed prop
+  setShowPreview, // Kept for other uses if any, but main one is handlePreview
   updateInvoice,
   saveInvoice,
   setInvoiceData,
@@ -733,7 +749,7 @@ const CreateInvoiceComponent = ({
             Save Draft
           </button>
           <button
-            onClick={() => setShowPreview(true)}
+            onClick={handlePreview}
             className="flex items-center px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700"
           >
             <Eye className="w-4 h-4 mr-2" />
@@ -789,24 +805,7 @@ const CreateInvoiceComponent = ({
               </div>
               <div>
                 <label className="block text-sm text-gray-700 mb-1">
-                  Due Date
-                </label>
-                <input
-                  type="date"
-                  value={invoiceData.dueDate}
-                  onChange={(e) =>
-                    setInvoiceData((prev) => ({
-                      ...prev,
-                      dueDate: e.target.value,
-                    }))
-                  }
-                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-0"
-                />
-              </div>
-              <div>
-                {/* CHANGED: Added required indicator */}
-                <label className="block text-sm text-gray-700 mb-1">
-                  J.O. Number <span className="text-red-500">*</span>
+                  P.O. Number <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -815,6 +814,22 @@ const CreateInvoiceComponent = ({
                     setInvoiceData((prev) => ({
                       ...prev,
                       poNumber: e.target.value,
+                    }))
+                  }
+                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-0"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-700 mb-1">
+                  P.O. Date <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="date"
+                  value={invoiceData.poDate}
+                  onChange={(e) =>
+                    setInvoiceData((prev) => ({
+                      ...prev,
+                      poDate: e.target.value,
                     }))
                   }
                   className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-0"
@@ -852,6 +867,22 @@ const CreateInvoiceComponent = ({
                   className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-0"
                 />
               </div>
+              <div>
+                <label className="block text-sm text-gray-700 mb-1">
+                  Due Date <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="date"
+                  value={invoiceData.dueDate}
+                  onChange={(e) =>
+                    setInvoiceData((prev) => ({
+                      ...prev,
+                      dueDate: e.target.value,
+                    }))
+                  }
+                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-0"
+                />
+              </div>
             </div>
           </div>
           <div className="bg-white p-3 lg:p-4 rounded-lg border border-gray-200 shadow-sm">
@@ -880,19 +911,19 @@ const CreateInvoiceComponent = ({
               <table className="w-full">
                 <thead className="text-xs uppercase font-semibold text-gray-500">
                   <tr>
-                    <th className="p-2 text-left w-[5%]">#</th>
+                    <th className="p-2 text-left w-[5%]">S.No</th>
                     <th className="p-2 text-left w-[35%]">Description</th>
-                    <th className="p-2 text-left w-[15%]">HSN</th>
+                    <th className="p-2 text-left w-[10%]">HSN</th>
                     <th className="p-2 text-left w-[10%]">Qty</th>
-                    <th className="p-2 text-left w-[15%]">Rate (₹)</th>
-                    <th className="p-2 text-left w-[15%]">Amount (₹)</th>
+                    <th className="p-2 text-left w-[10%]">Rate (₹)</th>
+                    <th className="p-2 text-left w-[12%]">Amount (₹)</th>
                     <th className="p-2 text-left w-[5%]"></th>
                   </tr>
                 </thead>
                 <tbody>
                   {invoiceData.items.map((item, index) => (
                     <tr key={item.id} className="border-t">
-                      <td className="p-2 text-sm align-top">{index + 1}</td>
+                      <td className="p-4 text-sm align-top">{index + 1}</td>
                       <td className="p-2">
                         <ProductAutocomplete
                           products={products}
@@ -1061,7 +1092,7 @@ const CreateInvoiceComponent = ({
               </span>
               <button
                 type="button"
-                className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2 ${invoiceData.isRoundOff ? "bg-blue-600" : "bg-gray-200"
+                className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${invoiceData.isRoundOff ? "bg-blue-600" : "bg-gray-200"
                   }`}
                 onClick={() =>
                   setInvoiceData((prev) => ({
@@ -1078,11 +1109,11 @@ const CreateInvoiceComponent = ({
                 />
               </button>
             </div>
-            <div className="p-4 pt-4 bg-gray-50 rounded-lg border-t mt-2">
-              <div className="space-y-2">
+            <div className="p-6 bg-gray-50 rounded-xl border border-gray-100 mt-4">
+              <div className="space-y-3">
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Subtotal:</span>
-                  <span className="font-medium">
+                  <span className="text-slate-600">Subtotal:</span>
+                  <span className="font-semibold text-slate-900">
                     ₹
                     {calculations.subtotal.toLocaleString("en-IN", {
                       minimumFractionDigits: 2,
@@ -1091,10 +1122,10 @@ const CreateInvoiceComponent = ({
                 </div>
                 {invoiceData.cgst > 0 && (
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">
+                    <span className="text-slate-600">
                       CGST ({invoiceData.cgst}%):
                     </span>
-                    <span>
+                    <span className="font-semibold text-slate-900">
                       ₹
                       {calculations.cgstAmount.toLocaleString("en-IN", {
                         minimumFractionDigits: 2,
@@ -1104,10 +1135,10 @@ const CreateInvoiceComponent = ({
                 )}
                 {invoiceData.sgst > 0 && (
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">
+                    <span className="text-slate-600">
                       SGST ({invoiceData.sgst}%):
                     </span>
-                    <span>
+                    <span className="font-semibold text-slate-900">
                       ₹
                       {calculations.sgstAmount.toLocaleString("en-IN", {
                         minimumFractionDigits: 2,
@@ -1117,10 +1148,10 @@ const CreateInvoiceComponent = ({
                 )}
                 {invoiceData.igst > 0 && (
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">
+                    <span className="text-slate-600">
                       IGST ({invoiceData.igst}%):
                     </span>
-                    <span>
+                    <span className="font-semibold text-slate-900">
                       ₹
                       {calculations.igstAmount.toLocaleString("en-IN", {
                         minimumFractionDigits: 2,
@@ -1130,8 +1161,8 @@ const CreateInvoiceComponent = ({
                 )}
                 {invoiceData.isRoundOff && (
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Round Off:</span>
-                    <span>
+                    <span className="text-slate-600">Round Off:</span>
+                    <span className="font-semibold text-slate-900">
                       ₹
                       {calculations.roundOffAmount.toLocaleString("en-IN", {
                         minimumFractionDigits: 2,
@@ -1139,22 +1170,24 @@ const CreateInvoiceComponent = ({
                     </span>
                   </div>
                 )}
-                <div className="flex justify-between pt-2 font-bold text-base border-t">
-                  <span>Total Amount:</span>
-                  <span>
-                    ₹
-                    {calculations.total.toLocaleString("en-IN", {
-                      minimumFractionDigits: 2,
-                    })}
-                  </span>
+                <div className="pt-4 mt-4 border-t border-gray-200">
+                  <div className="flex justify-between items-center text-lg font-bold text-slate-900">
+                    <span>Total Amount:</span>
+                    <span>
+                      ₹
+                      {calculations.total.toLocaleString("en-IN", {
+                        minimumFractionDigits: 2,
+                      })}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
           <div className="p-6 bg-white rounded-xl border border-gray-200">
-            <h3 className="mb-4 text-lg font-bold text-gray-900">Status</h3>
+            <h3 className="mb-2 text-lg font-bold text-gray-900">Status</h3>
             <div>
-              <label className="block mb-1 text-sm text-gray-700">
+              <label className="block mb-2 text-sm text-gray-700">
                 Set Invoice Status
               </label>
               <select
@@ -1165,7 +1198,7 @@ const CreateInvoiceComponent = ({
                     status: e.target.value,
                   }))
                 }
-                className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-0"
+                className="w-full px-3 py-2 text-slate-900 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-0 cursor-pointer"
               >
                 <option value="Unpaid">Unpaid</option>
                 <option value="Paid">Paid</option>
@@ -1182,21 +1215,9 @@ const CreateInvoiceComponent = ({
                 <label className="block mb-1 text-sm text-gray-700">
                   Bank Details
                 </label>
-                <select
-                  value={invoiceData.bankDetails}
-                  onChange={(e) =>
-                    setInvoiceData((prev) => ({
-                      ...prev,
-                      bankDetails: e.target.value,
-                    }))
-                  }
-                  className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-0"
-                >
-                  <option>State Bank Of India</option>
-                  <option>HDFC Bank</option>
-                  <option>ICICI Bank</option>
-                  <option>Axis Bank</option>
-                </select>
+                <div className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-0">
+                  State Bank Of India
+                </div>
               </div>
               <div>
                 <label className="block mb-1 text-sm text-gray-700">
@@ -1217,6 +1238,7 @@ const CreateInvoiceComponent = ({
           </div>
         </div>
       </main>
+
     </div>
   </div>
 );
@@ -1236,6 +1258,9 @@ const InvoiceManagementComponent = ({
   pagination,
   onPageChange,
   itemsPerPage,
+  productConfirmation, // Added prop
+  handleProductConfirmationSkip, // Added prop
+  handleProductConfirmationConfirm, // Added prop
 
   onItemsPerPageChange,
   loading,
@@ -1485,6 +1510,7 @@ const InvoiceManagementSystem = () => {
 
   const {
     invoices,
+    allInvoices,
     loading: invoicesLoading,
     error: invoicesError,
     pagination,
@@ -1507,7 +1533,7 @@ const InvoiceManagementSystem = () => {
 
   const { customers, error: customersError } = useCustomers();
 
-  const { products, error: productsError } = useProducts();
+  const { products, addProduct, error: productsError } = useProducts();
 
   // Use Settings hook to fetch company info
   const { settings, loading: settingsLoading, error: settingsError } = useSettings();
@@ -1525,7 +1551,8 @@ const InvoiceManagementSystem = () => {
     // Get prefix from settings or default to "INV"
     const prefix = settings?.systemSettings?.value?.systemConfig?.invoicePrefix || "INV";
 
-    const invoicesInCurrentYear = invoices.filter((inv) => {
+    // Use allInvoices instead of paginated invoices
+    const invoicesInCurrentYear = (allInvoices || []).filter((inv) => {
       // Check if invoice belongs to current financial year
       return inv.invoiceNumber && inv.invoiceNumber.endsWith(`/${financialYearString}`);
     });
@@ -1562,7 +1589,7 @@ const InvoiceManagementSystem = () => {
     cgst: 9,
     sgst: 9,
     igst: 0,
-    bankDetails: "",
+    bankDetails: "State Bank Of India",
     status: "Unpaid",
     declaration:
       "We declare that this invoice shows the actual price of the goods Described and that all Particulars are true and correct.",
@@ -1731,7 +1758,9 @@ const InvoiceManagementSystem = () => {
     const {
       invoiceNumber,
       invoiceDate,
+      dueDate,
       poNumber,
+      poDate,
       dcNumber,
       dcDate,
       clientId,
@@ -1740,7 +1769,9 @@ const InvoiceManagementSystem = () => {
     const missingFields = [];
     if (!invoiceNumber) missingFields.push("Invoice Number");
     if (!invoiceDate) missingFields.push("Invoice Date");
+    if (!dueDate) missingFields.push("Due Date");
     if (!poNumber) missingFields.push("P.O. Number");
+    if (!poDate) missingFields.push("P.O. Date");
     if (!dcNumber) missingFields.push("D.C Number");
     if (!dcDate) missingFields.push("D.C Date");
     if (!clientId) missingFields.push("Client Information");
@@ -1809,6 +1840,81 @@ const InvoiceManagementSystem = () => {
     } else {
       showError("Error updating invoice: " + result.error, "Error");
     }
+  };
+
+  const [productConfirmation, setProductConfirmation] = useState({
+    isOpen: false,
+    products: [],
+    action: null
+  });
+
+  const checkProductsAndProceed = (action) => {
+    // Filter items that satisfy:
+    // 1. Have a description
+    // 2. Description is not empty
+    // 3. Description does not match any existing product name (case-insensitive)
+    const newItems = invoiceData.items.filter(item =>
+      item.description &&
+      item.description.trim() !== "" &&
+      !products.some(p => p.name.toLowerCase() === item.description.trim().toLowerCase())
+    );
+
+    // Deduplicate items based on description
+    const uniqueItems = newItems.reduce((acc, current) => {
+      const x = acc.find(item => item.description.trim().toLowerCase() === current.description.trim().toLowerCase());
+      if (!x) {
+        return acc.concat([current]);
+      } else {
+        return acc;
+      }
+    }, []);
+
+    if (uniqueItems.length > 0) {
+      setProductConfirmation({
+        isOpen: true,
+        products: uniqueItems,
+        action: () => action()
+      });
+    } else {
+      action();
+    }
+  };
+
+  const handleProductConfirmationConfirm = async () => {
+    try {
+      const proms = productConfirmation.products.map(item =>
+        addProduct({
+          name: item.description.trim(),
+          price: Number(item.rate) || 0,
+          hsn: item.hsnCode || "",
+          category: "General",
+          unit: "Nos",
+          createdAt: new Date().toISOString()
+        })
+      );
+
+      await Promise.all(proms);
+      success(`Added ${productConfirmation.products.length} new products to database`);
+
+      // Proceed with the original action
+      if (productConfirmation.action) {
+        productConfirmation.action();
+      }
+    } catch (e) {
+      showError("Failed to add products to database");
+      console.error(e);
+      // Still proceed? User opted to add, if fail, maybe we should stop?
+      // For now let's stop to let them retry or skip.
+    } finally {
+      setProductConfirmation({ isOpen: false, products: [], action: null });
+    }
+  };
+
+  const handleProductConfirmationSkip = () => {
+    if (productConfirmation.action) {
+      productConfirmation.action();
+    }
+    setProductConfirmation({ isOpen: false, products: [], action: null });
   };
 
   const handleCreateInvoice = () => {
@@ -2236,6 +2342,7 @@ const InvoiceManagementSystem = () => {
           calculations={calculations}
           setCurrentPage={setCurrentPage}
           saveDraft={saveDraft}
+          handlePreview={() => checkProductsAndProceed(() => setShowPreview(true))}
           setShowPreview={setShowPreview}
           updateInvoice={updateInvoice}
           saveInvoice={saveInvoice}
@@ -2253,8 +2360,23 @@ const InvoiceManagementSystem = () => {
           invoiceData={currentPage !== "management" ? invoiceData : null}
           calculations={calculations}
           setShowPreview={setShowPreview}
+          productConfirmation={productConfirmation}
+          handleProductConfirmationSkip={handleProductConfirmationSkip}
+          handleProductConfirmationConfirm={handleProductConfirmationConfirm}
         />
       )}
+      {/* Product Confirmation Modal attached to System level */}
+      <ConfirmationModal
+        isOpen={productConfirmation.isOpen}
+        onClose={handleProductConfirmationSkip}
+        onConfirm={handleProductConfirmationConfirm}
+        title="Add New Products?"
+        message={`The following items are not in your database:\n\n${productConfirmation.products.map(p => "• " + p.description).join("\n")}\n\nDo you want to add them to your product list?`}
+        confirmLabel="Yes, Add items"
+        cancelLabel="No, Skip"
+        confirmClass="bg-green-600 hover:bg-green-700"
+      />
+
     </div>
   );
 };
