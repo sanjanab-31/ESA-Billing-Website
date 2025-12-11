@@ -403,7 +403,7 @@ const RecentActivity = memo(({ invoices = [], payments = [] }) => {
   };
 
   const getTimeAgo = (date) => {
-    if (!date || isNaN(date.getTime())) return "Unknown";
+    if (!date || Number.isNaN(date.getTime())) return "Unknown";
 
     const { diffMs, diffMins, diffHours, diffDays } = getDiffs(date);
     const diffWeeks = Math.floor(diffDays / 7);

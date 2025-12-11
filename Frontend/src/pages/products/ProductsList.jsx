@@ -1,4 +1,5 @@
-import React, { useState, useMemo, useEffect, useContext, memo, useCallback } from "react";
+import React, { useState, useEffect, useContext, memo, useCallback } from "react";
+import PropTypes from 'prop-types';
 import { Plus, Search, Eye, Edit, Trash2, X } from "lucide-react";
 import Pagination from "../../components/Pagination";
 import { useProducts } from "../../hooks/useFirestore";
@@ -9,6 +10,8 @@ const ModalWrapper = ({ children, onClose }) => (
   <div
     className="fixed inset-0 bg-black bg-opacity-50 modal-backdrop flex justify-center items-center z-50 p-4"
     onClick={onClose}
+    role="dialog"
+    aria-modal="true"
   >
     <div
       className="bg-white rounded-lg shadow-xl w-full max-w-md relative"
@@ -18,6 +21,11 @@ const ModalWrapper = ({ children, onClose }) => (
     </div>
   </div>
 );
+
+ModalWrapper.propTypes = {
+  children: PropTypes.node.isRequired,
+  onClose: PropTypes.func.isRequired,
+};
 
 // --- ProductFormModal for adding/editing products ---
 const ProductFormModal = ({ onClose, onSave, productToEdit }) => {
@@ -29,7 +37,7 @@ const ProductFormModal = ({ onClose, onSave, productToEdit }) => {
     if (productToEdit) {
       setName(productToEdit.name);
       setHsn(productToEdit.hsn);
-      const priceValue = productToEdit.price.replace(/[^0-9.-]+/g, "");
+      const priceValue = productToEdit.price.replaceAll(/[^0-9.-]+/g, "");
       setPrice(priceValue);
     } else {
       // Reset form for adding new product
@@ -133,6 +141,16 @@ const ProductFormModal = ({ onClose, onSave, productToEdit }) => {
   );
 };
 
+ProductFormModal.propTypes = {
+  onClose: PropTypes.func.isRequired,
+  onSave: PropTypes.func.isRequired,
+  productToEdit: PropTypes.shape({
+    name: PropTypes.string,
+    hsn: PropTypes.string,
+    price: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  }),
+};
+
 // --- ProductViewModal for viewing product details ---
 const ProductViewModal = ({ product, onClose }) => {
   if (!product) return null;
@@ -189,6 +207,17 @@ const ProductViewModal = ({ product, onClose }) => {
   );
 };
 
+ProductViewModal.propTypes = {
+  product: PropTypes.shape({
+    displayId: PropTypes.string,
+    name: PropTypes.string,
+    hsn: PropTypes.string,
+    price: PropTypes.string,
+    revenue: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  }),
+  onClose: PropTypes.func.isRequired,
+};
+
 const DeleteConfirmationModal = ({ onClose, onConfirm, productName }) => {
   return (
     <ModalWrapper onClose={onClose}>
@@ -219,6 +248,12 @@ const DeleteConfirmationModal = ({ onClose, onConfirm, productName }) => {
       </div>
     </ModalWrapper>
   );
+};
+
+DeleteConfirmationModal.propTypes = {
+  onClose: PropTypes.func.isRequired,
+  onConfirm: PropTypes.func.isRequired,
+  productName: PropTypes.string,
 };
 
 // PERFORMANCE: Memoized ProductRow to prevent unnecessary re-renders
@@ -265,6 +300,19 @@ const ProductRow = memo(({
 ));
 
 ProductRow.displayName = 'ProductRow';
+
+ProductRow.propTypes = {
+  product: PropTypes.shape({
+    id: PropTypes.string.isRequired,
+    name: PropTypes.string.isRequired,
+    hsn: PropTypes.string,
+    price: PropTypes.string.isRequired,
+  }).isRequired,
+  serialNumber: PropTypes.string.isRequired,
+  onView: PropTypes.func.isRequired,
+  onEdit: PropTypes.func.isRequired,
+  onDelete: PropTypes.func.isRequired,
+};
 
 // --- Main App Component ---
 export default function ProductManagement() {
@@ -345,13 +393,13 @@ export default function ProductManagement() {
       result = await editProduct(productData.id, {
         name: productData.name,
         hsn: productData.hsn,
-        price: parseFloat(productData.price),
+        price: Number.parseFloat(productData.price),
       });
     } else {
       result = await addProduct({
         name: productData.name,
         hsn: productData.hsn,
-        price: parseFloat(productData.price),
+        price: Number.parseFloat(productData.price),
       });
     }
 
@@ -398,6 +446,7 @@ export default function ProductManagement() {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
+                  aria-label="Search products"
                   type="text"
                   placeholder="Search by HSN or Name..."
                   value={searchTerm}
@@ -422,16 +471,16 @@ export default function ProductManagement() {
               <table className="w-full min-w-[600px]">
                 <thead className="text-xs font-semibold text-gray-500 uppercase bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left">S.No</th>
-                    <th className="px-6 py-3 text-left">Product Name</th>
-                    <th className="px-6 py-3 text-left">HSN Code</th>
-                    <th className="px-6 py-3 text-left">Price</th>
-                    <th className="px-6 py-3 text-left">Actions</th>
+                    <th scope="col" className="px-6 py-3 text-left">S.No</th>
+                    <th scope="col" className="px-6 py-3 text-left">Product Name</th>
+                    <th scope="col" className="px-6 py-3 text-left">HSN Code</th>
+                    <th scope="col" className="px-6 py-3 text-left">Price</th>
+                    <th scope="col" className="px-6 py-3 text-left">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {loading ? (
-                    [...Array(5)].map((_, i) => (
+                    [...new Array(5)].map((_, i) => (
                       <tr key={i} className="animate-pulse">
                         <td className="px-6 py-4">
                           <div className="h-4 bg-gray-200 rounded w-8"></div>

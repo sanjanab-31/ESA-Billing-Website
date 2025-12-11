@@ -56,6 +56,8 @@ const ClientManagement = () => {
   // Fetch all invoices for calculating client statistics
   const { invoices } = useInvoices();
 
+
+
   // Memoized calculation of all client statistics to avoid re-calculation on every render
   const clientStatsMap = useMemo(() => {
     if (!invoices || invoices.length === 0) return {};
@@ -336,19 +338,19 @@ const ClientManagement = () => {
             <table className="w-full min-w-[800px]">
               <thead className="text-xs font-semibold text-gray-500 uppercase bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left">S.No</th>
-                  <th className="px-6 py-3 text-left">Client Name</th>
-                  <th className="px-6 py-3 text-left">GST Number</th>
-                  <th className="px-6 py-3 text-left">Phone Number</th>
-                  <th className="px-6 py-3 text-left">Total Invoices</th>
-                  <th className="px-6 py-3 text-left">Total Revenue</th>
-                  <th className="px-6 py-3 text-left">Outstanding</th>
-                  <th className="px-6 py-3 text-left">Actions</th>
+                  <th scope="col" className="px-6 py-3 text-left">S.No</th>
+                  <th scope="col" className="px-6 py-3 text-left">Client Name</th>
+                  <th scope="col" className="px-6 py-3 text-left">GST Number</th>
+                  <th scope="col" className="px-6 py-3 text-left">Phone Number</th>
+                  <th scope="col" className="px-6 py-3 text-left">Total Invoices</th>
+                  <th scope="col" className="px-6 py-3 text-left">Total Revenue</th>
+                  <th scope="col" className="px-6 py-3 text-left">Outstanding</th>
+                  <th scope="col" className="px-6 py-3 text-left">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {loading ? (
-                  [...Array(5)].map((_, i) => (
+                  [...new Array(5)].map((_, i) => (
                     <tr key={i} className="animate-pulse">
                       <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-8"></div></td>
                       <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-32"></div></td>

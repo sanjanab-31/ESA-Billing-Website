@@ -29,6 +29,11 @@ const ToggleSwitch = ({ enabled, setEnabled }) => (
   </button>
 );
 
+ToggleSwitch.propTypes = {
+  enabled: PropTypes.bool.isRequired,
+  setEnabled: PropTypes.func.isRequired,
+};
+
 const ProfileSettings = () => {
   const { user, updateUserEmail, updateUserPassword, updateUserProfile } =
     useContext(AuthContext);
@@ -250,10 +255,11 @@ const ProfileSettings = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="text-sm text-gray-800 mb-1 block">
+              <label htmlFor="fullName" className="text-sm text-gray-800 mb-1 block">
                 Full Name
               </label>
               <input
+                id="fullName"
                 type="text"
                 name="fullName"
                 value={profileInfo.fullName}
@@ -263,12 +269,13 @@ const ProfileSettings = () => {
               />
             </div>
             <div>
-              <label className="text-sm text-gray-800 mb-1 block">
+              <label htmlFor="email" className="text-sm text-gray-800 mb-1 block">
                 Email Address
               </label>
               {isEditing ? (
                 <>
                   <input
+                    id="email"
                     type="email"
                     name="email"
                     value={profileInfo.email}
@@ -277,10 +284,11 @@ const ProfileSettings = () => {
                     disabled={isUpdating}
                   />
                   <div className="mt-2">
-                    <label className="text-sm text-gray-800 mb-1 block">
+                    <label htmlFor="currentPassword" className="text-sm text-gray-800 mb-1 block">
                       Confirm Current Password
                     </label>
                     <input
+                      id="currentPassword"
                       type={showPassword ? "text" : "password"}
                       name="current"
                       value={password.current}
@@ -293,6 +301,7 @@ const ProfileSettings = () => {
                 </>
               ) : (
                 <input
+                  id="email"
                   type="email"
                   value={profileInfo.email}
                   readOnly
@@ -317,8 +326,9 @@ const ProfileSettings = () => {
               />
             </div>
             <div>
-              <label className="text-sm text-gray-800 mb-1 block">Role</label>
+              <label htmlFor="role" className="text-sm text-gray-800 mb-1 block">Role</label>
               <input
+                id="role"
                 type="text"
                 name="role"
                 value={profileInfo.role}
@@ -338,11 +348,12 @@ const ProfileSettings = () => {
         </h2>
         <div className="space-y-4 max-w-lg">
           <div>
-            <label className="text-sm text-gray-800 mb-1 block">
+            <label htmlFor="currentPasswordMain" className="text-sm text-gray-800 mb-1 block">
               Current Password
             </label>
             <div className="relative">
               <input
+                id="currentPasswordMain"
                 type={showPassword ? "text" : "password"}
                 name="current"
                 value={password.current}
@@ -364,10 +375,11 @@ const ProfileSettings = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="text-sm text-gray-800 mb-1 block">
+              <label htmlFor="newPassword" className="text-sm text-gray-800 mb-1 block">
                 New Password
               </label>
               <input
+                id="newPassword"
                 type={showPassword ? "text" : "password"}
                 name="new"
                 value={password.new}
@@ -378,10 +390,11 @@ const ProfileSettings = () => {
               />
             </div>
             <div>
-              <label className="text-sm text-gray-800 mb-1 block">
+              <label htmlFor="confirmPassword" className="text-sm text-gray-800 mb-1 block">
                 Confirm Password
               </label>
               <input
+                id="confirmPassword"
                 type={showPassword ? "text" : "password"}
                 name="confirm"
                 value={password.confirm}
@@ -541,10 +554,11 @@ const SystemSettings = () => {
       <div className="space-y-8">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="text-sm text-gray-800 mb-1 block">
+            <label htmlFor="currency" className="text-sm text-gray-800 mb-1 block">
               Default Currency
             </label>
             <input
+              id="currency"
               type="text"
               value={config.currency}
               readOnly
@@ -552,10 +566,11 @@ const SystemSettings = () => {
             />
           </div>
           <div>
-            <label className="text-sm text-gray-800 mb-1 block">
+            <label htmlFor="timeZone" className="text-sm text-gray-800 mb-1 block">
               Time Zone
             </label>
             <input
+              id="timeZone"
               type="text"
               value={config.timeZone}
               readOnly
@@ -563,10 +578,11 @@ const SystemSettings = () => {
             />
           </div>
           <div>
-            <label className="text-sm text-gray-800 mb-1 block">
+            <label htmlFor="dateFormat" className="text-sm text-gray-800 mb-1 block">
               Date Format
             </label>
             <input
+              id="dateFormat"
               type="text"
               value={config.dateFormat}
               readOnly
@@ -574,10 +590,11 @@ const SystemSettings = () => {
             />
           </div>
           <div>
-            <label className="text-sm text-gray-800 mb-1 block">
+            <label htmlFor="invoicePrefix" className="text-sm text-gray-800 mb-1 block">
               Invoice Prefix
             </label>
             <input
+              id="invoicePrefix"
               type="text"
               value={config.invoicePrefix}
               onChange={(e) =>
@@ -768,6 +785,7 @@ const SecuritySettings = () => {
             control={
               <div className="flex items-center gap-3">
                 <select
+                  aria-label="Session timeout duration"
                   value={localTimeoutMinutes}
                   onChange={(e) => handleTimeoutChange(Number(e.target.value))}
                   className="px-2 py-1 border border-gray-300 rounded text-sm"

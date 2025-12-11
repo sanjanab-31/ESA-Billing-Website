@@ -1350,4 +1350,8 @@ const exportDetailed = (invoices, customers, payments, stats) => {
   URL.revokeObjectURL(url);
 };
 
+ReportsAnalytics.propTypes = {
+  // Empty propTypes as it currently uses internal state/hooks
+};
+
 export default ReportsAnalytics;

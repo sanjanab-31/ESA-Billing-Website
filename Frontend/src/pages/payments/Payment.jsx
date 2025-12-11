@@ -114,10 +114,11 @@ const PaymentMethodModal = ({ isOpen, onClose, onConfirm }) => {
         {/* Transaction ID input */}
         {(method === "UPI" || method === "Bank Transfer") && (
           <div className="mt-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="transactionId" className="block text-sm font-medium text-gray-700 mb-1">
               Transaction ID
             </label>
             <input
+              id="transactionId"
               type="text"
               value={transactionId}
               onChange={(e) => setTransactionId(e.target.value)}
@@ -281,10 +282,11 @@ const EditPaymentModal = ({ isOpen, onClose, onSave, payment }) => {
         {/* Transaction ID input */}
         {(method === "UPI" || method === "Bank Transfer") && (
           <div className="mt-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="editTransactionId" className="block text-sm font-medium text-gray-700 mb-1">
               Transaction ID
             </label>
             <input
+              id="editTransactionId"
               type="text"
               value={transactionId}
               onChange={(e) => setTransactionId(e.target.value)}
@@ -409,8 +411,8 @@ const PendingPaymentCard = memo(({
   const isEditing = editingPaymentId === invoiceNo;
 
   // Calculate remaining amount more accurately
-  const currentPaidAmount = parseFloat(received || 0) || 0;
-  const invoiceAmount = parseFloat(amount || 0) || 0;
+  const currentPaidAmount = Number.parseFloat(received || 0) || 0;
+  const invoiceAmount = Number.parseFloat(amount || 0) || 0;
   const remainingAmount = invoiceAmount - currentPaidAmount;
 
   const iconBgColor =
@@ -658,7 +660,7 @@ const PaymentsPage = () => {
       );
 
       if (invoiceToUpdate) {
-        const invoiceAmount = parseFloat(invoiceToUpdate.total || invoiceToUpdate.amount || invoiceToUpdate.totalAmount) || 0;
+        const invoiceAmount = Number.parseFloat(invoiceToUpdate.total || invoiceToUpdate.amount || invoiceToUpdate.totalAmount) || 0;
 
         // Determine paid amount based on status
         let paidAmount;
@@ -666,7 +668,7 @@ const PaymentsPage = () => {
           paidAmount = invoiceAmount; // Full amount if paid
         } else if (updatedPayment.status === "Partial") {
           // Keep existing paid amount or calculate based on some logic
-          paidAmount = parseFloat(invoiceToUpdate.paidAmount || 0) || 0;
+          paidAmount = Number.parseFloat(invoiceToUpdate.paidAmount || 0) || 0;
         } else {
           paidAmount = 0; // No amount paid if unpaid
         }
@@ -704,7 +706,7 @@ const PaymentsPage = () => {
         (inv) => inv.invoiceNumber === paymentToMarkPaid
       );
       if (invoiceToUpdate) {
-        const invoiceAmount = parseFloat(invoiceToUpdate.total || invoiceToUpdate.amount || invoiceToUpdate.totalAmount) || 0;
+        const invoiceAmount = Number.parseFloat(invoiceToUpdate.total || invoiceToUpdate.amount || invoiceToUpdate.totalAmount) || 0;
 
         // Update invoice status to paid with full amount
         await invoiceService.updateInvoice(invoiceToUpdate.id, {
@@ -735,8 +737,8 @@ const PaymentsPage = () => {
   };
 
   const handleSavePayment = async (invoiceNo, paidAmountStr) => {
-    const paidAmount = parseFloat(paidAmountStr);
-    if (isNaN(paidAmount) || paidAmount <= 0) {
+    const paidAmount = Number.parseFloat(paidAmountStr);
+    if (Number.isNaN(paidAmount) || paidAmount <= 0) {
       alert("Please enter a valid amount.");
       return;
     }
@@ -754,8 +756,8 @@ const PaymentsPage = () => {
         return;
       }
 
-      const invoiceAmount = parseFloat(invoiceToUpdate.total || invoiceToUpdate.amount || invoiceToUpdate.totalAmount) || 0;
-      const currentPaidAmount = parseFloat(invoiceToUpdate.paidAmount || 0) || 0;
+      const invoiceAmount = Number.parseFloat(invoiceToUpdate.total || invoiceToUpdate.amount || invoiceToUpdate.totalAmount) || 0;
+      const currentPaidAmount = Number.parseFloat(invoiceToUpdate.paidAmount || 0) || 0;
       const newTotalPaidAmount = currentPaidAmount + paidAmount;
 
       // Determine new status based on payment amount

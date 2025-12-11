@@ -12,7 +12,7 @@ const load = (key, def) => {
 const save = (key, value) => {
   try {
     localStorage.setItem(key, JSON.stringify(value));
-  } catch {}
+  } catch { }
 };
 
 // Shared list view helper (filter/search/paginate basic)
@@ -29,7 +29,10 @@ const applyListView = (items, { search = "", page = 1, limit = 20, sortBy, sortD
       if (av === bv) return 0;
       if (av == null) return sortDirection === "asc" ? -1 : 1;
       if (bv == null) return sortDirection === "asc" ? 1 : -1;
-      return sortDirection === "asc" ? (av > bv ? 1 : -1) : (av < bv ? 1 : -1);
+      if (sortDirection === "asc") {
+        return av > bv ? 1 : -1;
+      }
+      return av < bv ? 1 : -1;
     });
   }
   const total = data.length;
@@ -55,7 +58,7 @@ const K = {
 // Dashboard (no DB). Keep minimal safe structure
 export const useDashboard = () => {
   const [stats] = useState({});
-  const refetch = useCallback(() => {}, []);
+  const refetch = useCallback(() => { }, []);
   return { stats, error: null, refetch };
 };
 

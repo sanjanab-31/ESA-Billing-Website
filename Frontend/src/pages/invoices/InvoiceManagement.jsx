@@ -405,8 +405,8 @@ const InvoicePreview = ({
       }
 
       // Download the PDF
-      const fileName = `Invoice_${previewData.invoiceNumber.replace(
-        /\//g,
+      const fileName = `Invoice_${previewData.invoiceNumber.replaceAll(
+        "/",
         "_"
       )}.pdf`;
       pdf.save(fileName);
@@ -909,7 +909,7 @@ const CreateInvoiceComponent = ({
                             updateItem(
                               item.id,
                               "quantity",
-                              parseFloat(e.target.value) || 0
+                              Number.parseFloat(e.target.value) || 0
                             )
                           }
                           className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -925,7 +925,7 @@ const CreateInvoiceComponent = ({
                             updateItem(
                               item.id,
                               "rate",
-                              parseFloat(e.target.value) || 0
+                              Number.parseFloat(e.target.value) || 0
                             )
                           }
                           className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -978,16 +978,17 @@ const CreateInvoiceComponent = ({
             </h3>
             <div className="grid grid-cols-3 gap-4 mb-4">
               <div>
-                <label className="block mb-1 text-sm text-gray-700">
+                <label htmlFor="cgstInput" className="block mb-1 text-sm text-gray-700">
                   CGST (%)
                 </label>
                 <input
+                  id="cgstInput"
                   type="number"
                   value={invoiceData.cgst}
                   onChange={(e) =>
                     setInvoiceData((prev) => ({
                       ...prev,
-                      cgst: parseFloat(e.target.value) || 0,
+                      cgst: Number.parseFloat(e.target.value) || 0,
                     }))
                   }
                   className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -996,16 +997,17 @@ const CreateInvoiceComponent = ({
                 />
               </div>
               <div>
-                <label className="block mb-1 text-sm text-gray-700">
+                <label htmlFor="sgstInput" className="block mb-1 text-sm text-gray-700">
                   SGST (%)
                 </label>
                 <input
+                  id="sgstInput"
                   type="number"
                   value={invoiceData.sgst}
                   onChange={(e) =>
                     setInvoiceData((prev) => ({
                       ...prev,
-                      sgst: parseFloat(e.target.value) || 0,
+                      sgst: Number.parseFloat(e.target.value) || 0,
                     }))
                   }
                   className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -1014,16 +1016,17 @@ const CreateInvoiceComponent = ({
                 />
               </div>
               <div>
-                <label className="block mb-1 text-sm text-gray-700">
+                <label htmlFor="igstInput" className="block mb-1 text-sm text-gray-700">
                   IGST (%)
                 </label>
                 <input
+                  id="igstInput"
                   type="number"
                   value={invoiceData.igst}
                   onChange={(e) =>
                     setInvoiceData((prev) => ({
                       ...prev,
-                      igst: parseFloat(e.target.value) || 0,
+                      igst: Number.parseFloat(e.target.value) || 0,
                     }))
                   }
                   className="w-full px-3 py-2 text-sm bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -1274,13 +1277,13 @@ const InvoiceManagementComponent = ({
             <table className="w-full min-w-[800px]">
               <thead className="text-xs font-semibold text-gray-500 uppercase bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left">Invoice No</th>
-                  <th className="px-6 py-3 text-left">Date</th>
-                  <th className="px-6 py-3 text-left">Client</th>
-                  <th className="px-6 py-3 text-left">Amount</th>
-                  <th className="px-6 py-3 text-left">Due Date</th>
-                  <th className="px-6 py-3 text-left">Status</th>
-                  <th className="px-6 py-3 text-left">Actions</th>
+                  <th scope="col" className="px-6 py-3 text-left">Invoice No</th>
+                  <th scope="col" className="px-6 py-3 text-left">Date</th>
+                  <th scope="col" className="px-6 py-3 text-left">Client</th>
+                  <th scope="col" className="px-6 py-3 text-left">Amount</th>
+                  <th scope="col" className="px-6 py-3 text-left">Due Date</th>
+                  <th scope="col" className="px-6 py-3 text-left">Status</th>
+                  <th scope="col" className="px-6 py-3 text-left">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
@@ -1509,7 +1512,7 @@ const InvoiceManagementSystem = () => {
     }
 
     const maxNumber = invoicesInCurrentYear.reduce((max, invoice) => {
-      const num = parseInt(invoice.invoiceNumber.split("/")[0], 10);
+      const num = Number.parseInt(invoice.invoiceNumber.split("/")[0], 10);
       return Math.max(num, max);
     }, 0);
 
@@ -1635,8 +1638,8 @@ const InvoiceManagementSystem = () => {
           const updatedItem = { ...item, [field]: value };
           if (field === "quantity" || field === "rate") {
             updatedItem.amount =
-              (parseFloat(updatedItem.quantity) || 0) *
-              (parseFloat(updatedItem.rate) || 0);
+              (Number.parseFloat(updatedItem.quantity) || 0) *
+              (Number.parseFloat(updatedItem.rate) || 0);
           }
           return updatedItem;
         }
@@ -1864,8 +1867,8 @@ const InvoiceManagementSystem = () => {
       }
 
       // Download the PDF
-      const fileName = `Invoice_${invoiceData.invoiceNumber.replace(
-        /\//g,
+      const fileName = `Invoice_${invoiceData.invoiceNumber.replaceAll(
+        "/",
         "_"
       )}.pdf`;
       pdf.save(fileName);
@@ -2073,7 +2076,7 @@ const InvoiceManagementSystem = () => {
               `
         )
         .join("")}
-                  ${Array(Math.max(0, 12 - invoice.items.length))
+                  ${new Array(Math.max(0, 12 - invoice.items.length))
         .fill(
           '<tr><td style="border-right: 1px solid black; border-bottom: none;">&nbsp;</td><td style="border-right: 1px solid black; border-bottom: none;"></td><td style="border-right: 1px solid black; border-bottom: none;"></td><td style="border-right: 1px solid black; border-bottom: none;"></td><td style="border-right: 1px solid black; border-bottom: none;"></td><td style="border-bottom: none;"></td></tr>'
         )

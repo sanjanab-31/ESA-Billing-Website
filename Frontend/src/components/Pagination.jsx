@@ -1,5 +1,6 @@
 import React from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import PropTypes from 'prop-types';
 
 const Pagination = ({
     currentPage,
@@ -56,6 +57,17 @@ const Pagination = ({
             </div>
         </div>
     );
+};
+
+Pagination.propTypes = {
+    currentPage: PropTypes.number.isRequired,
+    totalPages: PropTypes.number.isRequired,
+    onPageChange: PropTypes.func.isRequired,
+    itemsPerPage: PropTypes.number.isRequired,
+    onItemsPerPageChange: PropTypes.func.isRequired,
+    totalItems: PropTypes.number.isRequired,
+    startIndex: PropTypes.number.isRequired,
+    endIndex: PropTypes.number.isRequired,
 };
 
 export default Pagination;
