@@ -997,8 +997,7 @@ const ReportsAnalytics = () => {
   // New state for the new charts
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+
   const [revenueYear, setRevenueYear] = useState(new Date().getFullYear());
   const [globalError, setGlobalError] = useState(""); // For main page errors like summary export failure
 
