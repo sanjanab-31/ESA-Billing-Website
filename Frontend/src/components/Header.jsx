@@ -93,12 +93,7 @@ export default function Header() {
                     ? user.displayName.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2)
                     : user.email?.charAt(0).toUpperCase() || 'U'}
                 </div>
-                <div className="hidden text-left lg:block max-w-[180px]">
-                  <p className="text-sm font-medium text-gray-900 truncate">
-                    {user.displayName || user.email?.split('@')[0] || 'User'}
-                  </p>
-                  <p className="text-xs text-gray-500 truncate">{user.email}</p>
-                </div>
+
               </div>
             </button>
 
