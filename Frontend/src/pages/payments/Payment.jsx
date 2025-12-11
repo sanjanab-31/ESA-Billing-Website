@@ -328,6 +328,25 @@ const StatCard = ({ title, amount, subtitle, icon: Icon, iconBgColor }) => (
   </div>
 );
 
+const StatusBadge = ({ status, overdueDays }) => {
+  const styles = {
+    Paid: "bg-green-100 text-green-700",
+    Unpaid: "bg-yellow-100 text-yellow-700",
+    Overdue: "bg-red-100 text-red-700",
+    Partial: "bg-purple-100 text-purple-700"
+  };
+
+  const className = `text-xs font-medium px-2.5 py-1 rounded-full ${styles[status] || ""}`;
+
+  if (!styles[status]) return null;
+
+  return (
+    <span className={className}>
+      {status} {status === "Overdue" ? `(${overdueDays}d)` : ""}
+    </span>
+  );
+};
+
 // PERFORMANCE: Memoized PaymentRow to prevent unnecessary re-renders
 const PaymentRow = memo(({
   invoiceNo,
@@ -339,37 +358,6 @@ const PaymentRow = memo(({
   overdueDays,
   onEdit,
 }) => {
-  const getStatusBadge = () => {
-    switch (status) {
-      case "Paid":
-        return (
-          <span className="bg-green-100 text-green-700 text-xs font-medium px-2.5 py-1 rounded-full">
-            Paid
-          </span>
-        );
-      case "Unpaid":
-        return (
-          <span className="bg-yellow-100 text-yellow-700 text-xs font-medium px-2.5 py-1 rounded-full">
-            Unpaid
-          </span>
-        );
-      case "Overdue":
-        return (
-          <span className="bg-red-100 text-red-700 text-xs font-medium px-2.5 py-1 rounded-full">
-            Overdue ({overdueDays}d)
-          </span>
-        );
-      case "Partial":
-        return (
-          <span className="bg-purple-100 text-purple-700 text-xs font-medium px-2.5 py-1 rounded-full">
-            Partial
-          </span>
-        );
-      default:
-        return null;
-    }
-  };
-
   const isOverdue = status === "Overdue";
 
   return (
@@ -390,7 +378,9 @@ const PaymentRow = memo(({
       >
         {dueDate}
       </td>
-      <td className="py-3 px-4">{getStatusBadge()}</td>
+      <td className="py-3 px-4">
+        <StatusBadge status={status} overdueDays={overdueDays} />
+      </td>
       <td className="py-3 px-4">
         <button
           onClick={() => onEdit({ invoiceNo, client, amount, received, dueDate, status, overdueDays })}

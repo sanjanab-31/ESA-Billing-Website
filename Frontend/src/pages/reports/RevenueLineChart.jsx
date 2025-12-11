@@ -12,8 +12,11 @@ import {
   IndianRupee,
   X,
   Search,
+  Calendar,
+  Filter,
 } from "lucide-react";
 import { ResponsivePie } from "@nivo/pie";
+
 import {
   useDashboard,
   useInvoices,
@@ -28,450 +31,7 @@ import { generateInvoiceHTML } from "../../utils/invoiceGenerator";
 
 
 
-// Dynamic line chart component using real data
-const RevenueLineChart = ({ invoices = [] }) => {
-  // Generate last 6 months data
-  const generateMonthlyData = () => {
-    const months = [];
-    const currentDate = new Date();
 
-    for (let i = 5; i >= 0; i--) {
-      const date = new Date(
-        currentDate.getFullYear(),
-        currentDate.getMonth() - i,
-        1
-      );
-      const monthName = date.toLocaleDateString("en-US", { month: "short" });
-
-      // Calculate revenue for this month
-      const monthStart = new Date(date.getFullYear(), date.getMonth(), 1);
-      const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0);
-
-      const monthRevenue = invoices
-        .filter((inv) => {
-          const invDate = new Date(
-            inv.invoiceDate || inv.createdAt?.toDate?.() || inv.createdAt
-          );
-          return (
-            invDate >= monthStart &&
-            invDate <= monthEnd &&
-            (inv.status === "paid" || inv.status === "Paid")
-          );
-        })
-        .reduce((sum, inv) => sum + (inv.total || inv.amount || 0), 0);
-
-      const monthCount = invoices.filter((inv) => {
-        const invDate = new Date(
-          inv.invoiceDate || inv.createdAt?.toDate?.() || inv.createdAt
-        );
-        return invDate >= monthStart && invDate <= monthEnd;
-      }).length;
-
-      months.push({
-        month: monthName,
-        revenue: monthRevenue,
-        invoices: monthCount,
-      });
-    }
-
-    return months;
-  };
-
-  const data = generateMonthlyData();
-
-  // Format data for Nivo
-  const nivoData = [
-    {
-      id: "Revenue",
-      color: "#3b82f6",
-      data: data.map(d => ({ x: d.month, y: d.revenue }))
-    }
-  ];
-
-  return (
-    <ResponsiveLine
-      data={nivoData}
-      margin={{ top: 20, right: 20, bottom: 50, left: 60 }}
-      xScale={{ type: 'point' }}
-      yScale={{
-        type: 'linear',
-        min: 'auto',
-        max: 'auto',
-        stacked: false,
-        reverse: false
-      }}
-      yFormat=" >-,.0f"
-      curve="monotoneX"
-      axisTop={null}
-      axisRight={null}
-      axisBottom={{
-        tickSize: 5,
-        tickPadding: 5,
-        tickRotation: 0,
-        legend: 'Month',
-        legendOffset: 36,
-        legendPosition: 'middle'
-      }}
-      axisLeft={{
-        tickSize: 5,
-        tickPadding: 5,
-        tickRotation: 0,
-        legend: 'Revenue (₹)',
-        legendOffset: -50,
-        legendPosition: 'middle',
-        format: value => `₹${(value / 1000).toFixed(0)}k`
-      }}
-      enableGridX={false}
-      colors={{ datum: 'color' }}
-      lineWidth={3}
-      pointSize={8}
-      pointColor={{ theme: 'background' }}
-      pointBorderWidth={2}
-      pointBorderColor={{ from: 'serieColor' }}
-      pointLabelYOffset={-12}
-      enableArea={true}
-      areaOpacity={0.1}
-      useMesh={true}
-      legends={[]}
-      theme={{
-        axis: {
-          ticks: {
-            text: {
-              fontSize: 11,
-              fill: '#64748b'
-            }
-          },
-          legend: {
-            text: {
-              fontSize: 12,
-              fill: '#475569',
-              fontWeight: 600
-            }
-          }
-        },
-        grid: {
-          line: {
-            stroke: '#e2e8f0',
-            strokeWidth: 1
-          }
-        }
-      }}
-      tooltip={({ point }) => (
-        <div className="bg-white px-3 py-2 rounded-lg shadow-lg border border-gray-200">
-          <div className="text-sm font-semibold text-gray-900">
-            {point.data.x}
-          </div>
-          <div className="text-sm text-gray-600">
-            Revenue: <span className="font-bold text-blue-600">₹{point.data.y.toLocaleString('en-IN')}</span>
-          </div>
-        </div>
-      )}
-    />
-  );
-};
-
-// Top 6 Clients Bar Chart Component
-const TopClientsBarChart = ({ invoices = [], customers = [], selectedMonth, selectedYear }) => {
-  // Generate data for top 6 clients by payment amount in selected month
-  const generateClientData = () => {
-    if (!invoices || !customers) return [];
-
-    const monthStart = new Date(selectedYear, selectedMonth, 1);
-    const monthEnd = new Date(selectedYear, selectedMonth + 1, 0);
-
-    // Filter invoices for the selected month and paid status
-    const monthInvoices = invoices.filter((inv) => {
-      const invDate = new Date(inv.invoiceDate || inv.createdAt?.toDate?.() || inv.createdAt);
-      return (
-        invDate >= monthStart &&
-        invDate <= monthEnd &&
-        (inv.status === "paid" || inv.status === "Paid")
-      );
-    });
-
-    // Group invoices by client and calculate total payment
-    const clientPayments = {};
-    monthInvoices.forEach((inv) => {
-      const clientId = inv.clientId || inv.client?.id;
-      const clientName = inv.client?.name || "Unknown Client";
-      const amount = inv.total || inv.amount || 0;
-
-      if (clientId) {
-        if (!clientPayments[clientId]) {
-          clientPayments[clientId] = {
-            name: clientName,
-            total: 0,
-            count: 0
-          };
-        }
-        clientPayments[clientId].total += amount;
-        clientPayments[clientId].count += 1;
-      }
-    });
-
-    // Convert to array and sort by total payment
-    const clientData = Object.values(clientPayments)
-      .sort((a, b) => b.total - a.total)
-      .slice(0, 6); // Top 6 clients
-
-    return clientData;
-  };
-
-  const data = generateClientData();
-
-  // Format data for Nivo
-  const nivoData = data.map(client => ({
-    client: client.name.length > 12 ? client.name.substring(0, 12) + '...' : client.name,
-    revenue: client.total,
-    count: client.count
-  }));
-
-  return (
-    <ResponsiveBar
-      data={nivoData}
-      keys={['revenue']}
-      indexBy="client"
-      margin={{ top: 20, right: 20, bottom: 60, left: 70 }}
-      padding={0.3}
-      valueScale={{ type: 'linear' }}
-      indexScale={{ type: 'band', round: true }}
-      colors={['#3b82f6']}
-      borderRadius={6}
-      borderColor={{
-        from: 'color',
-        modifiers: [['darker', 1.6]]
-      }}
-      axisTop={null}
-      axisRight={null}
-      axisBottom={{
-        tickSize: 5,
-        tickPadding: 5,
-        tickRotation: -20,
-        legend: 'Client',
-        legendPosition: 'middle',
-        legendOffset: 50
-      }}
-      axisLeft={{
-        tickSize: 5,
-        tickPadding: 5,
-        tickRotation: 0,
-        legend: 'Revenue (₹)',
-        legendPosition: 'middle',
-        legendOffset: -60,
-        format: value => `₹${(value / 1000).toFixed(0)}k`
-      }}
-      enableLabel={true}
-      label={d => `₹${(d.value / 1000).toFixed(0)}k`}
-      labelSkipWidth={12}
-      labelSkipHeight={12}
-      labelTextColor={{
-        from: 'color',
-        modifiers: [['darker', 2]]
-      }}
-      legends={[]}
-      role="application"
-      ariaLabel="Top clients bar chart"
-      theme={{
-        axis: {
-          ticks: {
-            text: {
-              fontSize: 11,
-              fill: '#64748b'
-            }
-          },
-          legend: {
-            text: {
-              fontSize: 12,
-              fill: '#475569',
-              fontWeight: 600
-            }
-          }
-        },
-        grid: {
-          line: {
-            stroke: '#e2e8f0',
-            strokeWidth: 1
-          }
-        },
-        labels: {
-          text: {
-            fontSize: 11,
-            fontWeight: 600
-          }
-        }
-      }}
-      tooltip={({ id, value, indexValue, data }) => (
-        <div className="bg-white px-3 py-2 rounded-lg shadow-lg border border-gray-200">
-          <div className="text-sm font-semibold text-gray-900">
-            {indexValue}
-          </div>
-          <div className="text-sm text-gray-600">
-            Revenue: <span className="font-bold text-blue-600">₹{value.toLocaleString('en-IN')}</span>
-          </div>
-          <div className="text-xs text-gray-500">
-            {data.count} invoice{data.count !== 1 ? 's' : ''}
-          </div>
-        </div>
-      )}
-      motionConfig="gentle"
-      animate={true}
-    />
-  );
-};
-
-// Month-wise Revenue Line Chart Component
-const MonthlyRevenueLineChart = ({ invoices = [], selectedYear }) => {
-  // Generate data for all 12 months of the selected year
-  const generateMonthlyData = () => {
-    const months = [];
-    const monthNames = [
-      "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-      "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
-    ];
-
-    for (let i = 0; i < 12; i++) {
-      const monthStart = new Date(selectedYear, i, 1);
-      const monthEnd = new Date(selectedYear, i + 1, 0);
-
-      const monthRevenue = invoices
-        .filter((inv) => {
-          const invDate = new Date(inv.invoiceDate || inv.createdAt?.toDate?.() || inv.createdAt);
-          return (
-            invDate >= monthStart &&
-            invDate <= monthEnd &&
-            (inv.status === "paid" || inv.status === "Paid")
-          );
-        })
-        .reduce((sum, inv) => sum + (inv.total || inv.amount || 0), 0);
-
-      months.push({
-        name: monthNames[i],
-        revenue: monthRevenue,
-        count: invoices.filter((inv) => {
-          const invDate = new Date(inv.invoiceDate || inv.createdAt?.toDate?.() || inv.createdAt);
-          return invDate >= monthStart && invDate <= monthEnd;
-        }).length,
-      });
-    }
-
-    return months;
-  };
-
-  const data = generateMonthlyData();
-  const maxRevenue = Math.max(...data.map((d) => d.revenue), 1);
-
-  const getYPosition = (value) => {
-    return 175 - (value / maxRevenue) * 150;
-  };
-
-  const getXPosition = (index) => {
-    return 50 + index * 28;
-  };
-
-  // Generate path for revenue line
-  const revenuePath = data
-    .map((item, index) => {
-      const x = getXPosition(index);
-      const y = getYPosition(item.revenue);
-      return `${index === 0 ? "M" : "L"} ${x} ${y}`;
-    })
-    .join(" ");
-
-  return (
-    <div className="w-full h-full flex items-end">
-      <svg
-        width="100%"
-        height="100%"
-        viewBox="0 0 400 200"
-        preserveAspectRatio="none"
-      >
-        {/* Dashed Grid Lines */}
-        {[25, 50, 75, 100, 125, 150, 175].map((y) => (
-          <line
-            key={y}
-            x1="40"
-            y1={y}
-            x2="380"
-            y2={y}
-            stroke="#E2E8F0"
-            strokeWidth="1"
-            strokeDasharray="4 4"
-          />
-        ))}
-
-        {/* Y-Axis Labels */}
-        <text x="35" y="15" fill="#64748B" fontSize="10" textAnchor="end">
-          ₹{(maxRevenue / 1000).toFixed(0)}k
-        </text>
-        <text x="35" y="40" fill="#64748B" fontSize="10" textAnchor="end">
-          ₹{((maxRevenue * 0.8) / 1000).toFixed(0)}k
-        </text>
-        <text x="35" y="65" fill="#64748B" fontSize="10" textAnchor="end">
-          ₹{((maxRevenue * 0.6) / 1000).toFixed(0)}k
-        </text>
-        <text x="35" y="90" fill="#64748B" fontSize="10" textAnchor="end">
-          ₹{((maxRevenue * 0.4) / 1000).toFixed(0)}k
-        </text>
-        <text x="35" y="115" fill="#64748B" fontSize="10" textAnchor="end">
-          ₹{((maxRevenue * 0.2) / 1000).toFixed(0)}k
-        </text>
-        <text x="35" y="140" fill="#64748B" fontSize="10" textAnchor="end">
-          ₹0k
-        </text>
-
-        {/* X-Axis Labels */}
-        {data.map((item, index) => (
-          <text
-            key={index}
-            x={getXPosition(index)}
-            y="195"
-            fill="#64748B"
-            fontSize="9"
-            textAnchor="middle"
-          >
-            {item.name}
-          </text>
-        ))}
-
-        {/* Gradient for Area Chart */}
-        <defs>
-          <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#3B82F6" stopOpacity={0.3} />
-            <stop offset="100%" stopColor="#3B82F6" stopOpacity={0} />
-          </linearGradient>
-        </defs>
-
-        {/* Revenue Line */}
-        <path d={revenuePath} stroke="#3B82F6" strokeWidth="3" fill="none" />
-
-        {/* Data Points */}
-        {data.map((item, index) => (
-          <g key={index}>
-            <circle
-              cx={getXPosition(index)}
-              cy={getYPosition(item.revenue)}
-              r="4"
-              fill="#3B82F6"
-              stroke="white"
-              strokeWidth="2"
-            />
-            {/* Value label on hover area */}
-            <text
-              x={getXPosition(index)}
-              y={getYPosition(item.revenue) - 10}
-              fill="#374151"
-              fontSize="8"
-              textAnchor="middle"
-              fontWeight="bold"
-            >
-              ₹{(item.revenue / 1000).toFixed(0)}k
-            </text>
-          </g>
-        ))}
-      </svg>
-    </div>
-  );
-};
 
 // Donut chart component for GST Distribution
 const DonutChart = ({ cgst, sgst, igst }) => {
@@ -520,8 +80,8 @@ const DonutChart = ({ cgst, sgst, igst }) => {
 
 // Component for the GST Summary tab content using real data
 const GSTSummary = ({ invoices = [], getDynamicInvoiceStatus }) => {
-  // Calculate GST totals from invoices
-  const calculateGST = () => {
+  // Helper to calculate GST totals
+  const calculateGST = (invoices, getDynamicInvoiceStatus) => {
     const paidInvoices = invoices.filter((inv) => getDynamicInvoiceStatus(inv) === "Paid");
 
     let totalCGST = 0;
@@ -556,7 +116,7 @@ const GSTSummary = ({ invoices = [], getDynamicInvoiceStatus }) => {
     };
   };
 
-  const gstData = calculateGST();
+  const gstData = calculateGST(invoices, getDynamicInvoiceStatus);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -855,7 +415,7 @@ const PDFExportModal = ({ isOpen, onClose, invoices, customers, payments, stats,
                   placeholder="Search clients..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 bg-gray-100 border-0 rounded-lg text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full pl-10 pr-4 py-2 bg-gray-100 border-0 rounded-lg text-sm placeholder-gray-500 focus:outline-none focus:ring-0 focus:border-blue-500 border-transparent transition-all"
                 />
               </div>
               <div className="max-h-60 overflow-y-auto space-y-2">
@@ -912,7 +472,7 @@ const PDFExportModal = ({ isOpen, onClose, invoices, customers, payments, stats,
                   <select
                     value={selectedMonth}
                     onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
-                    className="w-full px-3 py-2 bg-gray-100 border-0 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-gray-100 border-0 rounded-lg text-sm focus:outline-none focus:ring-0 focus:border-blue-500 border-transparent transition-all"
                   >
                     {months.map((m, i) => (
                       <option key={i} value={i}>{m}</option>
@@ -931,7 +491,7 @@ const PDFExportModal = ({ isOpen, onClose, invoices, customers, payments, stats,
                 <select
                   value={selectedYear}
                   onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                  className="w-full px-3 py-2 bg-gray-100 border-0 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 bg-gray-100 border-0 rounded-lg text-sm focus:outline-none focus:ring-0 focus:border-blue-500 border-transparent transition-all"
                 >
                   {years.map(y => (
                     <option key={y} value={y}>
@@ -987,9 +547,10 @@ const PDFExportModal = ({ isOpen, onClose, invoices, customers, payments, stats,
 
 const ReportsAnalytics = () => {
   const [activeTab, setActiveTab] = useState("Overview");
-  const [reportType, setReportType] = useState("Monthly Report");
   const currentYear = new Date().getFullYear();
-  const [timePeriod, setTimePeriod] = useState("This Month");
+  // Default to Yearly Report for the current financial year
+  const [reportType, setReportType] = useState("Yearly Report");
+  const [timePeriod, setTimePeriod] = useState(currentYear.toString());
   const [showFromCalendar, setShowFromCalendar] = useState(false);
   const [showToCalendar, setShowToCalendar] = useState(false);
   const [fromDate, setFromDate] = useState("");
@@ -1005,7 +566,9 @@ const ReportsAnalytics = () => {
   const [showPDFModal, setShowPDFModal] = useState(false);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [showExportDropdown, setShowExportDropdown] = useState(false);
+  const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const exportDropdownRef = useRef(null);
+  const filterDropdownRef = useRef(null);
 
   // Get authentication context
   const { user } = useContext(AuthContext);
@@ -1022,22 +585,25 @@ const ReportsAnalytics = () => {
     "July", "August", "September", "October", "November", "December"
   ];
 
-  // Close export dropdown when clicking outside
+  // Close export dropdown and filter dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (exportDropdownRef.current && !exportDropdownRef.current.contains(event.target)) {
         setShowExportDropdown(false);
       }
+      if (filterDropdownRef.current && !filterDropdownRef.current.contains(event.target)) {
+        setShowFilterDropdown(false);
+      }
     };
 
-    if (showExportDropdown) {
+    if (showExportDropdown || showFilterDropdown) {
       document.addEventListener('mousedown', handleClickOutside);
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [showExportDropdown]);
+  }, [showExportDropdown, showFilterDropdown]);
 
 
   // Filter invoices based on selected time period
@@ -1065,11 +631,11 @@ const ReportsAnalytics = () => {
         }
         break;
       default:
-        // Yearly report
+        // Yearly report (Financial Year: April 1st to March 31st of next year)
         const year = parseInt(timePeriod);
         if (!isNaN(year)) {
-          startDate = new Date(year, 0, 1);
-          endDate = new Date(year, 11, 31);
+          startDate = new Date(year, 3, 1); // April 1st of selected year
+          endDate = new Date(year + 1, 2, 31); // March 31st of next year
         } else {
           return invoices;
         }
@@ -1099,37 +665,7 @@ const ReportsAnalytics = () => {
     return "Unpaid";
   };
 
-  // Calculate real-time stats from filtered invoices
-  const calculateRealTimeStats = () => {
-    const paidInvoices = filteredInvoices.filter(inv => getDynamicInvoiceStatus(inv) === "Paid");
-    const unpaidInvoices = filteredInvoices.filter(inv => getDynamicInvoiceStatus(inv) === "Unpaid");
-    const overdueInvoices = filteredInvoices.filter(inv => getDynamicInvoiceStatus(inv) === "Overdue");
-
-    const totalRevenue = paidInvoices.reduce((sum, inv) => {
-      return sum + (inv.total || inv.amount || 0);
-    }, 0);
-
-    const totalInvoices = filteredInvoices.length;
-    const paidCount = paidInvoices.length;
-    const unpaidCount = unpaidInvoices.length;
-    const overdueCount = overdueInvoices.length;
-
-    return {
-      totalRevenue,
-      totalInvoices,
-      paidCount,
-      unpaidCount,
-      overdueCount,
-      paidInvoices,
-      unpaidInvoices,
-      overdueInvoices
-    };
-  };
-
-  const realTimeStats = calculateRealTimeStats();
-
-
-
+  const realTimeStats = useRealTimeStats(filteredInvoices, getDynamicInvoiceStatus);
   const handleReportTypeChange = (e) => {
     const newReportType = e.target.value;
     setReportType(newReportType);
@@ -1254,6 +790,8 @@ const ReportsAnalytics = () => {
           </div>
         </div>
 
+
+
         {/* GST Summary */}
         <GSTSummary invoices={filteredInvoices} getDynamicInvoiceStatus={getDynamicInvoiceStatus} />
       </>
@@ -1274,59 +812,150 @@ const ReportsAnalytics = () => {
             </p>
           </div>
 
-          {/* Export Dropdown */}
-          <div className="relative mt-3 sm:mt-0" ref={exportDropdownRef}>
-            <button
-              onClick={() => setShowExportDropdown(!showExportDropdown)}
-              className="bg-blue-600 text-white flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
-            >
-              <FileText className="w-4 h-4" />
-              Export Report
-              <ChevronDown className={`w-4 h-4 transition-transform ${showExportDropdown ? 'rotate-180' : ''}`} />
-            </button>
+          <div className="flex flex-wrap items-center gap-3 mt-3 sm:mt-0">
+            {/* Filter Dropdown */}
+            <div className="relative" ref={filterDropdownRef}>
+              <button
+                onClick={() => setShowFilterDropdown(!showFilterDropdown)}
+                className="bg-white border border-gray-200 text-gray-700 flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 transition-all shadow-sm hover:shadow active:scale-95"
+              >
+                <Filter className="w-4 h-4" />
+                Filter
+                <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${showFilterDropdown ? 'rotate-180' : ''}`} />
+              </button>
 
-            {showExportDropdown && (
-              <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-xl border border-gray-200 z-50">
-                <div className="p-2">
-                  <button
-                    onClick={() => {
-                      setShowPDFModal(true);
-                      setShowExportDropdown(false);
-                      setErrorMessage(""); // Clear any previous error
-                    }}
-                    className="w-full flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors text-left"
-                  >
-                    <div className="p-2 bg-blue-50 rounded-lg">
-                      <Printer className="w-5 h-5 text-blue-600" />
+              {showFilterDropdown && (
+                <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-xl border border-gray-200 z-50 animate-fade-in-up p-4">
+                  <div className="space-y-4">
+                    {/* Report Type */}
+                    <div>
+                      <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 block">
+                        Report Type
+                      </label>
+                      <div className="relative">
+                        <FileText className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <select
+                          value={reportType}
+                          onChange={handleReportTypeChange}
+                          className="w-full pl-9 pr-8 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700 focus:outline-none focus:border-blue-500 focus:bg-white transition-all appearance-none cursor-pointer"
+                        >
+                          <option>Monthly Report</option>
+                          <option>Yearly Report</option>
+                          <option>Custom Report</option>
+                        </select>
+                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                      </div>
                     </div>
-                    <div className="flex-1">
-                      <div className="text-sm font-semibold text-gray-900">PDF Report</div>
-                      <div className="text-xs text-gray-500 mt-0.5">Detailed invoice report</div>
-                    </div>
-                  </button>
 
-                  <button
-                    onClick={() => {
-                      const result = exportSummaryReport(invoices, customers);
-                      if (!result.success) {
-                        setGlobalError(result.message);
-                        setTimeout(() => setGlobalError(""), 3000);
-                      }
-                      setShowExportDropdown(false);
-                    }}
-                    className="w-full flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors text-left"
-                  >
-                    <div className="p-2 bg-green-50 rounded-lg">
-                      <FileText className="w-5 h-5 text-green-600" />
+                    {/* Time Period */}
+                    <div>
+                      <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 block">
+                        Time Period
+                      </label>
+                      <div className="relative">
+                        <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <select
+                          value={timePeriod}
+                          onChange={(e) => setTimePeriod(e.target.value)}
+                          className="w-full pl-9 pr-8 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700 focus:outline-none focus:border-blue-500 focus:bg-white transition-all appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                          disabled={reportType === "Custom Report"}
+                        >
+                          {reportType === "Monthly Report" && (
+                            <>
+                              <option>This Month</option>
+                              <option>Last Month</option>
+                            </>
+                          )}
+                          {reportType === "Yearly Report" &&
+                            years.map((year) => <option key={year} value={year}>{`${year}-${(year + 1).toString().slice(-2)}`}</option>)}
+                          {reportType === "Custom Report" && <option>Custom</option>}
+                        </select>
+                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                      </div>
                     </div>
-                    <div className="flex-1">
-                      <div className="text-sm font-semibold text-gray-900">Summary Report</div>
-                      <div className="text-xs text-gray-500 mt-0.5">Yearly & Monthly Overview</div>
-                    </div>
-                  </button>
+
+                    {/* Custom Date Inputs */}
+                    {reportType === "Custom Report" && (
+                      <div className="pt-2 border-t border-gray-100 space-y-3">
+                        <div>
+                          <label className="text-xs font-medium text-gray-700 mb-1 block">From</label>
+                          <input
+                            value={fromDate}
+                            onChange={(e) => setFromDate(e.target.value)}
+                            type="date"
+                            className="w-full bg-gray-50 border border-gray-200 rounded-lg text-sm px-3 py-2 focus:outline-none focus:border-blue-500 focus:bg-white transition-all"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium text-gray-700 mb-1 block">To</label>
+                          <input
+                            value={toDate}
+                            onChange={(e) => setToDate(e.target.value)}
+                            type="date"
+                            className="w-full bg-gray-50 border border-gray-200 rounded-lg text-sm px-3 py-2 focus:outline-none focus:border-blue-500 focus:bg-white transition-all"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
+
+            {/* Export Dropdown */}
+            <div className="relative" ref={exportDropdownRef}>
+              <button
+                onClick={() => setShowExportDropdown(!showExportDropdown)}
+                className="bg-blue-600 text-white flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-all shadow-sm hover:shadow active:scale-95"
+              >
+                <FileText className="w-4 h-4" />
+                Export Report
+                <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${showExportDropdown ? 'rotate-180' : ''}`} />
+              </button>
+
+              {showExportDropdown && (
+                <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-xl border border-gray-200 z-50 animate-fade-in-up">
+                  <div className="p-2">
+                    <button
+                      onClick={() => {
+                        setShowPDFModal(true);
+                        setShowExportDropdown(false);
+                        setErrorMessage(""); // Clear any previous error
+                      }}
+                      className="w-full flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors text-left"
+                    >
+                      <div className="p-2 bg-blue-50 rounded-lg">
+                        <Printer className="w-5 h-5 text-blue-600" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="text-sm font-semibold text-gray-900">PDF Report</div>
+                        <div className="text-xs text-gray-500 mt-0.5">Detailed invoice report</div>
+                      </div>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        const result = exportSummaryReport(invoices, customers);
+                        if (!result.success) {
+                          setGlobalError(result.message);
+                          setTimeout(() => setGlobalError(""), 3000);
+                        }
+                        setShowExportDropdown(false);
+                      }}
+                      className="w-full flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors text-left"
+                    >
+                      <div className="p-2 bg-green-50 rounded-lg">
+                        <FileText className="w-5 h-5 text-green-600" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="text-sm font-semibold text-gray-900">Summary Report</div>
+                        <div className="text-xs text-gray-500 mt-0.5">Yearly & Monthly Overview</div>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </header>
 
@@ -1344,97 +973,7 @@ const ReportsAnalytics = () => {
 
         {/* Main Content */}
         <main className="mt-6 flex flex-col gap-6">
-          {/* Filters */}
-          <div className="bg-white p-3 lg:p-4 rounded-lg border border-gray-200 shadow-sm">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-4 items-end">
-              {/* Report Type */}
-              <div>
-                <label className="text-sm font-medium text-gray-800 mb-1 block">
-                  Report Type
-                </label>
-                <div className="relative">
-                  <select
-                    value={reportType}
-                    onChange={handleReportTypeChange}
-                    className="w-full bg-gray-100 border-0 rounded-md text-sm p-2.5 appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option>Monthly Report</option>
-                    <option>Yearly Report</option>
-                    <option>Custom Report</option>
-                  </select>
-                  <ChevronDown
-                    size={18}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none"
-                  />
-                </div>
-              </div>
 
-              {/* Time Period */}
-              <div>
-                <label className="text-sm font-medium text-gray-800 mb-1 block">
-                  Time Period
-                </label>
-                <div className="relative">
-                  <select
-                    value={timePeriod}
-                    onChange={(e) => setTimePeriod(e.target.value)}
-                    className="w-full bg-gray-100 border-0 rounded-md text-sm p-2.5 appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-                    disabled={reportType === "Custom Report"}
-                  >
-                    {reportType === "Monthly Report" && (
-                      <>
-                        <option>This Month</option>
-                        <option>Last Month</option>
-                      </>
-                    )}
-                    {reportType === "Yearly Report" &&
-                      years.map((year) => <option key={year}>{year}</option>)}
-                    {reportType === "Custom Report" && <option>Custom</option>}
-                  </select>
-                  <ChevronDown
-                    size={18}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none"
-                  />
-                </div>
-              </div>
-
-              {/* From Date */}
-              <div
-                className={`relative ${reportType === "Custom Report" ? "block" : "invisible"
-                  }`}
-              >
-                <label className="text-sm font-medium text-gray-800 mb-1 block">
-                  From Date
-                </label>
-                <div className="relative">
-                  <input
-                    value={fromDate}
-                    onChange={(e) => setFromDate(e.target.value)}
-                    type="date"
-                    className="w-full bg-gray-100 border-0 rounded-md text-sm p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-              </div>
-
-              {/* To Date */}
-              <div
-                className={`relative ${reportType === "Custom Report" ? "block" : "invisible"
-                  }`}
-              >
-                <label className="text-sm font-medium text-gray-800 mb-1 block">
-                  To Date
-                </label>
-                <div className="relative">
-                  <input
-                    value={toDate}
-                    onChange={(e) => setToDate(e.target.value)}
-                    type="date"
-                    className="w-full bg-gray-100 border-0 rounded-md text-sm p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
 
           {/* Main Content Area */}
           {renderContent()}

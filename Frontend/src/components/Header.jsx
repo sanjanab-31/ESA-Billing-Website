@@ -50,6 +50,7 @@ export default function Header() {
       setIsDropdownOpen(false);
       navigate("/login");
     } catch (error) {
+      console.error("Logout failed", error);
     }
   };
 

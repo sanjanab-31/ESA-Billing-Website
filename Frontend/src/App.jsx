@@ -15,6 +15,8 @@ import Settings from "./pages/settings/SettingsPage";
 import InactivityDetector from "./components/InactivityDetector";
 
 
+import PropTypes from 'prop-types';
+
 function ProtectedRoute({ children }) {
   const { user, authInitialized } = useContext(AuthContext);
 
@@ -35,6 +37,10 @@ function ProtectedRoute({ children }) {
     </>
   );
 }
+
+ProtectedRoute.propTypes = {
+  children: PropTypes.node.isRequired,
+};
 
 export default function App() {
   return (

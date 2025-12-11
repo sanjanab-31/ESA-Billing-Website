@@ -1,46 +1,19 @@
-import React, {
-  useEffect,
-  useState,
-  useContext,
-  useRef,
-  useMemo,
-  memo,
-  useCallback,
-} from "react";
-import { useNavigate } from "react-router-dom";
-import {
-  Plus,
-  FileText,
-  IndianRupee,
-  Users,
-  Clock,
-  ShoppingBag,
-  ArrowUpRight,
-  ArrowDownRight,
-  Circle,
-  Receipt,
-  TrendingUp,
-  CreditCard,
-  UserCheck,
-  Package,
-  FileEdit,
-} from "lucide-react";
+import PropTypes from "prop-types";
 import {
   useDashboard,
   useInvoices,
   useAllPayments,
   useProducts,
 } from "../../hooks/useFirestore";
-import { AuthContext } from "../../context/AuthContext";
 // Chart Components
 import InvoiceStatus from "./InvoiceStatus";
 
 // Main Dashboard Component
 const Dashboard = () => {
-  const { stats, error } = useDashboard();
-  const { invoices, error: invoicesError } = useInvoices();
-  const { payments, error: paymentsError } = useAllPayments();
-  const { products, error: productsError } = useProducts();
+  const { stats } = useDashboard();
+  const { invoices } = useInvoices();
+  const { payments } = useAllPayments();
+  const { products } = useProducts();
 
   // Memoize processed data to prevent unnecessary recalculations
   const memoizedInvoices = useMemo(() => invoices || [], [invoices]);
@@ -221,6 +194,20 @@ const StatsGrid = memo(({ stats, products }) => {
 
 StatsGrid.displayName = "StatsGrid";
 
+StatsGrid.propTypes = {
+  stats: PropTypes.shape({
+    totalInvoices: PropTypes.number,
+    totalRevenue: PropTypes.number,
+    paidInvoices: PropTypes.number,
+    unpaidInvoices: PropTypes.number,
+    totalCustomers: PropTypes.number,
+    paymentRate: PropTypes.number,
+    draftInvoices: PropTypes.number,
+    financialYearLabel: PropTypes.string,
+  }),
+  products: PropTypes.array,
+};
+
 // Reusable Stat Card Component with modern styling
 const StatCard = ({
   title,
@@ -298,6 +285,22 @@ const StatCard = ({
     </div>
   </div>
 );
+
+StatCard.propTypes = {
+  title: PropTypes.string.isRequired,
+  value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+  valueLabel: PropTypes.string,
+  secondaryValue: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  secondaryValueLabel: PropTypes.string,
+  change: PropTypes.string,
+  changeType: PropTypes.string,
+  period: PropTypes.string,
+  subtext: PropTypes.string,
+  subtextColor: PropTypes.string,
+  icon: PropTypes.node,
+  footer: PropTypes.node,
+  isSecondaryValueRed: PropTypes.bool,
+};
 
 // Recent Activity List using real data - Memoized to prevent unnecessary re-renders
 const RecentActivity = memo(({ invoices = [], payments = [] }) => {
@@ -389,25 +392,28 @@ const RecentActivity = memo(({ invoices = [], payments = [] }) => {
     return activities.sort((a, b) => b.timestamp - a.timestamp).slice(0, 5);
   };
 
-  const getTimeAgo = (date) => {
-    if (!date || isNaN(date.getTime())) return "Unknown";
-
+  const getDiffs = (date) => {
     const now = new Date();
     const diffMs = now - date;
     const diffMins = Math.floor(diffMs / (1000 * 60));
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    return { diffMs, diffMins, diffHours, diffDays };
+  };
+
+  const getTimeAgo = (date) => {
+    if (!date || isNaN(date.getTime())) return "Unknown";
+
+    const { diffMs, diffMins, diffHours, diffDays } = getDiffs(date);
     const diffWeeks = Math.floor(diffDays / 7);
     const diffMonths = Math.floor(diffDays / 30);
 
     if (diffMs < 0) return "In the future";
     if (diffMins < 1) return "Just now";
     if (diffMins < 60) return `${diffMins} min${diffMins > 1 ? "s" : ""} ago`;
-    if (diffHours < 24)
-      return `${diffHours} hour${diffHours > 1 ? "s" : ""} ago`;
+    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? "s" : ""} ago`;
     if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? "s" : ""} ago`;
-    if (diffWeeks < 4)
-      return `${diffWeeks} week${diffWeeks > 1 ? "s" : ""} ago`;
+    if (diffWeeks < 4) return `${diffWeeks} week${diffWeeks > 1 ? "s" : ""} ago`;
     return `${diffMonths} month${diffMonths > 1 ? "s" : ""} ago`;
   };
 
@@ -456,6 +462,11 @@ const RecentActivity = memo(({ invoices = [], payments = [] }) => {
 });
 
 RecentActivity.displayName = "RecentActivity";
+
+RecentActivity.propTypes = {
+  invoices: PropTypes.array,
+  payments: PropTypes.array,
+};
 
 // ...existing code...
 

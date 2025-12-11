@@ -5,6 +5,8 @@ import { auth } from "../lib/firebase/config";
 
 export const AuthContext = createContext();
 
+import PropTypes from 'prop-types';
+
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [authInitialized, setAuthInitialized] = useState(false);
@@ -105,20 +107,26 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
+    const value = React.useMemo(() => ({
+        user,
+        authInitialized,
+        signOut,
+        updateUserEmail,
+        updateUserPassword,
+        updateUserProfile,
+        isSessionTimeoutEnabled,
+        toggleSessionTimeout,
+        sessionTimeoutMinutes,
+        setSessionTimeoutMinutes
+    }), [user, authInitialized, isSessionTimeoutEnabled, sessionTimeoutMinutes]);
+
     return (
-        <AuthContext.Provider value={{
-            user,
-            authInitialized,
-            signOut,
-            updateUserEmail,
-            updateUserPassword,
-            updateUserProfile,
-            isSessionTimeoutEnabled,
-            toggleSessionTimeout,
-            sessionTimeoutMinutes,
-            setSessionTimeoutMinutes
-        }}>
+        <AuthContext.Provider value={value}>
             {children}
         </AuthContext.Provider>
     );
+};
+
+AuthProvider.propTypes = {
+    children: PropTypes.node.isRequired,
 };
