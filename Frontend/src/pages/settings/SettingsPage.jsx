@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { AuthContext } from "../../context/AuthContext";
 import { useSettings } from "../../hooks/useFirestore";
+import PropTypes from "prop-types";
 
 // A reusable toggle switch component
 const ToggleSwitch = ({ enabled, setEnabled }) => (
@@ -425,6 +426,23 @@ const ProfileSettings = () => {
   );
 };
 
+const FeatureItem = ({ title, description, enabled, onToggle }) => (
+  <div className="flex items-center justify-between">
+    <div>
+      <h4 className="font-medium text-gray-900 text-sm">{title}</h4>
+      <p className="text-xs text-gray-500">{description}</p>
+    </div>
+    <ToggleSwitch enabled={enabled} setEnabled={onToggle} />
+  </div>
+);
+
+FeatureItem.propTypes = {
+  title: PropTypes.string.isRequired,
+  description: PropTypes.string.isRequired,
+  enabled: PropTypes.bool.isRequired,
+  onToggle: PropTypes.func.isRequired,
+};
+
 const SystemSettings = () => {
   const [config, setConfig] = useState({
     currency: "INR",
@@ -496,16 +514,6 @@ const SystemSettings = () => {
       );
     }
   };
-
-  const FeatureItem = ({ title, description, enabled, onToggle }) => (
-    <div className="flex items-center justify-between">
-      <div>
-        <h4 className="font-medium text-gray-900 text-sm">{title}</h4>
-        <p className="text-xs text-gray-500">{description}</p>
-      </div>
-      <ToggleSwitch enabled={enabled} setEnabled={onToggle} />
-    </div>
-  );
 
   return (
     <div className="p-6 border border-gray-200 rounded-xl">
@@ -627,6 +635,26 @@ const SystemSettings = () => {
   );
 };
 
+const SecurityItem = ({ icon: Icon, title, description, control }) => (
+  <div className="p-4 border border-gray-200 rounded-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+    <div className="flex items-center gap-4">
+      <Icon size={20} className="text-gray-500 flex-shrink-0" />
+      <div>
+        <h4 className="font-medium text-gray-900 text-sm">{title}</h4>
+        <p className="text-xs text-gray-500">{description}</p>
+      </div>
+    </div>
+    {control && <div className="w-full sm:w-auto">{control}</div>}
+  </div>
+);
+
+SecurityItem.propTypes = {
+  icon: PropTypes.elementType.isRequired,
+  title: PropTypes.string.isRequired,
+  description: PropTypes.string.isRequired,
+  control: PropTypes.element,
+};
+
 const SecuritySettings = () => {
   const {
     signOut,
@@ -714,19 +742,6 @@ const SecuritySettings = () => {
       console.error("Failed to save timeout settings:", error);
     }
   };
-
-  const SecurityItem = ({ icon: Icon, title, description, control }) => (
-    <div className="p-4 border border-gray-200 rounded-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-      <div className="flex items-center gap-4">
-        <Icon size={20} className="text-gray-500 flex-shrink-0" />
-        <div>
-          <h4 className="font-medium text-gray-900 text-sm">{title}</h4>
-          <p className="text-xs text-gray-500">{description}</p>
-        </div>
-      </div>
-      {control && <div className="w-full sm:w-auto">{control}</div>}
-    </div>
-  );
 
   return (
     <div className="p-6 border border-gray-200 rounded-xl">
@@ -857,5 +872,21 @@ const SettingsPage = () => {
     </div>
   );
 };
+
+// PropTypes
+ToggleSwitch.propTypes = {
+  enabled: PropTypes.bool.isRequired,
+  setEnabled: PropTypes.func.isRequired,
+};
+
+// Internal component prop validations
+// Note: ProfileSettings, SystemSettings, SecuritySettings usually don't take props directly in this implementation, 
+// but if they did, we'd add them here. 
+// FeatureItem within SystemSettings takes props.
+
+// We can't easily attach propTypes to FeatureItem since it's defined INSIDE SystemSettings (another code smell actually).
+// Best practice: Move FeatureItem OUTSIDE SystemSettings.
+
+// Move SecurityItem OUTSIDE SecuritySettings as well.
 
 export default SettingsPage;

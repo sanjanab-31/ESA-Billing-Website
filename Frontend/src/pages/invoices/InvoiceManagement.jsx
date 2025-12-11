@@ -22,6 +22,7 @@ import "jspdf-autotable";
 import html2canvas from "html2canvas";
 import { useToast } from "../../context/ToastContext";
 import { generateInvoiceHTML } from "../../utils/invoiceGenerator";
+import PropTypes from "prop-types";
 
 const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, message }) => {
   if (!isOpen) return null;
@@ -100,8 +101,9 @@ const ClientAutocomplete = ({ clients, selectedClient, onSelect }) => {
 
   return (
     <div className="relative" ref={wrapperRef}>
-      <label className="block text-sm text-gray-700 mb-1">Select Client</label>
+      <label htmlFor="client-search" className="block text-sm text-gray-700 mb-1">Select Client</label>
       <input
+        id="client-search"
         type="text"
         value={searchTerm}
         onChange={handleInputChange}
@@ -272,7 +274,7 @@ const InvoicePreview = ({
   setShowPreview,
   settings,
 }) => {
-
+  const { error: toastError } = useToast();
   const previewData = invoice || invoiceData;
   const previewCalcs = invoice
     ? {
@@ -402,7 +404,8 @@ const InvoicePreview = ({
       )}.pdf`;
       pdf.save(fileName);
     } catch (error) {
-      alert("Error generating PDF. Please try again.");
+      console.error("PDF Generation Error:", error);
+      toastError("Failed to generate PDF. Please try again.");
     }
   };
 
@@ -415,7 +418,7 @@ const InvoicePreview = ({
     iframe.contentDocument.close();
     iframe.onload = () => {
       iframe.contentWindow.print();
-      setTimeout(() => document.body.removeChild(iframe), 100);
+      setTimeout(() => iframe.remove(), 100);
     };
   };
 
@@ -546,7 +549,8 @@ const InvoicePreview = ({
                     <td className="p-1 text-right">{item.amount}</td>
                   </tr>
                 ))}
-                {Array(Math.max(0, 12 - previewData.items.length))
+
+                {new Array(Math.max(0, 12 - previewData.items.length))
                   .fill(0)
                   .map((_, index) => (
                     <tr key={`empty-${index}`}>
@@ -565,9 +569,9 @@ const InvoicePreview = ({
             <table className="w-full text-sm">
               <tbody>
                 <tr>
-                  <td className="w-[15%] p-1">Bank Details :</td>
+                  <th scope="row" className="w-[15%] p-1 font-normal text-left">Bank Details :</th>
                   <td className="w-[55%] p-1">Bank Name : State Bank Of India</td>
-                  <td className="w-[15%] border-l border-black p-1">SUB TOTAL</td>
+                  <th scope="row" className="w-[15%] border-l border-black p-1 font-normal text-left">SUB TOTAL</th>
                   <td className="w-[15%] border-l border-black p-1 text-right">
                     {previewCalcs.subtotal.toFixed(2)}
                   </td>
@@ -577,7 +581,9 @@ const InvoicePreview = ({
                     <span className="inline-block w-20">&nbsp;</span>
                     A/C No : 42455711572
                   </td>
-                  <td className="border-l border-black p-1">CGST &nbsp;&nbsp;&nbsp; {previewData.cgst}%</td>
+                  <th scope="row" className="border-l border-black p-1 font-normal text-left">
+                    CGST <span className="ml-6">{previewData.cgst}%</span>
+                  </th>
                   <td className="border-l border-black p-1 text-right">
                     {previewCalcs.cgstAmount.toFixed(2)}
                   </td>
@@ -587,7 +593,9 @@ const InvoicePreview = ({
                     <span className="inline-block w-20">&nbsp;</span>
                     IFSC Code : SBIN0015017
                   </td>
-                  <td className="border-l border-black p-1">SGST &nbsp;&nbsp;&nbsp; {previewData.sgst}%</td>
+                  <th scope="row" className="border-l border-black p-1 font-normal text-left">
+                    SGST <span className="ml-6">{previewData.sgst}%</span>
+                  </th>
                   <td className="border-l border-black p-1 text-right">
                     {previewCalcs.sgstAmount.toFixed(2)}
                   </td>
@@ -597,7 +605,9 @@ const InvoicePreview = ({
                     <span className="inline-block w-20">&nbsp;</span>
                     Branch : Malumichampatti
                   </td>
-                  <td className="border-l border-black p-1">IGST &nbsp;&nbsp;&nbsp; {previewData.igst}%</td>
+                  <th scope="row" className="border-l border-black p-1 font-normal text-left">
+                    IGST <span className="ml-6">{previewData.igst}%</span>
+                  </th>
                   <td className="border-l border-black p-1 text-right">
                     {previewCalcs.igstAmount.toFixed(2)}
                   </td>
@@ -606,7 +616,7 @@ const InvoicePreview = ({
                   <td className="p-1 border-t border-black font-bold" colSpan="2">
                     Rupees : <span className="font-normal">{amountInWords}</span>
                   </td>
-                  <td className="border-l border-t border-black p-1">ROUND OFF</td>
+                  <td className="border-l border-t border-black p-1 font-bold">ROUND OFF</td>
                   <td className="border-l border-t border-black p-1 text-right">
                     {(previewCalcs.roundOffAmount || 0).toFixed(2)}
                   </td>
@@ -618,7 +628,7 @@ const InvoicePreview = ({
                       We declare that this invoice shows the actual price of the goods Described and that all Particulars are true and correct
                     </div>
                   </td>
-                  <td className="border-l border-t border-black p-1 font-bold">NET TOTAL</td>
+                  <th scope="row" className="border-l border-t border-black p-1 font-bold text-left">NET TOTAL</th>
                   <td className="border-l border-t border-black p-1 text-right font-bold">
                     {previewCalcs.total.toFixed(2)}
                   </td>
@@ -1294,7 +1304,7 @@ const InvoiceManagementComponent = ({
                           {invoice.invoiceDate}
                         </td>
                         <td className="px-6 py-4 text-gray-700">
-                          {invoice.client.name}
+                          {invoice.client?.name || "Unknown"}
                         </td>
                         <td className="px-6 py-4 font-medium text-gray-900">
                           ₹{invoice.amount.toLocaleString()}
@@ -2173,6 +2183,71 @@ const InvoiceManagementSystem = () => {
       )}
     </div>
   );
+};
+
+// Add PropTypes
+ConfirmationModal.propTypes = {
+  isOpen: PropTypes.bool.isRequired,
+  onClose: PropTypes.func.isRequired,
+  onConfirm: PropTypes.func.isRequired,
+  title: PropTypes.string.isRequired,
+  message: PropTypes.string.isRequired,
+};
+
+ClientAutocomplete.propTypes = {
+  clients: PropTypes.array.isRequired,
+  selectedClient: PropTypes.shape({ // Or PropTypes.object if structure variable
+    id: PropTypes.string, // Assuming id exists
+    name: PropTypes.string,
+  }),
+  onSelect: PropTypes.func.isRequired,
+};
+
+ProductAutocomplete.propTypes = {
+  products: PropTypes.array.isRequired,
+  value: PropTypes.string,
+  onSelect: PropTypes.func.isRequired,
+  onChange: PropTypes.func.isRequired,
+  onAddNewProduct: PropTypes.func,
+  clientId: PropTypes.string,
+};
+
+InvoicePreview.propTypes = {
+  invoice: PropTypes.object, // Consider specific shape
+  invoiceData: PropTypes.shape({
+    items: PropTypes.arrayOf(PropTypes.shape({ // Nested validation
+      description: PropTypes.string,
+      hsnCode: PropTypes.string,
+      quantity: PropTypes.number,
+      rate: PropTypes.number,
+      amount: PropTypes.number
+    })),
+    invoiceNotes: PropTypes.string,
+    isRoundOff: PropTypes.bool,
+    // Add other properties...
+  }),
+  calculations: PropTypes.object,
+  setShowPreview: PropTypes.func.isRequired,
+  settings: PropTypes.object,
+};
+
+CreateInvoiceComponent.propTypes = {
+  editingInvoice: PropTypes.object,
+  invoiceData: PropTypes.object.isRequired,
+  clients: PropTypes.array.isRequired,
+  products: PropTypes.array.isRequired,
+  calculations: PropTypes.object.isRequired,
+  setCurrentPage: PropTypes.func.isRequired,
+  saveDraft: PropTypes.func.isRequired,
+  setShowPreview: PropTypes.func.isRequired,
+  updateInvoice: PropTypes.func.isRequired,
+  saveInvoice: PropTypes.func.isRequired,
+  setInvoiceData: PropTypes.func.isRequired,
+  handleClientSelect: PropTypes.func.isRequired,
+  handleAddNewProduct: PropTypes.func.isRequired,
+  addItem: PropTypes.func.isRequired,
+  updateItem: PropTypes.func.isRequired,
+  removeItem: PropTypes.func.isRequired,
 };
 
 export default InvoiceManagementSystem;

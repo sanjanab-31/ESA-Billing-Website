@@ -11,10 +11,10 @@ import {
   Save,
   X,
   Edit,
-  Eye,
 } from "lucide-react";
 import { useInvoices, useAllPayments } from "../../hooks/useFirestore";
 import { AuthContext } from "../../context/AuthContext";
+import PropTypes from "prop-types";
 
 // CHANGE: Updated modal to handle transaction ID
 const PaymentMethodModal = ({ isOpen, onClose, onConfirm }) => {
@@ -1133,6 +1133,74 @@ const PaymentsPage = () => {
       </div>
     </div>
   );
+};
+
+// Add PropTypes
+PaymentMethodModal.propTypes = {
+  isOpen: PropTypes.bool.isRequired,
+  onClose: PropTypes.func.isRequired,
+  onConfirm: PropTypes.func.isRequired,
+};
+
+EditPaymentModal.propTypes = {
+  isOpen: PropTypes.bool.isRequired,
+  onClose: PropTypes.func.isRequired,
+  onSave: PropTypes.func.isRequired,
+  payment: PropTypes.shape({
+    method: PropTypes.string,
+    status: PropTypes.string,
+    transactionId: PropTypes.string,
+    invoiceNo: PropTypes.string,
+  }),
+};
+
+StatCard.propTypes = {
+  title: PropTypes.string.isRequired,
+  amount: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+  subtitle: PropTypes.string,
+  icon: PropTypes.elementType.isRequired, // For components like Icons
+  iconBgColor: PropTypes.string,
+};
+
+StatusBadge.propTypes = {
+  status: PropTypes.string.isRequired,
+  overdueDays: PropTypes.number,
+};
+
+PaymentRow.propTypes = {
+  invoiceNo: PropTypes.string.isRequired,
+  client: PropTypes.string.isRequired,
+  amount: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+  received: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  dueDate: PropTypes.string.isRequired,
+  status: PropTypes.string.isRequired,
+  overdueDays: PropTypes.number,
+  onEdit: PropTypes.func.isRequired,
+};
+
+PendingPaymentCard.propTypes = {
+  invoice: PropTypes.shape({
+    invoiceNo: PropTypes.string.isRequired,
+    client: PropTypes.string.isRequired,
+    amount: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+    received: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    dueDate: PropTypes.string.isRequired,
+    status: PropTypes.string.isRequired,
+  }).isRequired,
+  onMarkPaid: PropTypes.func.isRequired,
+  editingPaymentId: PropTypes.string,
+  setEditingPaymentId: PropTypes.func.isRequired,
+  onSavePayment: PropTypes.func.isRequired,
+};
+
+PaidPaymentRow.propTypes = {
+  invoiceNo: PropTypes.string.isRequired,
+  client: PropTypes.string.isRequired,
+  amount: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+  paymentDate: PropTypes.string,
+  method: PropTypes.string,
+  transactionId: PropTypes.string,
+  onEdit: PropTypes.func.isRequired,
 };
 
 export default PaymentsPage;

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useContext, useMemo, memo, useCallback } from "react";
+import React, { useState, useRef, useEffect, useContext, useMemo, memo } from "react";
 import {
   Search,
   Plus,
@@ -9,7 +9,7 @@ import {
   FileText,
   Phone,
   Mail,
-  MapPin,
+  Mail,
   TrendingUp,
   AlertCircle,
 } from "lucide-react";
@@ -17,6 +17,7 @@ import Pagination from "../../components/Pagination";
 import { AuthContext } from "../../context/AuthContext";
 import { useCustomers, useInvoices } from "../../hooks/useFirestore";
 import { useToast } from "../../context/ToastContext";
+import PropTypes from "prop-types";
 const ClientManagement = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
@@ -75,8 +76,8 @@ const ClientManagement = () => {
         };
       }
 
-      const invoiceAmount = parseFloat(invoice.totalAmount || invoice.amount || invoice.total) || 0;
-      const paidAmount = parseFloat(invoice.paidAmount || 0) || 0;
+      const invoiceAmount = Number.parseFloat(invoice.totalAmount || invoice.amount || invoice.total) || 0;
+      const paidAmount = Number.parseFloat(invoice.paidAmount || 0) || 0;
       const isPaidByStatus = invoice.status === 'Paid' || invoice.status === 'paid';
 
       stats[clientId].totalInvoices += 1;
@@ -294,71 +295,7 @@ const ClientManagement = () => {
     };
   }, []);
 
-  // PERFORMANCE: Memoized ClientRow component to prevent unnecessary re-renders
-  const ClientRow = memo(({ client, stats, serialNumber }) => {
-    return (
-      <tr
-        key={client.id}
-        className="text-sm transition-colors hover:bg-gray-50"
-      >
-        <td className="px-6 py-4 font-medium text-gray-900">
-          {serialNumber}
-        </td>
-        <td className="px-6 py-4">
-          <div className="font-medium text-gray-900">
-            {client.name}
-          </div>
-          <div className="text-gray-500 text-xs">
-            {client.email}
-          </div>
-        </td>
-        <td className="px-6 py-4 text-gray-700">
-          {client.taxId || client.company || "-"}
-        </td>
-        <td className="px-6 py-4 text-gray-700">
-          {client.phone || "-"}
-        </td>
-        <td className="px-6 py-4 text-gray-700">
-          {stats.totalInvoices}
-        </td>
-        <td className="px-6 py-4 font-medium text-gray-900">
-          ₹{stats.totalRevenue.toLocaleString('en-IN')}
-        </td>
-        <td className="px-6 py-4 text-gray-700">
-          <span className={stats.outstanding > 0 ? "text-red-600 font-medium" : "text-green-600"}>
-            ₹{stats.outstanding.toLocaleString('en-IN')}
-          </span>
-        </td>
-        <td className="px-6 py-4">
-          <div className="flex items-center space-x-3">
-            <button
-              onClick={() => handleViewClient(client)}
-              className="p-1 text-gray-600 transition-colors hover:text-blue-600"
-              title="View Details"
-            >
-              <Eye className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => handleEditClient(client)}
-              className="p-1 text-gray-600 transition-colors hover:text-green-600"
-              title="Edit Client"
-            >
-              <Edit className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => handleDeleteClient(client)}
-              className="p-1 text-gray-600 transition-colors hover:text-red-600"
-              title="Delete Client"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
-          </div>
-        </td>
-      </tr>
-    );
-  });
 
-  ClientRow.displayName = 'ClientRow';
 
 
   return (
@@ -446,6 +383,9 @@ const ClientManagement = () => {
                         client={client}
                         stats={stats}
                         serialNumber={String((currentPage - 1) * itemsPerPage + index + 1).padStart(2, '0')}
+                        onView={handleViewClient}
+                        onEdit={handleEditClient}
+                        onDelete={handleDeleteClient}
                       />
                     );
                   })
@@ -909,6 +849,98 @@ const ClientManagement = () => {
       )}
     </div>
   );
+};
+
+const ClientRow = memo(({
+  client,
+  stats,
+  serialNumber,
+  onView,
+  onEdit,
+  onDelete
+}) => {
+  return (
+    <tr
+      key={client.id}
+      className="text-sm transition-colors hover:bg-gray-50"
+    >
+      <td className="px-6 py-4 font-medium text-gray-900">
+        {serialNumber}
+      </td>
+      <td className="px-6 py-4">
+        <div className="font-medium text-gray-900">
+          {client.name}
+        </div>
+        <div className="text-gray-500 text-xs">
+          {client.email}
+        </div>
+      </td>
+      <td className="px-6 py-4 text-gray-700">
+        {client.taxId || client.company || "-"}
+      </td>
+      <td className="px-6 py-4 text-gray-700">
+        {client.phone || "-"}
+      </td>
+      <td className="px-6 py-4 text-gray-700">
+        {stats.totalInvoices}
+      </td>
+      <td className="px-6 py-4 font-medium text-gray-900">
+        ₹{stats.totalRevenue.toLocaleString('en-IN')}
+      </td>
+      <td className="px-6 py-4 text-gray-700">
+        <span className={stats.outstanding > 0 ? "text-red-600 font-medium" : "text-green-600"}>
+          ₹{stats.outstanding.toLocaleString('en-IN')}
+        </span>
+      </td>
+      <td className="px-6 py-4">
+        <div className="flex items-center space-x-3">
+          <button
+            onClick={() => onView(client)}
+            className="p-1 text-gray-600 transition-colors hover:text-blue-600"
+            title="View Details"
+          >
+            <Eye className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => onEdit(client)}
+            className="p-1 text-gray-600 transition-colors hover:text-green-600"
+            title="Edit Client"
+          >
+            <Edit className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => onDelete(client)}
+            className="p-1 text-gray-600 transition-colors hover:text-red-600"
+            title="Delete Client"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
+      </td>
+    </tr>
+  );
+});
+
+ClientRow.displayName = 'ClientRow';
+
+ClientRow.propTypes = {
+  client: PropTypes.shape({
+    id: PropTypes.string.isRequired,
+    name: PropTypes.string.isRequired,
+    email: PropTypes.string,
+    taxId: PropTypes.string,
+    company: PropTypes.string,
+    phone: PropTypes.string,
+  }).isRequired,
+  stats: PropTypes.shape({
+    totalInvoices: PropTypes.number,
+    totalRevenue: PropTypes.number,
+    outstanding: PropTypes.number,
+  }).isRequired,
+  serialNumber: PropTypes.string.isRequired,
+  onView: PropTypes.func.isRequired,
+  onEdit: PropTypes.func.isRequired,
+  onDelete: PropTypes.func.isRequired,
 };
 
 export default ClientManagement;
