@@ -24,6 +24,7 @@ import {
   useCustomers,
   useAllPayments,
 } from "../../hooks/useFirestore";
+import { useToast } from "../../context/ToastContext";
 import { AuthContext } from "../../context/AuthContext";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -265,7 +266,7 @@ const PDFExportModal = ({ isOpen, onClose, invoices, customers, payments, stats,
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [searchTerm, setSearchTerm] = useState("");
-  const [errorMessage, setErrorMessage] = useState("");
+
 
   const months = [
     "January", "February", "March", "April", "May", "June",
@@ -274,6 +275,8 @@ const PDFExportModal = ({ isOpen, onClose, invoices, customers, payments, stats,
 
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: 5 }, (_, i) => currentYear - i);
+
+  const { error: toastError, warning } = useToast();
 
   useEffect(() => {
     if (isOpen) {
@@ -284,7 +287,6 @@ const PDFExportModal = ({ isOpen, onClose, invoices, customers, payments, stats,
       setSearchTerm("");
       setSelectedMonth(new Date().getMonth());
       setSelectedYear(new Date().getFullYear());
-      setErrorMessage("");
     }
   }, [isOpen]);
 
@@ -297,7 +299,6 @@ const PDFExportModal = ({ isOpen, onClose, invoices, customers, payments, stats,
 
   const handleTypeSelect = (type) => {
     setReportType(type);
-    setErrorMessage("");
     if (type === "client") {
       setStep("client-selection");
     } else {
@@ -316,7 +317,6 @@ const PDFExportModal = ({ isOpen, onClose, invoices, customers, payments, stats,
   };
 
   const handleGenerate = () => {
-    setErrorMessage("");
     let filteredInvoices = [...invoices];
     let title = "Business Report";
     let subtitle = "";
@@ -335,6 +335,7 @@ const PDFExportModal = ({ isOpen, onClose, invoices, customers, payments, stats,
     if (isMonthly) {
       const start = new Date(selectedYear, selectedMonth, 1);
       const end = new Date(selectedYear, selectedMonth + 1, 0);
+      end.setHours(23, 59, 59, 999);
 
       filteredInvoices = filteredInvoices.filter(inv => {
         const d = new Date(inv.invoiceDate || inv.createdAt?.toDate?.() || inv.createdAt);
@@ -347,6 +348,7 @@ const PDFExportModal = ({ isOpen, onClose, invoices, customers, payments, stats,
       // Financial Year: 1st April of selectedYear to 31st March of selectedYear + 1
       const start = new Date(selectedYear, 3, 1); // April 1st
       const end = new Date(selectedYear + 1, 2, 31); // March 31st next year
+      end.setHours(23, 59, 59, 999);
 
       filteredInvoices = filteredInvoices.filter(inv => {
         const d = new Date(inv.invoiceDate || inv.createdAt?.toDate?.() || inv.createdAt);
@@ -358,8 +360,7 @@ const PDFExportModal = ({ isOpen, onClose, invoices, customers, payments, stats,
     }
 
     if (filteredInvoices.length === 0) {
-      setErrorMessage("No bills found for the selected period.");
-      setTimeout(() => setErrorMessage(""), 3000);
+      toastError("No bills found for the selected period.");
       return;
     }
 
@@ -385,12 +386,6 @@ const PDFExportModal = ({ isOpen, onClose, invoices, customers, payments, stats,
             {step === "client-options" && "Select Bill Type"}
             {step === "date-selection" && "Select Period"}
           </h2>
-
-          {errorMessage && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
-              {errorMessage}
-            </div>
-          )}
 
           {step === "type-selection" && (
             <div className="space-y-3">
@@ -573,6 +568,10 @@ const ReportsAnalytics = () => {
   // Default to Yearly Report for the current financial year
   const [reportType, setReportType] = useState("Yearly Report");
   const [timePeriod, setTimePeriod] = useState(currentYear.toString());
+  // New state variables for explicit Month/Year filtering in Monthly Report
+  const [filterMonth, setFilterMonth] = useState(new Date().getMonth());
+  const [filterYear, setFilterYear] = useState(new Date().getFullYear());
+
   const [showFromCalendar, setShowFromCalendar] = useState(false);
   const [showToCalendar, setShowToCalendar] = useState(false);
   const [fromDate, setFromDate] = useState("");
@@ -582,7 +581,7 @@ const ReportsAnalytics = () => {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
   const [revenueYear, setRevenueYear] = useState(new Date().getFullYear());
-  const [globalError, setGlobalError] = useState(""); // For main page errors like summary export failure
+
 
   // PDF Modal State
   const [showPDFModal, setShowPDFModal] = useState(false);
@@ -594,6 +593,7 @@ const ReportsAnalytics = () => {
 
   // Get authentication context
   const { user } = useContext(AuthContext);
+  const { error: toastError, warning } = useToast();
 
   // Use data hooks
   const { stats, error: statsError } = useDashboard();
@@ -636,6 +636,8 @@ const ReportsAnalytics = () => {
     let startDate, endDate;
 
     switch (timePeriod) {
+      /* REMOVED: "This Month" and "Last Month" cases, as they are now handled by explicit selection */
+      /*
       case "This Month":
         startDate = new Date(now.getFullYear(), now.getMonth(), 1);
         endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
@@ -643,6 +645,10 @@ const ReportsAnalytics = () => {
       case "Last Month":
         startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
         endDate = new Date(now.getFullYear(), now.getMonth(), 0);
+        break;
+      */
+      case "Monthly Report": // We will use this identifier logic
+        // Fallthrough or handle below. Logic moved to conditional check below for reportType
         break;
       case "Custom":
         if (fromDate && toDate) {
@@ -653,18 +659,44 @@ const ReportsAnalytics = () => {
         }
         break;
       default:
-        // Yearly report (Financial Year: April 1st to March 31st of next year)
-        const year = Number.parseInt(timePeriod);
-        if (!isNaN(year)) {
-          startDate = new Date(year, 3, 1); // April 1st of selected year
-          endDate = new Date(year + 1, 2, 31); // March 31st of next year
+        // For Yearly Report (Financial Year)
+        // If reportType is Monthly Report, we shouldn't be here if we handle it differently
+        if (reportType === "Monthly Report") {
+          startDate = new Date(filterYear, filterMonth, 1);
+          endDate = new Date(filterYear, filterMonth + 1, 0);
         } else {
-          return invoices;
+          // Yearly report (Financial Year: April 1st to March 31st of next year)
+          const year = Number.parseInt(timePeriod);
+          if (!isNaN(year)) {
+            startDate = new Date(year, 3, 1); // April 1st of selected year
+            endDate = new Date(year + 1, 2, 31); // March 31st of next year
+          } else {
+            return invoices;
+          }
         }
     }
 
+    // Set endDate to end of day
+    if (endDate) {
+      endDate.setHours(23, 59, 59, 999);
+    }
+
+    // Set startDate to beginning of day (just in case)
+    if (startDate) {
+      startDate.setHours(0, 0, 0, 0);
+    }
+
     return invoices.filter(invoice => {
-      const invoiceDate = new Date(invoice.invoiceDate || invoice.createdAt);
+      // Handle Firestore Timestamp or Date string or Date object
+      let invoiceDate;
+      if (invoice.invoiceDate) {
+        invoiceDate = new Date(invoice.invoiceDate);
+      } else if (invoice.createdAt && typeof invoice.createdAt.toDate === 'function') {
+        invoiceDate = invoice.createdAt.toDate();
+      } else {
+        invoiceDate = new Date(invoice.createdAt || new Date());
+      }
+
       return invoiceDate >= startDate && invoiceDate <= endDate;
     });
   };
@@ -701,7 +733,8 @@ const ReportsAnalytics = () => {
     setReportType(newReportType);
     // Reset time period to a default value when report type changes
     if (newReportType === "Monthly Report") {
-      setTimePeriod("This Month");
+      // Default to current month/year is already set in state initialization
+      // setTimePeriod("Monthly Report"); // Just a placeholder
     } else if (newReportType === "Yearly Report") {
       setTimePeriod(currentYear.toString());
     }
@@ -763,10 +796,10 @@ const ReportsAnalytics = () => {
             </div>
             <div className="mt-1">
               <p className="text-xl font-bold text-gray-900">
-                {realTimeStats.totalInvoices}
+                {(invoices || []).length}
               </p>
               <p className="text-xs text-green-500 flex items-center mt-0.5">
-                <TrendingUp className="w-3 h-3 mr-1" /> Live count
+                <TrendingUp className="w-3 h-3 mr-1" /> Total Invoices
               </p>
             </div>
           </div>
@@ -811,10 +844,10 @@ const ReportsAnalytics = () => {
             </div>
             <div className="mt-1">
               <p className="text-xl font-bold text-gray-900">
-                {stats?.totalCustomers || 0}
+                {(customers || []).length}
               </p>
               <p className="text-xs text-green-500 flex items-center mt-0.5">
-                <TrendingUp className="w-3 h-3 mr-1" /> Active clients
+                <TrendingUp className="w-3 h-3 mr-1" /> Total Clients
               </p>
             </div>
           </div>
@@ -877,31 +910,53 @@ const ReportsAnalytics = () => {
                       </div>
                     </div>
 
-                    {/* Time Period */}
+                    {/* Time Period / Month & Year Selection */}
                     <div>
                       <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5 block">
-                        Time Period
+                        {reportType === "Monthly Report" ? "Select Month & Year" : "Time Period"}
                       </label>
-                      <div className="relative">
-                        <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                        <select
-                          value={timePeriod}
-                          onChange={(e) => setTimePeriod(e.target.value)}
-                          className="w-full pl-9 pr-8 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700 focus:outline-none focus:border-blue-500 focus:bg-white transition-all appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                          disabled={reportType === "Custom Report"}
-                        >
-                          {reportType === "Monthly Report" && (
-                            <>
-                              <option>This Month</option>
-                              <option>Last Month</option>
-                            </>
-                          )}
-                          {reportType === "Yearly Report" &&
-                            years.map((year) => <option key={year} value={year}>{`${year}-${(year + 1).toString().slice(-2)}`}</option>)}
-                          {reportType === "Custom Report" && <option>Custom</option>}
-                        </select>
-                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                      </div>
+
+                      {reportType === "Monthly Report" ? (
+                        <div className="flex gap-2">
+                          <div className="relative flex-1">
+                            <select
+                              value={filterMonth}
+                              onChange={(e) => setFilterMonth(parseInt(e.target.value))}
+                              className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700 focus:outline-none focus:border-blue-500 focus:bg-white transition-all appearance-none cursor-pointer"
+                            >
+                              {months.map((m, i) => (
+                                <option key={i} value={i}>{m}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="relative flex-1">
+                            <select
+                              value={filterYear}
+                              onChange={(e) => setFilterYear(parseInt(e.target.value))}
+                              className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700 focus:outline-none focus:border-blue-500 focus:bg-white transition-all appearance-none cursor-pointer"
+                            >
+                              {Array.from({ length: 5 }, (_, i) => currentYear - i).map(y => (
+                                <option key={y} value={y}>{y}</option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="relative">
+                          <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                          <select
+                            value={timePeriod}
+                            onChange={(e) => setTimePeriod(e.target.value)}
+                            className="w-full pl-9 pr-8 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700 focus:outline-none focus:border-blue-500 focus:bg-white transition-all appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                            disabled={reportType === "Custom Report"}
+                          >
+                            {reportType === "Yearly Report" &&
+                              years.map((year) => <option key={year} value={year}>{`${year}-${(year + 1).toString().slice(-2)}`}</option>)}
+                            {reportType === "Custom Report" && <option>Custom</option>}
+                          </select>
+                          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                        </div>
+                      )}
                     </div>
 
                     {/* Custom Date Inputs */}
@@ -950,7 +1005,6 @@ const ReportsAnalytics = () => {
                       onClick={() => {
                         setShowPDFModal(true);
                         setShowExportDropdown(false);
-                        setErrorMessage(""); // Clear any previous error
                       }}
                       className="w-full flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors text-left"
                     >
@@ -967,8 +1021,7 @@ const ReportsAnalytics = () => {
                       onClick={() => {
                         const result = exportSummaryReport(invoices, customers);
                         if (!result.success) {
-                          setGlobalError(result.message);
-                          setTimeout(() => setGlobalError(""), 3000);
+                          toastError(result.message);
                         }
                         setShowExportDropdown(false);
                       }}
@@ -989,17 +1042,7 @@ const ReportsAnalytics = () => {
           </div>
         </header>
 
-        {/* Global Error Message for Summary Report */}
-        {globalError && (
-          <div className="fixed top-24 right-4 z-50">
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg shadow-lg flex items-center">
-              <span>{globalError}</span>
-              <button onClick={() => setGlobalError("")} className="ml-3">
-                <X size={16} />
-              </button>
-            </div>
-          </div>
-        )}
+
 
         {/* Main Content */}
         <main className="mt-6 flex flex-col gap-6">

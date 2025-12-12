@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useContext, memo, useCallback } from "react";
 import PropTypes from 'prop-types';
-import { Plus, Search, Eye, Edit, Trash2, X } from "lucide-react";
+import { Plus, Search, Eye, Edit, Trash2, X, History, ArrowLeft, ArrowRight } from "lucide-react";
 import Pagination from "../../components/Pagination";
 import { useProducts } from "../../hooks/useFirestore";
 import { AuthContext } from "../../context/AuthContext";
 import { useToast } from "../../context/ToastContext";
 
-const ModalWrapper = ({ children, onClose }) => (
+const ModalWrapper = ({ children, onClose, maxWidth = "max-w-md" }) => (
   <div
     className="fixed inset-0 bg-black bg-opacity-50 modal-backdrop flex justify-center items-center z-50 p-4"
     onClick={onClose}
@@ -15,7 +15,7 @@ const ModalWrapper = ({ children, onClose }) => (
     onKeyDown={(e) => e.key === 'Escape' && onClose()}
   >
     <div
-      className="bg-white rounded-lg shadow-xl w-full max-w-md relative"
+      className={`bg-white rounded-lg shadow-xl w-full ${maxWidth} relative transition-all`}
       onClick={(e) => e.stopPropagation()}
       role="dialog"
       aria-modal="true"
@@ -28,6 +28,7 @@ const ModalWrapper = ({ children, onClose }) => (
 ModalWrapper.propTypes = {
   children: PropTypes.node.isRequired,
   onClose: PropTypes.func.isRequired,
+  maxWidth: PropTypes.string,
 };
 
 // --- ProductFormModal for adding/editing products ---
@@ -156,54 +157,115 @@ ProductFormModal.propTypes = {
 
 // --- ProductViewModal for viewing product details ---
 const ProductViewModal = ({ product, onClose }) => {
+  const [historyPage, setHistoryPage] = useState(0);
+  const itemsPerPage = 4;
+
   if (!product) return null;
+
+  const history = product.priceHistory || [];
+  const totalPages = Math.ceil(history.length / itemsPerPage);
+  const displayedHistory = history.slice(historyPage * itemsPerPage, (historyPage + 1) * itemsPerPage);
+
+  const handlePrevPage = () => setHistoryPage(p => Math.max(0, p - 1));
+  const handleNextPage = () => setHistoryPage(p => Math.min(totalPages - 1, p + 1));
+
   return (
-    <ModalWrapper onClose={onClose}>
+    <ModalWrapper onClose={onClose} maxWidth="max-w-5xl">
       <button
         onClick={onClose}
-        className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+        className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100 transition-colors z-10"
         title="Close"
       >
-        <X size={18} />
+        <X size={20} />
       </button>
-      <div className="p-6">
-        <h2 className="text-lg font-bold text-gray-900 mb-4">
-          Product Details
-        </h2>
-        <div className="space-y-3 text-sm">
-          <div className="flex justify-between border-b pb-2">
-            <span className="text-gray-600">S.No:</span>{" "}
-            <span className="font-medium text-gray-800">
-              {product.displayId}
-            </span>
+
+      <div className="p-8 flex flex-col lg:flex-row gap-8">
+        {/* Left Side: Identity & Meta + Current Price */}
+        <div className="w-full lg:w-1/3 flex flex-col justify-center border-r border-gray-100 pr-8">
+          <div className="text-center lg:text-left mb-6">
+            <div className="w-20 h-20 bg-blue-50 text-blue-600 rounded-3xl flex items-center justify-center mx-auto lg:mx-0 mb-4 shadow-sm">
+              <span className="text-3xl font-bold">{product.name.charAt(0).toUpperCase()}</span>
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900 leading-tight">{product.name}</h2>
+            <p className="text-sm text-gray-500 mt-2">Product Details</p>
           </div>
-          <div className="flex justify-between border-b pb-2">
-            <span className="text-gray-600">Product Name:</span>{" "}
-            <span className="font-medium text-gray-800 text-right">
-              {product.name}
-            </span>
-          </div>
-          <div className="flex justify-between border-b pb-2">
-            <span className="text-gray-600">HSN Code:</span>{" "}
-            <span className="font-medium text-gray-800">{product.hsn}</span>
-          </div>
-          <div className="flex justify-between border-b pb-2">
-            <span className="text-gray-600">Price:</span>{" "}
-            <span className="font-medium text-gray-800">{product.price}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-gray-600">Total Revenue:</span>{" "}
-            <span className="font-medium text-gray-800">{product.revenue}</span>
+
+          <div className="flex flex-col gap-4 mt-auto">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="p-3 bg-gray-50 rounded-xl border border-gray-100">
+                <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider mb-1">Serial No.</p>
+                <p className="text-base font-semibold text-gray-900">{product.displayId}</p>
+              </div>
+              <div className="p-3 bg-gray-50 rounded-xl border border-gray-100">
+                <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider mb-1">HSN Code</p>
+                <p className="text-base font-semibold text-gray-900">{product.hsn}</p>
+              </div>
+            </div>
+            <div className="p-4 bg-gray-50 rounded-xl border border-gray-100 flex items-center justify-between">
+              <div>
+                <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider mb-1">Current Price</p>
+                <p className="text-2xl font-bold text-green-600">{product.price}</p>
+              </div>
+            </div>
           </div>
         </div>
-        <div className="flex justify-end pt-6">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-6 py-2 text-sm font-medium text-white bg-gray-500 rounded-lg hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400"
-          >
-            Close
-          </button>
+
+        {/* Right Side: Price History Only */}
+        <div className="w-full lg:w-2/3 flex flex-col">
+          <div className="p-6 bg-white rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.05)] border border-gray-100 flex flex-col h-full min-h-[320px]">
+            <div className="flex items-center gap-2 mb-4 pb-2 border-b border-gray-100">
+              <History size={16} className="text-gray-400" />
+              <p className="text-xs text-gray-500 font-bold uppercase tracking-widest">Price History</p>
+              <span className="ml-auto text-xs text-gray-400 font-medium">
+                {history.length} Record{history.length !== 1 ? 's' : ''}
+              </span>
+            </div>
+
+            {history.length > 0 ? (
+              <>
+                <div className="flex-1 flex flex-col gap-3">
+                  {displayedHistory.map((historyItem, index) => (
+                    <div key={index} className="flex justify-between items-center group p-3 hover:bg-gray-50 rounded-lg transition-colors border border-transparent hover:border-gray-100">
+                      <span className="font-bold text-xl text-gray-400 line-through decoration-2 decoration-gray-300">
+                        ₹{Number(historyItem.price).toLocaleString('en-IN')}
+                      </span>
+                      <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider bg-gray-100 px-3 py-1.5 rounded-full">
+                        {new Date(historyItem.date).toLocaleDateString()}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Pagination Controls */}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100">
+                    <button
+                      onClick={handlePrevPage}
+                      disabled={historyPage === 0}
+                      className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-gray-600"
+                    >
+                      <ArrowLeft size={16} />
+                    </button>
+                    <span className="text-xs font-medium text-gray-400">
+                      Page {historyPage + 1} of {totalPages}
+                    </span>
+                    <button
+                      onClick={handleNextPage}
+                      disabled={historyPage === totalPages - 1}
+                      className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-gray-600"
+                    >
+                      <ArrowRight size={16} />
+                    </button>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="flex-1 flex flex-col items-center justify-center text-gray-400">
+                <History size={32} className="mb-2 opacity-20" />
+                <p className="text-sm">No price history available</p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </ModalWrapper>
@@ -393,11 +455,30 @@ export default function ProductManagement() {
 
     let result;
     if (isEdit) {
-      result = await editProduct(productData.id, {
+      const newPrice = Number.parseFloat(productData.price);
+      const updateData = {
         name: productData.name,
         hsn: productData.hsn,
-        price: Number.parseFloat(productData.price),
-      });
+        price: newPrice,
+      };
+
+      // Check if price changed to update oldPrice
+      // modal.data.price is formatted string e.g. "₹1,200", we need to parse it
+      const previousPriceString = modal.data.price || "";
+      const previousPrice = Number.parseFloat(previousPriceString.replace(/[^0-9.-]+/g, ""));
+
+      if (!isNaN(previousPrice) && previousPrice !== newPrice) {
+        updateData.oldPrice = previousPrice;
+
+        // Update Price History
+        const currentHistory = modal.data.priceHistory || [];
+        updateData.priceHistory = [
+          { price: previousPrice, date: new Date().toISOString() },
+          ...currentHistory
+        ];
+      }
+
+      result = await editProduct(productData.id, updateData);
     } else {
       result = await addProduct({
         name: productData.name,

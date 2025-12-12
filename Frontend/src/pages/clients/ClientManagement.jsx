@@ -11,6 +11,8 @@ import {
   Mail,
   TrendingUp,
   AlertCircle,
+  MapPin,
+  User,
 } from "lucide-react";
 import Pagination from "../../components/Pagination";
 import { AuthContext } from "../../context/AuthContext";
@@ -63,6 +65,9 @@ const ClientManagement = () => {
     if (!invoices || invoices.length === 0) return {};
 
     const stats = {};
+    const today = new Date();
+    const fourMonthsAgo = new Date();
+    fourMonthsAgo.setMonth(today.getMonth() - 3); // Get start of 4 months window
 
     invoices.forEach(invoice => {
       // Handle both customerId and clientId
@@ -74,24 +79,87 @@ const ClientManagement = () => {
           totalInvoices: 0,
           totalRevenue: 0,
           outstanding: 0,
-          amountPaid: 0
+          amountPaid: 0,
+          invoicesCount: 0,
+          paidInvoicesCount: 0,
+          totalInvoicesValue: 0,
+          dates: [],
+          monthlyRevenue: {} // Key: "Mon YY", Value: Amount
         };
       }
 
       const invoiceAmount = Number.parseFloat(invoice.totalAmount || invoice.amount || invoice.total) || 0;
       const paidAmount = Number.parseFloat(invoice.paidAmount || 0) || 0;
+      const amountReceived = Number.parseFloat(invoice.received || 0) || 0;
+      // Prefer paidAmount, fallback to received if paidAmount is 0/missing and status implies paid? 
+      // Actually usually paidAmount tracks cumulative payments. 
+      const effectivePaid = paidAmount > 0 ? paidAmount : amountReceived;
+
       const isPaidByStatus = invoice.status === 'Paid' || invoice.status === 'paid';
 
       stats[clientId].totalInvoices += 1;
+      stats[clientId].totalInvoicesValue += invoiceAmount;
+
+      // Track dates
+      if (invoice.invoiceDate || invoice.date) {
+        stats[clientId].dates.push(new Date(invoice.invoiceDate || invoice.date));
+      }
+
+      // Track Monthly Revenue
+      if (invoice.invoiceDate || invoice.date) {
+        const d = new Date(invoice.invoiceDate || invoice.date);
+        const key = d.toLocaleString('default', { month: 'short', year: '2-digit' }); // e.g., "Dec 24"
+        if (!stats[clientId].monthlyRevenue[key]) stats[clientId].monthlyRevenue[key] = 0;
+        stats[clientId].monthlyRevenue[key] += effectivePaid; // Revenue usually based on collected, or invoiced? Assuming collected for 'Revenue'
+      }
 
       if (isPaidByStatus) {
         stats[clientId].totalRevenue += invoiceAmount;
         stats[clientId].amountPaid += invoiceAmount;
+        stats[clientId].paidInvoicesCount += 1;
       } else {
         // Calculate outstanding for non-paid invoices
-        const unpaid = Math.max(0, invoiceAmount - paidAmount);
+        const unpaid = Math.max(0, invoiceAmount - effectivePaid);
         stats[clientId].outstanding += unpaid;
+        stats[clientId].amountPaid += effectivePaid;
+        if (effectivePaid >= invoiceAmount - 1) stats[clientId].paidInvoicesCount += 1; // Tolerance
       }
+    });
+
+    // Finalize stats (averages, min/max dates, revenue array)
+    Object.keys(stats).forEach(clientId => {
+      const s = stats[clientId];
+
+      // Avg Invoice
+      s.avgInvoice = s.totalInvoices > 0 ? Math.round(s.totalInvoicesValue / s.totalInvoices) : 0;
+
+      // Payment Rate
+      s.paymentRate = s.totalInvoices > 0 ? ((s.paidInvoicesCount / s.totalInvoices) * 100).toFixed(1) + '%' : '0%';
+
+      // Dates
+      if (s.dates.length > 0) {
+        const sortedDates = s.dates.sort((a, b) => a - b);
+        s.firstInvoice = sortedDates[0].toLocaleDateString('en-GB');
+        s.lastInvoice = sortedDates[sortedDates.length - 1].toLocaleDateString('en-GB');
+      } else {
+        s.firstInvoice = '-';
+        s.lastInvoice = '-';
+      }
+
+      // Revenue Data (last 4 months)
+      // Hardcode months or dynamic? Dynamic last 4 months
+      const revenueData = [];
+      for (let i = 3; i >= 0; i--) {
+        const d = new Date();
+        d.setMonth(d.getMonth() - i);
+        const key = d.toLocaleString('default', { month: 'short', year: '2-digit' });
+        revenueData.push({
+          month: key,
+          label: key,
+          value: s.monthlyRevenue[key] || 0
+        });
+      }
+      s.revenueData = revenueData;
     });
 
     return stats;
@@ -104,7 +172,12 @@ const ClientManagement = () => {
       totalInvoices: 0,
       totalRevenue: 0,
       outstanding: 0,
-      amountPaid: 0
+      amountPaid: 0,
+      firstInvoice: '-',
+      lastInvoice: '-',
+      avgInvoice: 0,
+      paymentRate: '0%',
+      revenueData: []
     };
   };
 
@@ -177,7 +250,8 @@ const ClientManagement = () => {
   };
 
   const handleViewClient = (client) => {
-    setSelectedClient(client);
+    const stats = getClientStats(client.id);
+    setSelectedClient({ ...client, ...stats });
     setShowDetailsModal(true);
   };
 
@@ -757,16 +831,20 @@ const ClientManagement = () => {
                     </h3>
                     <div className="space-y-3 text-sm text-gray-700">
                       <div className="flex items-center gap-3">
+                        <User
+                          size={16}
+                          className="text-gray-400 flex-shrink-0"
+                        />
+                        <span className="font-medium">{selectedClient.name}</span>
+                      </div>
+                      <div className="flex items-center gap-3">
                         <FileText
                           size={16}
                           className="text-gray-400 flex-shrink-0"
                         />
-                        <div>
-                          <div className="font-medium">{selectedClient.name}</div>
-                          <div className="text-xs text-gray-500">
-                            GSTIN: {selectedClient.gstin}
-                          </div>
-                        </div>
+                        <span>
+                          GSTIN: {selectedClient.taxId || selectedClient.company || selectedClient.gstin || "N/A"}
+                        </span>
                       </div>
                       <div className="flex items-center gap-3">
                         <Phone size={16} className="text-gray-400 flex-shrink-0" />
@@ -785,79 +863,11 @@ const ClientManagement = () => {
                       </div>
                     </div>
                   </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-gray-900 mb-3">
-                      Business Statistics
-                    </h3>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">First Invoice:</span>
-                        <span className="font-medium text-gray-900">
-                          {selectedClient.firstInvoice}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Last Invoice:</span>
-                        <span className="font-medium text-gray-900">
-                          {selectedClient.lastInvoice}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Avg Invoice:</span>
-                        <span className="font-medium text-gray-900">
-                          {selectedClient.avgInvoice}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Payment Rate:</span>
-                        <span className="font-medium text-green-600">
-                          {selectedClient.paymentRate}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
+
                 </div>
               </div>
 
-              {/* Revenue Chart - Full Width */}
-              {selectedClient.revenueData &&
-                selectedClient.revenueData.length > 0 && (
-                  <div className="mt-8">
-                    <h3 className="text-sm font-bold text-gray-900 mb-4">
-                      Revenue Contribution (Last 4 Months)
-                    </h3>
-                    <div className="flex justify-center items-end gap-6 h-48 px-4">
-                      {(() => {
-                        const maxValue = Math.max(
-                          ...selectedClient.revenueData.map((d) => d.value)
-                        );
-                        return selectedClient.revenueData.map((data) => (
-                          <div
-                            key={data.month}
-                            className="flex flex-col items-center flex-1"
-                          >
-                            <div
-                              className="w-full bg-blue-500 rounded-t-lg hover:bg-blue-600 transition-colors"
-                              style={{
-                                height: `${Math.max(
-                                  (data.value / maxValue) * 120,
-                                  20
-                                )}px`,
-                              }}
-                              title={data.label}
-                            ></div>
-                            <div className="text-xs font-medium text-gray-800 mt-2">
-                              {data.month}
-                            </div>
-                            <div className="text-xs text-gray-500">
-                              {data.label}
-                            </div>
-                          </div>
-                        ));
-                      })()}
-                    </div>
-                  </div>
-                )}
+
             </div>
           </div>
         </div>

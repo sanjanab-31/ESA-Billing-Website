@@ -9,16 +9,21 @@ import {
   Save,
   X,
   Edit,
+  Filter,
+  Calendar,
+  ChevronDown,
 } from "lucide-react";
-import { useInvoices, useAllPayments, usePayments } from "../../hooks/useFirestore";
+import { useInvoices, useAllPayments, usePayments, useCustomers } from "../../hooks/useFirestore";
 import { AuthContext } from "../../context/AuthContext";
 import { useToast } from "../../context/ToastContext";
 import PropTypes from "prop-types";
+import TransactionHistoryModal from "./TransactionHistoryModal";
 
 // CHANGE: Updated modal to handle transaction ID
-const PaymentMethodModal = ({ isOpen, onClose, onConfirm }) => {
+const PaymentMethodModal = ({ isOpen, onClose, onConfirm, existingTds = 0 }) => {
   const [method, setMethod] = useState("UPI");
   const [transactionId, setTransactionId] = useState("");
+  const [tdsAmount, setTdsAmount] = useState("");
   const { error: showError } = useToast();
 
   if (!isOpen) return null;
@@ -32,7 +37,15 @@ const PaymentMethodModal = ({ isOpen, onClose, onConfirm }) => {
       showError("Please enter a Transaction ID for this payment method.");
       return;
     }
-    onConfirm(method, transactionId);
+
+    // Validate TDS amount
+    const tds = parseFloat(tdsAmount) || 0;
+    if (tds < 0) {
+      showError("TDS Amount cannot be negative.");
+      return;
+    }
+
+    onConfirm(method, transactionId, tds);
   };
 
   // Clear transaction ID when switching to Cash
@@ -111,6 +124,37 @@ const PaymentMethodModal = ({ isOpen, onClose, onConfirm }) => {
           </label>
         </div>
 
+        {/* TDS Amount Input - Only show if no TDS recorded yet */}
+        {existingTds > 0 ? (
+          <div className="mt-4 p-3 bg-gray-50 border border-gray-200 rounded-md">
+            <p className="text-sm text-gray-700">
+              <span className="font-semibold">TDS Recorded:</span> ₹{existingTds}
+            </p>
+            <p className="text-xs text-gray-500 mt-1">TDS has already been deducted for this invoice.</p>
+          </div>
+        ) : (
+          <div className="mt-4">
+            <label htmlFor="tdsAmount" className="block text-sm font-medium text-gray-700 mb-1">
+              TDS Amount (Optional)
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <span className="text-gray-500 sm:text-sm">₹</span>
+              </div>
+              <input
+                id="tdsAmount"
+                type="number"
+                min="0"
+                value={tdsAmount}
+                onChange={(e) => setTdsAmount(e.target.value)}
+                placeholder="Enter TDS Amount"
+                className="w-full pl-8 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none"
+              />
+            </div>
+            <p className="text-xs text-gray-500 mt-1">This amount is deducted by client and not part of revenue.</p>
+          </div>
+        )}
+
         {/* Transaction ID input */}
         {(method === "UPI" || method === "Bank Transfer") && (
           <div className="mt-4">
@@ -123,7 +167,7 @@ const PaymentMethodModal = ({ isOpen, onClose, onConfirm }) => {
               value={transactionId}
               onChange={(e) => setTransactionId(e.target.value)}
               placeholder="Enter Transaction ID"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none"
             />
           </div>
         )}
@@ -291,7 +335,7 @@ const EditPaymentModal = ({ isOpen, onClose, onSave, payment }) => {
               value={transactionId}
               onChange={(e) => setTransactionId(e.target.value)}
               placeholder="Enter Transaction ID"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none"
             />
           </div>
         )}
@@ -351,6 +395,7 @@ const StatusBadge = ({ status, overdueDays }) => {
 
 // PERFORMANCE: Memoized PaymentRow to prevent unnecessary re-renders
 const PaymentRow = memo(({
+  id,
   invoiceNo,
   client,
   amount,
@@ -359,6 +404,7 @@ const PaymentRow = memo(({
   status,
   overdueDays,
   onEdit,
+  onViewHistory,
 }) => {
   const isOverdue = status === "Overdue";
 
@@ -383,14 +429,30 @@ const PaymentRow = memo(({
       <td className="py-3 px-4">
         <StatusBadge status={status} overdueDays={overdueDays} />
       </td>
-      <td className="py-3 px-4">
+      <td className="py-3 px-4 flex gap-2">
         <button
-          onClick={() => onEdit({ invoiceNo, client, amount, received, dueDate, status, overdueDays })}
+          onClick={() => onViewHistory({ id, invoiceNo, amount })}
+          /* Note: invoiceNo is used as ID in some places but we really need the doc ID for querying payments. 
+             Wait, PaymentRow consumes 'invoiceNo' but inside PaymentsPage it maps 'id' to 'id'. 
+             We need to pass 'id' here or ensure 'invoiceNo' is sufficient query? 
+             Actually, the PaymentsPage map function (line 684) passes `id: inv.id`.
+             But PaymentRow destructures `invoiceNo`. It doesn't seem to get `id`.
+             We need to update PaymentRow props to include `id`.
+          */
           className="p-1 text-gray-600 hover:text-blue-600 transition-colors"
-          title="Edit Payment"
+          title="View History"
         >
-          <Edit size={16} />
+          <Clock size={16} />
         </button>
+        {onEdit && (
+          <button
+            onClick={() => onEdit({ invoiceNo, client, amount, received, dueDate, status, overdueDays })}
+            className="p-1 text-gray-600 hover:text-blue-600 transition-colors"
+            title="Edit Payment"
+          >
+            <Edit size={16} />
+          </button>
+        )}
       </td>
     </tr>
   );
@@ -404,16 +466,22 @@ const PendingPaymentCard = memo(({
   onMarkPaid,
   editingPaymentId,
   setEditingPaymentId,
-  onSavePayment,
+  onInitiatePayment,
+  onViewHistory,
 }) => {
   const { invoiceNo, client, amount, received, dueDate, status } = invoice;
   const [paidAmount, setPaidAmount] = useState("");
+
+  // TDS input removed from here, will be handled in confirmation modal
   const isEditing = editingPaymentId === invoiceNo;
 
   // Calculate remaining amount more accurately
   const currentPaidAmount = Number.parseFloat(received || 0) || 0;
+  const currentTdsAmount = Number.parseFloat(invoice.tdsAmount || 0) || 0; // Assuming we will pass tdsAmount in invoice prop
   const invoiceAmount = Number.parseFloat(amount || 0) || 0;
-  const remainingAmount = invoiceAmount - currentPaidAmount;
+
+  // Remaining amount = Total - Paid - TDS
+  const remainingAmount = Math.max(0, invoiceAmount - currentPaidAmount - currentTdsAmount);
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -428,13 +496,25 @@ const PendingPaymentCard = memo(({
   const handleEnterAmountClick = () => {
     setEditingPaymentId(invoiceNo);
     setPaidAmount("");
+    setTdsAmount("");
   };
   const handleCancel = () => {
     setEditingPaymentId(null);
     setPaidAmount("");
+    setTdsAmount("");
   };
   const handleSave = () => {
-    onSavePayment(invoiceNo, paidAmount);
+    // Validate amounts
+    const pAmount = parseFloat(paidAmount) || 0;
+
+    if (pAmount <= 0) {
+      // Ideally should show error, but we'll let parent handle or assume simple click
+      return;
+    }
+
+    // Instead of saving directly, initiate payment flow to get Method
+    // We pass 0 for TDS here as it will be collected in the modal
+    onInitiatePayment(invoiceNo, paidAmount, 0);
   };
 
   return (
@@ -473,15 +553,25 @@ const PendingPaymentCard = memo(({
             </p>
           )}
         </div>
+
+        <button
+          onClick={() => onViewHistory({ id: invoice.id, invoiceNo, amount })}
+          className="mr-2 p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
+          title="View History"
+        >
+          <Clock size={20} />
+        </button>
+
         {isEditing ? (
           <div className="flex items-center gap-2">
             <input
               type="number"
               value={paidAmount}
               onChange={(e) => setPaidAmount(e.target.value)}
-              placeholder="Amount"
-              className="px-3 py-1.5 border border-gray-300 rounded-md text-sm w-28"
+              placeholder="Amount Paid"
+              className="px-3 py-1.5 border border-gray-300 rounded-md text-sm w-32 focus:outline-none"
             />
+            {/* TDS input removed from here */}
             <button
               onClick={handleSave}
               className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700"
@@ -555,9 +645,18 @@ const PaymentsPage = () => {
   const [activeTab, setActiveTab] = useState("All Payments");
   const [searchTerm, setSearchTerm] = useState("");
   const [editingPaymentId, setEditingPaymentId] = useState(null);
-  const [paymentToMarkPaid, setPaymentToMarkPaid] = useState(null);
+  const [paymentToMarkPaid, setPaymentToMarkPaid] = useState(null); // Can be string (ID) or object { id, type, amounts, currentTds }
   const [editingPayment, setEditingPayment] = useState(null);
+
+  const [viewingHistoryFor, setViewingHistoryFor] = useState(null); // { id, invoiceNo, amount }
+
+  // Filter States
+  const [showFilters, setShowFilters] = useState(false);
+  const [filterDateRange, setFilterDateRange] = useState({ start: "", end: "" });
+  const [filterClientId, setFilterClientId] = useState("");
+
   const tabs = ["All Payments", "Overdue", "Pending", "Paid"];
+  const filterRef = React.useRef(null); // Add Ref
 
   // Get authentication context
   const { user } = useContext(AuthContext);
@@ -570,11 +669,64 @@ const PaymentsPage = () => {
     editInvoice,
   } = useInvoices();
 
-  const { payments: allPayments = [], error: paymentsError } = useAllPayments();
+  const { payments: allPayments = [], error: paymentsError, refetch: refetchPayments } = useAllPayments();
   const { addPayment } = usePayments();
+  const { customers } = useCustomers();
 
   // Handle errors gracefully
 
+
+  // Close filter dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (filterRef.current && !filterRef.current.contains(event.target)) {
+        setShowFilters(false);
+      }
+    };
+    if (showFilters) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showFilters]);
+
+  // Helper for date presets
+  const applyDatePreset = (preset) => {
+    const now = new Date();
+    let start = "";
+    let end = "";
+    
+    const fmt = (d) => {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    };
+
+    if (preset === "This Month") {
+      start = fmt(new Date(now.getFullYear(), now.getMonth(), 1));
+      end = fmt(new Date(now.getFullYear(), now.getMonth() + 1, 0));
+    } else if (preset === "Last Month") {
+      start = fmt(new Date(now.getFullYear(), now.getMonth() - 1, 1));
+      end = fmt(new Date(now.getFullYear(), now.getMonth(), 0));
+    } else if (preset === "Financial Year") {
+      const currentYear = now.getFullYear();
+      const fyStart = now.getMonth() >= 3 ? currentYear : currentYear - 1;
+      start = fmt(new Date(fyStart, 3, 1)); // April 1st
+      end = fmt(new Date(fyStart + 1, 2, 31)); // March 31st
+    }
+
+    setFilterDateRange({ start, end });
+  };
+
+  const clearFilters = () => {
+    setFilterDateRange({ start: "", end: "" });
+    setFilterClientId("");
+    setShowFilters(false);
+  };
+
+  const hasActiveFilters = filterDateRange.start || filterDateRange.end || filterClientId;
 
   // Memoized status calculation function matching InvoiceManagement.jsx
   const getDynamicInvoiceStatus = useCallback((invoice) => {
@@ -615,6 +767,7 @@ const PaymentsPage = () => {
       const paymentDate = inv.paymentDate || null;
       const method = inv.paymentMethod || null;
       const transactionId = inv.transactionId || null;
+      const tdsAmount = inv.tdsAmount || 0;
       const dueDate = inv.dueDate || "-";
       const status = getDynamicInvoiceStatus(inv);
 
@@ -623,12 +776,16 @@ const PaymentsPage = () => {
         client,
         amount,
         received,
+        tdsAmount,
         dueDate,
         status,
         paymentDate,
         method,
         transactionId,
+
         id: inv.id,
+        clientId: inv.clientId || inv.client?.id,
+        invoiceDate: inv.invoiceDate || inv.createdAt,
       };
     });
   }, [allInvoices, allPayments, getDynamicInvoiceStatus]);
@@ -650,7 +807,34 @@ const PaymentsPage = () => {
     return { ...payment, overdueDays: 0 };
   };
 
-  const handleMarkAsPaid = (invoiceNo) => setPaymentToMarkPaid(invoiceNo);
+  // When user clicks "Mark Paid" (Full Payment intent)
+  const handleMarkAsPaid = (invoiceNo) => {
+    setPaymentToMarkPaid({
+      invoiceNo,
+      type: 'full',
+      currentTds: allInvoices.find(i => i.invoiceNumber === invoiceNo)?.tdsAmount || 0
+    });
+  };
+
+  // When user enters partial amount and clicks Save (Partial Payment intent)
+  const handleInitiatePartialPayment = (invoiceNo, paidAmount, tdsAmount) => {
+    setPaymentToMarkPaid({
+      invoiceNo,
+      type: 'partial',
+      amounts: {
+        paid: parseFloat(paidAmount),
+        tds: parseFloat(tdsAmount) || 0
+      },
+      // Pass current TDS to know if we should ask again
+      currentTds: allInvoices.find(i => i.invoiceNumber === invoiceNo)?.tdsAmount || 0
+    });
+  };
+
+  const handleViewHistory = (item) => {
+    // We need to ensure we have the correct ID for the invoice to query sub-collection or filtered list
+    // 'item' should have { id, invoiceNo, amount }
+    setViewingHistoryFor(item);
+  };
 
   const handleEditPayment = (payment) => setEditingPayment(payment);
 
@@ -700,51 +884,126 @@ const PaymentsPage = () => {
     }
   };
 
-  // Function now accepts transactionId and updates local data
-  const confirmMarkAsPaid = async (method, transactionId) => {
+  // Function handles both Full and Partial Payment Confirmations
+  const confirmMarkAsPaid = async (method, transactionId, tdsAmountInput = 0) => {
     try {
       const today = new Date().toLocaleDateString("en-GB");
 
+      const targetInvoiceNo = paymentToMarkPaid?.invoiceNo || paymentToMarkPaid;
+      const isPartial = paymentToMarkPaid?.type === 'partial';
+      const partialAmounts = paymentToMarkPaid?.amounts || {};
+
       // Find the invoice to mark as paid
       const invoiceToUpdate = allInvoices.find(
-        (inv) => inv.invoiceNumber === paymentToMarkPaid
+        (inv) => inv.invoiceNumber === targetInvoiceNo
       );
+
       if (invoiceToUpdate) {
         const invoiceAmount = Number.parseFloat(invoiceToUpdate.total || invoiceToUpdate.amount || invoiceToUpdate.totalAmount) || 0;
+        const currentPaid = Number.parseFloat(invoiceToUpdate.paidAmount || 0) || 0;
+        const currentTds = Number.parseFloat(invoiceToUpdate.tdsAmount || 0) || 0;
 
-        // Update invoice status to paid with full amount
-        await editInvoice(invoiceToUpdate.id, {
-          status: "Paid",
-          paidAmount: invoiceAmount, // Set paid amount to full invoice amount
+        let newPaidAmount = 0;
+        let newTdsAmount = 0;
+        let amountToRecord = 0;
+        let tdsForDisplay = 0;
+
+        if (isPartial) {
+          // Partial Payment Logic
+          amountToRecord = partialAmounts.paid;
+
+          // Use TDS input from the modal (tdsAmountInput)
+          const enteredTds = Number.parseFloat(tdsAmountInput) || 0;
+          tdsForDisplay = enteredTds;
+
+          newPaidAmount = currentPaid + amountToRecord;
+          newTdsAmount = currentTds + tdsForDisplay;
+
+        } else {
+          // Full Payment Logic
+          const enteredTds = Number.parseFloat(tdsAmountInput) || 0;
+          tdsForDisplay = enteredTds;
+          newTdsAmount = currentTds + enteredTds;
+
+          // Calculate remaining payable
+          const remainingToPay = Math.max(0, invoiceAmount - newTdsAmount - currentPaid);
+
+          amountToRecord = remainingToPay;
+          newPaidAmount = currentPaid + amountToRecord;
+        }
+
+        // Validation
+        if ((newPaidAmount + newTdsAmount) > invoiceAmount + 5) {
+          showError("Total Paid + TDS exceeds Invoice Amount.");
+          return;
+        }
+
+        // Determine New Status
+        let newStatus = "Unpaid";
+        const totalCovered = newPaidAmount + newTdsAmount;
+        if (Math.abs(invoiceAmount - totalCovered) < 5) {
+          newStatus = "Paid";
+        } else if (totalCovered > 0) {
+          newStatus = "Partial";
+        }
+
+        // Update Invoice
+        const updateData = {
+          status: newStatus,
+          paidAmount: newPaidAmount,
+          tdsAmount: newTdsAmount,
           paymentMethod: method,
-          transactionId: transactionId,
-          paymentDate: today,
-        });
+        };
 
-        // Create a payment record
-        await addPayment({
-          invoiceId: invoiceToUpdate.id,
-          amount: invoiceAmount,
-          method: method,
-          transactionId: transactionId,
-          paymentDate: today,
-          status: "completed",
-        });
+        if (transactionId) updateData.transactionId = transactionId;
+        if (newStatus === "Paid") updateData.paymentDate = today;
+
+        await editInvoice(invoiceToUpdate.id, updateData);
+
+        // Record Payment
+        if (amountToRecord > 0) {
+          await addPayment({
+            invoiceId: invoiceToUpdate.id,
+            amount: amountToRecord,
+            method: method,
+            transactionId: transactionId,
+            paymentDate: today,
+            status: "completed",
+          });
+        }
 
         const clientName = invoiceToUpdate.client?.name || invoiceToUpdate.customerName || "Client";
-        success(`Received ₹${invoiceAmount.toLocaleString('en-IN')} from ${clientName} via ${method}`, "Payment Successful");
+        success(`Payment recorded: ₹${amountToRecord.toLocaleString('en-IN')} (TDS: ₹${tdsForDisplay}) via ${method}`, "Success");
+
+        // Refresh payments data
+        refetchPayments();
       }
     } catch (error) {
       showError("Error recording payment: " + error.message);
     } finally {
       setPaymentToMarkPaid(null);
+      setEditingPaymentId(null);
     }
   };
 
-  const handleSavePayment = async (invoiceNo, paidAmountStr) => {
-    const paidAmount = Number.parseFloat(paidAmountStr);
-    if (Number.isNaN(paidAmount) || paidAmount <= 0) {
-      showError("Please enter a valid amount.");
+  const handleSavePayment = async (invoiceNo, paidAmountStr, tdsAmountStr) => {
+    const enteredPaidAmount = Number.parseFloat(paidAmountStr);
+    const enteredTdsAmount = Number.parseFloat(tdsAmountStr) || 0;
+
+    if (Number.isNaN(enteredPaidAmount) || enteredPaidAmount <= 0) {
+      // Allow 0 paid amount only if there is TDS amount? No, generally prompt for at least *some* action. 
+      // But user might want to just record TDS? Let's assume paid amount can be 0 if TDS > 0, but user said "if i going to make as paid or enter the amount it needs to ask for tds amount"
+      // Let's stick to positive paid amount for "Partial Payment" logic unless TDS covers the rest?
+      // For simplicity/safety, require paid amount > 0 OR TDS > 0 to proceed
+      if (enteredPaidAmount <= 0 && enteredTdsAmount <= 0) {
+        showError("Please enter a valid paid amount or TDS amount.");
+        return;
+      }
+    }
+
+    // Safety check for negative input
+    if (enteredPaidAmount < 0 || enteredTdsAmount < 0) {
+      showError("Amounts cannot be negative.");
       return;
     }
 
@@ -763,21 +1022,35 @@ const PaymentsPage = () => {
 
       const invoiceAmount = Number.parseFloat(invoiceToUpdate.total || invoiceToUpdate.amount || invoiceToUpdate.totalAmount) || 0;
       const currentPaidAmount = Number.parseFloat(invoiceToUpdate.paidAmount || 0) || 0;
-      const newTotalPaidAmount = currentPaidAmount + paidAmount;
+      const currentTdsAmount = Number.parseFloat(invoiceToUpdate.tdsAmount || 0) || 0;
+
+      const newTotalPaidAmount = currentPaidAmount + enteredPaidAmount;
+      const newTotalTdsAmount = currentTdsAmount + enteredTdsAmount;
+
+      const totalCovered = newTotalPaidAmount + newTotalTdsAmount;
+
+      // Validation: Total Paid + Total TDS cannot exceed Invoice Total (approx, allowing for small float errors or user override if really needed?)
+      // User said: "Mainly the amount should no go to minus" (Pending amount)
+      if (totalCovered > invoiceAmount) {
+        // Warning but maybe allow? Or block? Safe to block for now to prevent negative pending.
+        showError(`Total paid + TDS (₹${totalCovered}) exceeds Invoice amount (₹${invoiceAmount}).`);
+        return;
+      }
 
       // Determine new status based on payment amount
       let newStatus;
-      if (newTotalPaidAmount >= invoiceAmount) {
+      if (Math.abs(invoiceAmount - totalCovered) < 1) { // Floating point safety
         newStatus = "Paid"; // Fully paid
-      } else if (newTotalPaidAmount > 0) {
+      } else if (newTotalPaidAmount > 0 || (enteredTdsAmount > 0 && totalCovered < invoiceAmount)) {
         newStatus = "Partial"; // Partially paid
       } else {
-        newStatus = "Unpaid"; // Not paid
+        newStatus = "Unpaid"; // Not paid (shouldn't really happen here if inputs are validated)
       }
 
       // Update invoice with new payment information
       const updateData = {
         paidAmount: newTotalPaidAmount,
+        tdsAmount: newTotalTdsAmount,
         status: newStatus,
       };
 
@@ -788,18 +1061,20 @@ const PaymentsPage = () => {
 
       await editInvoice(invoiceToUpdate.id, updateData);
 
-      // Create a payment record for this partial payment
-      await addPayment({
-        invoiceId: invoiceToUpdate.id,
-        amount: paidAmount,
-        method: "Partial Payment", // We can enhance this later with a method selection
-        transactionId: `PARTIAL-${Date.now()}`, // Generate a unique ID for partial payments
-        paymentDate: today,
-        status: "completed",
-      });
+      // Create a payment record for this partial payment IF amount > 0
+      if (enteredPaidAmount > 0) {
+        await addPayment({
+          invoiceId: invoiceToUpdate.id,
+          amount: enteredPaidAmount,
+          method: "Partial Payment", // We can enhance this later with a method selection
+          transactionId: `PARTIAL-${Date.now()}`, // Generate a unique ID for partial payments
+          paymentDate: today,
+          status: "completed",
+        });
+      }
 
       const clientName = invoiceToUpdate.client?.name || invoiceToUpdate.customerName || "Client";
-      success(`Partial payment of ₹${paidAmount.toLocaleString('en-IN')} received from ${clientName}`, "Payment Recorded");
+      success(`Partial payment recorded. Paid: ₹${enteredPaidAmount}, TDS: ₹${enteredTdsAmount}`, "Payment Recorded");
       setEditingPaymentId(null);
 
     } catch (error) {
@@ -817,16 +1092,46 @@ const PaymentsPage = () => {
       const matchesSearch =
         payment.invoiceNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
         payment.client.toLowerCase().includes(searchTerm.toLowerCase());
-      if (activeTab === "All Payments") return matchesSearch;
-      if (activeTab === "Overdue")
-        return payment.status === "Overdue" && matchesSearch;
-      if (activeTab === "Pending")
-        return (
-          (payment.status === "Unpaid" || payment.status === "Partial") &&
-          matchesSearch
-        );
-      if (activeTab === "Paid") return payment.status === "Paid" && matchesSearch;
-      return false;
+      if (activeTab === "Paid" && !(payment.status === "Paid" && matchesSearch)) return false;
+      if (activeTab === "Overdue" && !(payment.status === "Overdue" && matchesSearch)) return false;
+      if (activeTab === "Pending" && !((payment.status === "Unpaid" || payment.status === "Partial") && matchesSearch)) return false;
+      if (activeTab === "All Payments" && !matchesSearch) return false;
+
+      // Filter by Client
+      if (filterClientId && payment.clientId !== filterClientId) {
+        return false;
+      }
+
+      // Filter by Date Range
+      if (filterDateRange.start && filterDateRange.end) {
+        const start = new Date(filterDateRange.start);
+        const end = new Date(filterDateRange.end);
+        start.setHours(0, 0, 0, 0);
+        end.setHours(23, 59, 59, 999);
+
+        // Determine which date to check based on tab
+        let dateToCheckStr = null;
+        if (activeTab === "Paid") {
+          dateToCheckStr = payment.paymentDate;
+          // If we don't have paymentDate (legacy), maybe fallback to invoiceDate
+          if (!dateToCheckStr) dateToCheckStr = payment.invoiceDate;
+        } else if (activeTab === "Overdue" || activeTab === "Pending") {
+          dateToCheckStr = payment.dueDate;
+        } else {
+          // All Payments - use invoiceDate as primary anchor
+          dateToCheckStr = payment.invoiceDate;
+        }
+
+        if (!dateToCheckStr || dateToCheckStr === "-") return false;
+
+        let d = new Date(dateToCheckStr);
+        // If invalid, try to handle potential errors (though YYYY-MM-DD should work)
+        if (isNaN(d.getTime())) return false;
+
+        if (d < start || d > end) return false;
+      }
+
+      return true;
     });
 
     // Sort with secondary sorting for stable ordering
@@ -878,7 +1183,8 @@ const PaymentsPage = () => {
                   onMarkPaid={handleMarkAsPaid}
                   editingPaymentId={editingPaymentId}
                   setEditingPaymentId={setEditingPaymentId}
-                  onSavePayment={handleSavePayment}
+                  onInitiatePayment={handleInitiatePartialPayment}
+                  onViewHistory={handleViewHistory}
                 />
               ))
             ) : (
@@ -962,8 +1268,8 @@ const PaymentsPage = () => {
               <th className="py-3 px-4">Client</th>
               <th className="py-3 px-4">Amount</th>
               <th className="py-3 px-4">Due Date</th>
-              <th className="py-3 px-4">Status</th>
-              <th className="py-3 px-4">Actions</th>
+              <th className="py-3 px-5">Status</th>
+              <th className="py-3 px-5">Transaction History</th>
             </tr>
           </thead>
           <tbody>
@@ -977,7 +1283,9 @@ const PaymentsPage = () => {
                     ? `₹${payment.received.toLocaleString()}`
                     : null
                 }
-                onEdit={handleEditPayment}
+                onEdit={null} // No edit action in All Payments view
+                onViewHistory={handleViewHistory}
+                id={payment.id} // Pass ID for history query
               />
             ))}
           </tbody>
@@ -1030,6 +1338,14 @@ const PaymentsPage = () => {
         isOpen={!!paymentToMarkPaid}
         onClose={() => setPaymentToMarkPaid(null)}
         onConfirm={confirmMarkAsPaid}
+        existingTds={paymentToMarkPaid?.currentTds || 0}
+      />
+      <TransactionHistoryModal
+        isOpen={!!viewingHistoryFor}
+        onClose={() => setViewingHistoryFor(null)}
+        invoiceId={viewingHistoryFor?.id}
+        invoiceNo={viewingHistoryFor?.invoiceNo}
+        totalAmount={viewingHistoryFor?.amount}
       />
       <EditPaymentModal
         isOpen={!!editingPayment}
@@ -1050,19 +1366,26 @@ const PaymentsPage = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
             {(() => {
               const totalAmount = paymentsState.reduce(
-                (s, p) => s + (p.amount || 0),
+                (s, p) => s + ((p.amount || 0) - (p.tdsAmount || 0)),
                 0
               );
               const amountReceived = paymentsState.reduce(
                 (s, p) => s + (p.received || 0),
                 0
               );
+              // Pending = Total - Paid - TDS
               const overdueAmount = paymentsState
                 .filter((p) => p.status === "Overdue")
-                .reduce((s, p) => s + (p.amount - (p.received || 0)), 0);
+                .reduce((s, p) => {
+                  const remaining = Math.max(0, p.amount - (p.received || 0) - (p.tdsAmount || 0));
+                  return s + remaining;
+                }, 0);
               const pendingAmount = paymentsState
-                .filter((p) => p.status === "Unpaid" || p.status === "Partial")
-                .reduce((s, p) => s + (p.amount - (p.received || 0)), 0);
+                .filter((p) => p.status === "Unpaid" || p.status === "Partial" || p.status === "Overdue") // Include overdue in pending total? Usually distinct, but user asks "how much are in pending". Safe to keep separate or aggregated. Let's keep typical definitions: Pending includes all non-paid.
+                .reduce((s, p) => {
+                  const remaining = Math.max(0, p.amount - (p.received || 0) - (p.tdsAmount || 0));
+                  return s + remaining;
+                }, 0);
               return (
                 <>
                   <StatCard
@@ -1111,9 +1434,99 @@ const PaymentsPage = () => {
                 placeholder="Search by invoice number or client..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full bg-white border border-gray-300 rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full bg-white border border-gray-300 rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none"
               />
             </div>
+
+            {/* Filter Button & Dropdown */}
+            <div className="relative" ref={filterRef}>
+              <button
+                onClick={() => setShowFilters(!showFilters)}
+                className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors border ${hasActiveFilters || showFilters
+                  ? "bg-blue-50 text-blue-600 border-blue-200"
+                  : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                  }`}
+              >
+                <Filter size={16} />
+                Filter
+                {(hasActiveFilters) && <span className="w-2 h-2 bg-blue-600 rounded-full"></span>}
+              </button>
+
+              {showFilters && (
+                <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-xl shadow-xl border border-gray-200 z-50 p-4">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="font-bold text-gray-900">Filters</h3>
+                    <button
+                      onClick={clearFilters}
+                      className="text-xs text-red-500 hover:text-red-700 hover:underline"
+                    >
+                      Clear All
+                    </button>
+                  </div>
+
+                  <div className="space-y-4">
+                    {/* Date Range */}
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                        Date Range
+                      </label>
+                      <div className="flex gap-2 mb-2">
+                        <button onClick={() => applyDatePreset("This Month")} className="flex-1 px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded text-gray-700">This Month</button>
+                        <button onClick={() => applyDatePreset("Last Month")} className="flex-1 px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded text-gray-700">Last Month</button>
+                        <button onClick={() => applyDatePreset("Financial Year")} className="flex-1 px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded text-gray-700">FY</button>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <span className="text-xs text-gray-400 mb-1 block">From</span>
+                          <input
+                            type="date"
+                            value={filterDateRange.start}
+                            onChange={(e) => setFilterDateRange(prev => ({ ...prev, start: e.target.value }))}
+                            className="w-full text-xs px-2 py-1.5 bg-gray-50 border border-gray-200 rounded focus:border-blue-500 outline-none"
+                          />
+                        </div>
+                        <div>
+                          <span className="text-xs text-gray-400 mb-1 block">To</span>
+                          <input
+                            type="date"
+                            value={filterDateRange.end}
+                            onChange={(e) => setFilterDateRange(prev => ({ ...prev, end: e.target.value }))}
+                            className="w-full text-xs px-2 py-1.5 bg-gray-50 border border-gray-200 rounded focus:border-blue-500 outline-none"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Client Filter */}
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                        Client
+                      </label>
+                      <select
+                        value={filterClientId}
+                        onChange={(e) => setFilterClientId(e.target.value)}
+                        className="w-full text-sm px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-500"
+                      >
+                        <option value="">All Clients</option>
+                        {(customers || []).map(c => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 pt-4 border-t border-gray-100 flex justify-end">
+                    <button
+                      onClick={() => setShowFilters(false)}
+                      className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700"
+                    >
+                      Done
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="flex items-center gap-4 w-full md:w-auto overflow-hidden">
               <div className="bg-gray-100 rounded-lg p-1 flex items-center space-x-1 w-full md:w-auto overflow-x-auto">
                 {tabs.map((tab) => (
@@ -1183,7 +1596,7 @@ PaymentRow.propTypes = {
   dueDate: PropTypes.string.isRequired,
   status: PropTypes.string.isRequired,
   overdueDays: PropTypes.number,
-  onEdit: PropTypes.func.isRequired,
+  onEdit: PropTypes.func,
 };
 
 PendingPaymentCard.propTypes = {
@@ -1198,7 +1611,7 @@ PendingPaymentCard.propTypes = {
   onMarkPaid: PropTypes.func.isRequired,
   editingPaymentId: PropTypes.string,
   setEditingPaymentId: PropTypes.func.isRequired,
-  onSavePayment: PropTypes.func.isRequired,
+  onInitiatePayment: PropTypes.func.isRequired,
 };
 
 PaidPaymentRow.propTypes = {

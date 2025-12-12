@@ -11,6 +11,7 @@ import {
   FileEdit,
   ArrowUpRight,
   ArrowDownRight,
+  Coins,
 } from "lucide-react";
 import {
   useDashboard,
@@ -23,15 +24,56 @@ import InvoiceStatus from "./InvoiceStatus";
 
 // Main Dashboard Component
 const Dashboard = () => {
-  const { stats } = useDashboard();
-  const { invoices } = useInvoices();
+  const { allInvoices } = useInvoices(); // Use allInvoices for accurate stats
   const { payments } = useAllPayments();
   const { products } = useProducts();
 
-  // Memoize processed data to prevent unnecessary recalculations
-  const memoizedInvoices = useMemo(() => invoices || [], [invoices]);
+  // Calculate stats dynamically from allInvoices
+  const stats = useMemo(() => {
+    if (!allInvoices) return null;
+
+    const activeInvoices = allInvoices.filter(i => i.status !== 'Cancelled');
+    const validInvoices = activeInvoices.filter(i => (i.status || '').toLowerCase() !== 'draft');
+
+    const totalInvoices = validInvoices.length;
+    // Revenue from valid (non-draft) invoices
+    const totalRevenue = validInvoices.reduce((sum, inv) => sum + (Number(inv.invoiceAmount) || 0), 0);
+
+    // TDS from valid invoices
+    const totalTDS = validInvoices.reduce((sum, inv) => sum + (Number(inv.tdsAmount) || 0), 0);
+
+    const paidInvoices = activeInvoices.filter(i => (i.status || '').toLowerCase() === 'paid').length;
+    const draftInvoices = activeInvoices.filter(i => (i.status || '').toLowerCase() === 'draft').length;
+
+    // Unpaid includes Pending, Unpaid, Sent, Overdue
+    const unpaidInvoices = activeInvoices.filter(i => {
+      const s = (i.status || '').toLowerCase();
+      return s !== 'paid' && s !== 'draft' && s !== 'cancelled';
+    }).length;
+
+    const paymentRate = (paidInvoices + unpaidInvoices + draftInvoices) > 0
+      ? (paidInvoices / (paidInvoices + unpaidInvoices + draftInvoices)) * 100
+      : 0;
+
+    // Total Customers (unique clientIds)
+    const uniqueCustomers = new Set(activeInvoices.map(i => i.clientId).filter(Boolean)).size;
+
+    return {
+      totalInvoices,
+      totalRevenue,
+      paidInvoices,
+      unpaidInvoices,
+      draftInvoices,
+      paymentRate, // Percentage of Paid vs Total
+      totalTDS,
+      totalCustomers: uniqueCustomers,
+      financialYearLabel: 'Current FY' // Placeholder
+    };
+  }, [allInvoices]);
+
   const memoizedPayments = useMemo(() => payments || [], [payments]);
   const memoizedProducts = useMemo(() => products || [], [products]);
+  const memoizedInvoices = useMemo(() => allInvoices || [], [allInvoices]);
 
 
   return (
@@ -189,15 +231,15 @@ const StatsGrid = memo(({ stats, products }) => {
         icon={<Package className="text-purple-600" />}
       />
       <StatCard
-        title="Draft Invoices"
-        value={formatNumber(stats.draftInvoices)}
-        icon={<FileEdit className="text-orange-500" />}
+        title="Total TDS Amount"
+        value={formatCurrency(stats.totalTDS)}
+        icon={<Coins className="text-orange-500" />}
         footer={
           <div className="flex items-center gap-2 body-text-small">
             <span className="bg-orange-600 text-white px-2 py-0.5 rounded-full font-medium">
-              {stats.draftInvoices} Drafts
+              TDS
             </span>
-            <span className="text-slate-500">Need completion</span>
+            <span className="text-slate-500">Collected so far</span>
           </div>
         }
       />
@@ -216,6 +258,7 @@ StatsGrid.propTypes = {
     totalCustomers: PropTypes.number,
     paymentRate: PropTypes.number,
     draftInvoices: PropTypes.number,
+    totalTDS: PropTypes.number,
     financialYearLabel: PropTypes.string,
   }),
   products: PropTypes.array,

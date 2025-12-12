@@ -46,6 +46,27 @@ const applyListView = (items, { search = "", page = 1, limit = 20, sortBy, sortD
   };
 };
 
+// Financial Year Helper
+const isInCurrentFY = (dateInput) => {
+  if (!dateInput) return false;
+
+  // Handle Firestore timestamp or string
+  let date;
+  if (dateInput && typeof dateInput.toDate === 'function') {
+    date = dateInput.toDate();
+  } else {
+    date = new Date(dateInput);
+  }
+
+  if (isNaN(date.getTime())) return false;
+
+  // FY: April 1, 2025 to March 31, 2026
+  const start = new Date("2025-04-01T00:00:00");
+  const end = new Date("2026-03-31T23:59:59");
+
+  return date >= start && date <= end;
+};
+
 // Keys
 const K = {
   customers: "stub_customers",
@@ -109,8 +130,13 @@ export const useCustomers = (options = {}) => {
 export const useInvoices = (options = {}) => {
   const [all, setAll] = useState(() => load(K.invoices, []));
 
+  // Filter all invoices by FY first
+  const fyInvoices = useMemo(() => {
+    return all.filter(inv => isInCurrentFY(inv.invoiceDate || inv.createdAt));
+  }, [all]);
+
   const filtered = useMemo(() => {
-    let res = all;
+    let res = fyInvoices;
 
     // Status Filtering
     if (options.status) {
@@ -188,7 +214,7 @@ export const useInvoices = (options = {}) => {
     setAll(latest);
   }, []);
 
-  return { invoices: view, allInvoices: all, loading: false, error: null, pagination: pageInfo, addInvoice, editInvoice, removeInvoice, refetch };
+  return { invoices: view, allInvoices: fyInvoices, loading: false, error: null, pagination: pageInfo, addInvoice, editInvoice, removeInvoice, refetch };
 };
 
 // Payments
@@ -224,11 +250,23 @@ export const usePayments = (invoiceId) => {
 };
 
 export const useAllPayments = () => {
-  const [payments, setPayments] = useState(() => load(K.payments, []));
-  useEffect(() => {
-    setPayments(load(K.payments, []));
+  const [payments, setPayments] = useState(() => {
+    const raw = load(K.payments, []);
+    return raw.filter(p => isInCurrentFY(p.paymentDate || p.createdAt));
+  });
+
+  const refetch = useCallback(() => {
+    const raw = load(K.payments, []);
+    setPayments(raw.filter(p => isInCurrentFY(p.paymentDate || p.createdAt)));
   }, []);
-  return { payments, error: null };
+
+  useEffect(() => {
+    // Initial load handled by useState lazy initializer, but if we want to sync on mount again:
+    const raw = load(K.payments, []);
+    setPayments(raw.filter(p => isInCurrentFY(p.paymentDate || p.createdAt)));
+  }, []);
+
+  return { payments, error: null, refetch };
 };
 
 // Products
