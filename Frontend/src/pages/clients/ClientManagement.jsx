@@ -4,7 +4,6 @@ import {
   Plus,
   Eye,
   Edit,
-  Trash2,
   X,
   FileText,
   Phone,
@@ -27,9 +26,6 @@ const ClientManagement = () => {
   const [selectedClient, setSelectedClient] = useState(null);
   const [dropdownOpen, setDropdownOpen] = useState(null);
   const dropdownRef = useRef(null);
-
-  const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
-  const [clientToDelete, setClientToDelete] = useState(null);
 
   // Get authentication context
   // Get authentication context
@@ -314,39 +310,6 @@ const ClientManagement = () => {
     }
   };
 
-  const handleDeleteClient = (client) => {
-    setClientToDelete(client);
-    setShowDeleteConfirmModal(true);
-    setDropdownOpen(null);
-  };
-
-  // CHANGED: New function to perform the actual deletion
-  const confirmDelete = async () => {
-    if (clientToDelete) {
-      const clientName = clientToDelete.name;
-      const clientId = clientToDelete.id;
-
-      // Optimistic UI: Close modal and show notification immediately
-      setShowDeleteConfirmModal(false);
-      setClientToDelete(null);
-
-      // Delete = Red (Error style)
-      showError(`Client "${clientName}" deleted successfully!`, "Deleted");
-
-      const result = await removeCustomer(clientId);
-
-      // Handle failure
-      if (!result.success) {
-        showError(`Failed to delete client: ${result.error}`, "Error");
-      }
-    }
-  };
-
-  const cancelDelete = () => {
-    setShowDeleteConfirmModal(false);
-    setClientToDelete(null);
-  };
-
   const handleCancelEdit = () => {
     setShowEditModal(false);
     setSelectedClient(null);
@@ -420,7 +383,6 @@ const ClientManagement = () => {
             serialNumber={String((currentPage - 1) * itemsPerPage + index + 1).padStart(2, '0')}
             onView={handleViewClient}
             onEdit={handleEditClient}
-            onDelete={handleDeleteClient}
           />
         );
       });
@@ -508,42 +470,6 @@ const ClientManagement = () => {
       </div>
 
       {/* --- MODALS --- */}
-
-      {showDeleteConfirmModal && clientToDelete && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 modal-backdrop flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-sm mx-auto p-6">
-            <div className="text-center">
-              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100">
-                <AlertCircle className="h-6 w-6 text-red-600" />
-              </div>
-              <h3 className="text-lg leading-6 font-medium text-gray-900 mt-4">
-                Delete Client
-              </h3>
-              <div className="mt-2 px-4 text-sm text-gray-500">
-                <p>
-                  Are you sure you want to delete{" "}
-                  <strong>{clientToDelete.name}</strong>? This action cannot be
-                  undone.
-                </p>
-              </div>
-            </div>
-            <div className="mt-6 flex gap-4">
-              <button
-                onClick={cancelDelete}
-                className="flex-1 px-4 py-2 bg-white border border-gray-300 text-gray-900 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmDelete}
-                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition-colors"
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {showAddModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 modal-backdrop flex items-center justify-center z-50 p-4">
@@ -881,8 +807,7 @@ const ClientRow = memo(({
   stats,
   serialNumber,
   onView,
-  onEdit,
-  onDelete
+  onEdit
 }) => {
   return (
     <tr
@@ -933,13 +858,6 @@ const ClientRow = memo(({
           >
             <Edit className="w-4 h-4" />
           </button>
-          <button
-            onClick={() => onDelete(client)}
-            className="p-1 text-gray-600 transition-colors hover:text-red-600"
-            title="Delete Client"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
         </div>
       </td>
     </tr>
@@ -965,7 +883,6 @@ ClientRow.propTypes = {
   serialNumber: PropTypes.string.isRequired,
   onView: PropTypes.func.isRequired,
   onEdit: PropTypes.func.isRequired,
-  onDelete: PropTypes.func.isRequired,
 };
 
 export default ClientManagement;

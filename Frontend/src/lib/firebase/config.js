@@ -1,5 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getAuth, setPersistence, browserSessionPersistence } from "firebase/auth";
+import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -10,9 +11,10 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
-// Initialize Firebase app and auth only
+// Initialize Firebase app and auth
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
+const db = getFirestore(app);
 
 // Force session persistence
 try {
@@ -21,7 +23,7 @@ try {
   console.error("Firebase persistence error:", error);
 }
 
-// Export only auth and app
-export { auth, app };
-export default { auth, app };
+// Export auth, app, and db
+export { auth, app, db };
+export default { auth, app, db };
 

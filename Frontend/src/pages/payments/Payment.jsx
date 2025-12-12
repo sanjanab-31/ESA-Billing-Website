@@ -429,7 +429,7 @@ const PaymentRow = memo(({
       <td className="py-3 px-4">
         <StatusBadge status={status} overdueDays={overdueDays} />
       </td>
-      <td className="py-3 px-4 flex gap-2">
+      <td className="py-4 px-4 flex gap-2 items-center">
         <button
           onClick={() => onViewHistory({ id, invoiceNo, amount })}
           /* Note: invoiceNo is used as ID in some places but we really need the doc ID for querying payments. 

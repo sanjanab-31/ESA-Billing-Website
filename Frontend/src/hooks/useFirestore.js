@@ -123,7 +123,7 @@ export const useCustomers = (options = {}) => {
     setAll(latest);
   }, []);
 
-  return { customers: view, loading: false, error: null, pagination: pageInfo, addCustomer, editCustomer, removeCustomer, refetch };
+  return { customers: view, allCustomers: all, loading: false, error: null, pagination: pageInfo, addCustomer, editCustomer, removeCustomer, refetch };
 };
 
 // Invoices
@@ -309,7 +309,7 @@ export const useProducts = (options = {}) => {
     setAll(latest);
   }, []);
 
-  return { products: view, loading: false, error: null, pagination: pageInfo, addProduct, editProduct, removeProduct, refetch };
+  return { products: view, allProducts: all, loading: false, error: null, pagination: pageInfo, addProduct, editProduct, removeProduct, refetch };
 };
 
 // Settings

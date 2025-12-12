@@ -393,6 +393,7 @@ export default function ProductManagement() {
   // Use products hook
   const {
     products,
+    allProducts,
     loading,
     error,
     pagination,
@@ -555,20 +556,28 @@ export default function ProductManagement() {
     }
 
     if (products && products.length > 0) {
-      return products.map((product, index) => (
-        <ProductRow
-          key={product.id}
-          product={{
-            ...product,
-            price: `₹${Number(product.price).toLocaleString('en-IN')}`,
-            revenue: 'N/A'
-          }}
-          serialNumber={String((currentPage - 1) * itemsPerPage + index + 1).padStart(2, '0')}
-          onView={handleViewProduct}
-          onEdit={handleEditProduct}
-          onDelete={handleDeleteProduct}
-        />
-      ));
+      return products.map((product, index) => {
+        // Find actual position in the full list
+        const actualIndex = allProducts ? allProducts.findIndex(p => p.id === product.id) : -1;
+        const serialNumber = actualIndex >= 0
+          ? String(actualIndex + 1).padStart(2, '0')
+          : String((currentPage - 1) * itemsPerPage + index + 1).padStart(2, '0');
+
+        return (
+          <ProductRow
+            key={product.id}
+            product={{
+              ...product,
+              price: `₹${Number(product.price).toLocaleString('en-IN')}`,
+              revenue: 'N/A'
+            }}
+            serialNumber={serialNumber}
+            onView={handleViewProduct}
+            onEdit={handleEditProduct}
+            onDelete={handleDeleteProduct}
+          />
+        );
+      });
     }
 
     return (

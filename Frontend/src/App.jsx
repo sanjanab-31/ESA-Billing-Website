@@ -13,6 +13,7 @@ import Clients from "./pages/clients/ClientManagement";
 import Report from "./pages/reports/RevenueLineChart";
 import Settings from "./pages/settings/SettingsPage";
 import InactivityDetector from "./components/InactivityDetector";
+import DataSeeder from "./pages/admin/DataSeeder";
 
 
 import PropTypes from 'prop-types';
@@ -67,6 +68,7 @@ export default function App() {
                       <Route path="/reports" element={<Report />} />
                       <Route path="/payments" element={<Payments />} />
                       <Route path="/settings" element={<Settings />} />
+                      <Route path="/seed-data" element={<DataSeeder />} />
                     </Routes>
                   </main>
                 </div>

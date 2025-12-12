@@ -27,8 +27,8 @@ import InvoiceStatus from "./InvoiceStatus";
 const Dashboard = () => {
   const { allInvoices } = useInvoices(); // Use allInvoices for accurate stats
   const { payments } = useAllPayments();
-  const { products } = useProducts();
-  const { customers } = useCustomers(); // Get actual customers from customers collection
+  const { allProducts } = useProducts(); // Get all products, not just paginated view
+  const { allCustomers } = useCustomers(); // Get all customers, not just paginated view
 
   // Calculate stats dynamically from allInvoices
   const stats = useMemo(() => {
@@ -66,7 +66,7 @@ const Dashboard = () => {
       : 0;
 
     // Total Customers - count from actual customers collection
-    const totalCustomers = customers ? customers.length : 0;
+    const totalCustomers = allCustomers ? allCustomers.length : 0;
 
     return {
       totalInvoices,
@@ -79,10 +79,10 @@ const Dashboard = () => {
       totalCustomers,
       financialYearLabel: 'Current FY' // Placeholder
     };
-  }, [allInvoices, customers]);
+  }, [allInvoices, allCustomers]);
 
   const memoizedPayments = useMemo(() => payments || [], [payments]);
-  const memoizedProducts = useMemo(() => products || [], [products]);
+  const memoizedProducts = useMemo(() => allProducts || [], [allProducts]);
   const memoizedInvoices = useMemo(() => allInvoices || [], [allInvoices]);
 
 

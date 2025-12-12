@@ -43,7 +43,6 @@ const renderTableBody = () => {
                     serialNumber={String((currentPage - 1) * itemsPerPage + index + 1).padStart(2, '0')}
                     onView={handleViewClient}
                     onEdit={handleEditClient}
-                    onDelete={handleDeleteClient}
                 />
             );
         });

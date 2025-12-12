@@ -97,18 +97,26 @@ const GSTSummary = ({ invoices = [], getDynamicInvoiceStatus }) => {
     let totalIGST = 0;
 
     paidInvoices.forEach((inv) => {
-      // Calculate subtotal from items
-      const subtotal = inv.items?.reduce((sum, item) => {
-        return sum + (item.amount || (item.quantity || 0) * (item.rate || 0));
-      }, 0) || 0;
+      // Use the GST amounts directly from the invoice if available
+      if (inv.cgst !== undefined && inv.sgst !== undefined) {
+        totalCGST += Number(inv.cgst) || 0;
+        totalSGST += Number(inv.sgst) || 0;
+        totalIGST += Number(inv.igst) || 0;
+      } else {
+        // Fallback: Calculate from items/products if GST amounts not stored
+        const items = inv.items || inv.products || [];
+        const subtotal = items.reduce((sum, item) => {
+          return sum + (item.total || item.amount || (item.quantity || 0) * (item.price || item.rate || 0));
+        }, 0);
 
-      const cgstRate = inv.cgst || 0;
-      const sgstRate = inv.sgst || 0;
-      const igstRate = inv.igst || 0;
+        const cgstRate = inv.cgstRate || 9; // Default 9%
+        const sgstRate = inv.sgstRate || 9; // Default 9%
+        const igstRate = inv.igstRate || 0;
 
-      totalCGST += (subtotal * cgstRate) / 100;
-      totalSGST += (subtotal * sgstRate) / 100;
-      totalIGST += (subtotal * igstRate) / 100;
+        totalCGST += (subtotal * cgstRate) / 100;
+        totalSGST += (subtotal * sgstRate) / 100;
+        totalIGST += (subtotal * igstRate) / 100;
+      }
     });
 
     const total = totalCGST + totalSGST + totalIGST;
@@ -597,8 +605,8 @@ const ReportsAnalytics = () => {
 
   // Use data hooks
   const { stats, error: statsError } = useDashboard();
-  const { invoices, error: invoicesError } = useInvoices();
-  const { customers, error: customersError } = useCustomers();
+  const { allInvoices: invoices, error: invoicesError } = useInvoices();
+  const { allCustomers: customers, error: customersError } = useCustomers();
   const { payments, error: paymentsError } = useAllPayments();
 
   const years = Array.from({ length: 5 }, (_, i) => currentYear - i);
@@ -817,12 +825,20 @@ const ReportsAnalytics = () => {
                 ₹{(() => {
                   const paidInvoices = realTimeStats.paidInvoices;
                   const totalGST = paidInvoices.reduce((sum, inv) => {
-                    const subtotal = inv.items?.reduce((itemSum, item) => {
-                      return itemSum + (item.amount || (item.quantity || 0) * (item.rate || 0));
-                    }, 0) || 0;
-                    const cgstRate = inv.cgst || 0;
-                    const sgstRate = inv.sgst || 0;
-                    const igstRate = inv.igst || 0;
+                    // Use GST amounts directly from invoice if available
+                    if (inv.cgst !== undefined && inv.sgst !== undefined) {
+                      return sum + (Number(inv.cgst) || 0) + (Number(inv.sgst) || 0) + (Number(inv.igst) || 0);
+                    }
+
+                    // Fallback: Calculate from items/products
+                    const items = inv.items || inv.products || [];
+                    const subtotal = items.reduce((itemSum, item) => {
+                      return itemSum + (item.total || item.amount || (item.quantity || 0) * (item.price || item.rate || 0));
+                    }, 0);
+
+                    const cgstRate = inv.cgstRate || 9;
+                    const sgstRate = inv.sgstRate || 9;
+                    const igstRate = inv.igstRate || 0;
                     return sum + (subtotal * (cgstRate + sgstRate + igstRate)) / 100;
                   }, 0);
                   return totalGST.toLocaleString("en-IN");
