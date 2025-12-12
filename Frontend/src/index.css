@@ -1,4 +1,35 @@
-@import url('https://fonts.googleapis.com/css2?family=Mazzard:wght@300;400;500;600;700&display=swap');
+/* Font Face Definitions */
+@font-face {
+  font-family: 'Mazzard';
+  src: url('/fonts/Mazzard Font/MazzardM-Regular.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Mazzard';
+  src: url('/fonts/Mazzard Font/MazzardM-Medium.otf') format('opentype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Mazzard';
+  src: url('/fonts/Mazzard Font/MazzardM-SemiBold.otf') format('opentype');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Mazzard';
+  src: url('/fonts/Mazzard Font/MazzardM-Bold.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
 
 @import "tailwindcss";
 

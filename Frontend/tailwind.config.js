@@ -4,6 +4,7 @@ module.exports = {
     extend: {
       fontFamily: {
         sans: ["Mazzard", "sans-serif"],
+        mazzard: ["Mazzard", "sans-serif"],
       },
       fontSize: {
         xs: ["0.75rem", { lineHeight: "1.4" }], // 12px
