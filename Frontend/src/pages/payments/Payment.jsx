@@ -10,14 +10,16 @@ import {
   X,
   Edit,
 } from "lucide-react";
-import { useInvoices, useAllPayments } from "../../hooks/useFirestore";
+import { useInvoices, useAllPayments, usePayments } from "../../hooks/useFirestore";
 import { AuthContext } from "../../context/AuthContext";
+import { useToast } from "../../context/ToastContext";
 import PropTypes from "prop-types";
 
 // CHANGE: Updated modal to handle transaction ID
 const PaymentMethodModal = ({ isOpen, onClose, onConfirm }) => {
   const [method, setMethod] = useState("UPI");
   const [transactionId, setTransactionId] = useState("");
+  const { error: showError } = useToast();
 
   if (!isOpen) return null;
 
@@ -27,7 +29,7 @@ const PaymentMethodModal = ({ isOpen, onClose, onConfirm }) => {
       (method === "UPI" || method === "Bank Transfer") &&
       !transactionId.trim()
     ) {
-      alert("Please enter a Transaction ID for this payment method.");
+      showError("Please enter a Transaction ID for this payment method.");
       return;
     }
     onConfirm(method, transactionId);
@@ -559,14 +561,17 @@ const PaymentsPage = () => {
 
   // Get authentication context
   const { user } = useContext(AuthContext);
+  const { success, error: showError } = useToast();
 
   // Use data hooks
   const {
     invoices: allInvoices = [],
     error: invoicesError,
+    editInvoice,
   } = useInvoices();
 
   const { payments: allPayments = [], error: paymentsError } = useAllPayments();
+  const { addPayment } = usePayments();
 
   // Handle errors gracefully
 
@@ -685,13 +690,13 @@ const PaymentsPage = () => {
           updateData.paymentDate = today;
         }
 
-        await invoiceService.updateInvoice(invoiceToUpdate.id, updateData);
+        await editInvoice(invoiceToUpdate.id, updateData);
 
-        alert("Payment updated successfully!");
+        success("Payment updated successfully!");
         setEditingPayment(null);
       }
     } catch (error) {
-      alert("Error updating payment: " + error.message);
+      showError("Error updating payment: " + error.message);
     }
   };
 
@@ -708,7 +713,7 @@ const PaymentsPage = () => {
         const invoiceAmount = Number.parseFloat(invoiceToUpdate.total || invoiceToUpdate.amount || invoiceToUpdate.totalAmount) || 0;
 
         // Update invoice status to paid with full amount
-        await invoiceService.updateInvoice(invoiceToUpdate.id, {
+        await editInvoice(invoiceToUpdate.id, {
           status: "Paid",
           paidAmount: invoiceAmount, // Set paid amount to full invoice amount
           paymentMethod: method,
@@ -717,7 +722,7 @@ const PaymentsPage = () => {
         });
 
         // Create a payment record
-        await paymentService.createPayment({
+        await addPayment({
           invoiceId: invoiceToUpdate.id,
           amount: invoiceAmount,
           method: method,
@@ -726,10 +731,11 @@ const PaymentsPage = () => {
           status: "completed",
         });
 
-        alert("Payment recorded successfully!");
+        const clientName = invoiceToUpdate.client?.name || invoiceToUpdate.customerName || "Client";
+        success(`Received ₹${invoiceAmount.toLocaleString('en-IN')} from ${clientName} via ${method}`, "Payment Successful");
       }
     } catch (error) {
-      alert("Error recording payment: " + error.message);
+      showError("Error recording payment: " + error.message);
     } finally {
       setPaymentToMarkPaid(null);
     }
@@ -738,7 +744,7 @@ const PaymentsPage = () => {
   const handleSavePayment = async (invoiceNo, paidAmountStr) => {
     const paidAmount = Number.parseFloat(paidAmountStr);
     if (Number.isNaN(paidAmount) || paidAmount <= 0) {
-      alert("Please enter a valid amount.");
+      showError("Please enter a valid amount.");
       return;
     }
 
@@ -751,7 +757,7 @@ const PaymentsPage = () => {
       );
 
       if (!invoiceToUpdate) {
-        alert("Invoice not found.");
+        showError("Invoice not found.");
         return;
       }
 
@@ -780,10 +786,10 @@ const PaymentsPage = () => {
         updateData.paymentDate = today;
       }
 
-      await invoiceService.updateInvoice(invoiceToUpdate.id, updateData);
+      await editInvoice(invoiceToUpdate.id, updateData);
 
       // Create a payment record for this partial payment
-      await paymentService.createPayment({
+      await addPayment({
         invoiceId: invoiceToUpdate.id,
         amount: paidAmount,
         method: "Partial Payment", // We can enhance this later with a method selection
@@ -792,11 +798,12 @@ const PaymentsPage = () => {
         status: "completed",
       });
 
-      alert(`Payment of ₹${paidAmount.toLocaleString('en-IN')} recorded successfully!`);
+      const clientName = invoiceToUpdate.client?.name || invoiceToUpdate.customerName || "Client";
+      success(`Partial payment of ₹${paidAmount.toLocaleString('en-IN')} received from ${clientName}`, "Payment Recorded");
       setEditingPaymentId(null);
 
     } catch (error) {
-      alert("Error recording payment: " + error.message);
+      showError("Error recording payment: " + error.message);
     }
   };
 
@@ -995,7 +1002,7 @@ const PaymentsPage = () => {
   // Show error state
   if (invoicesError || !user) {
     return (
-      <div className="min-h-screen bg-gray-50 font-sans">
+      <div className="min-h-screen bg-gray-50 font-mazzard">
         <div className="max-w-full mx-auto px-8 pb-8 pt-32">
           <div className="text-center py-20">
             <div className="h-16 w-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -1018,7 +1025,7 @@ const PaymentsPage = () => {
   }
 
   return (
-    <div className="min-h-screen text-slate-800 font-sans">
+    <div className="min-h-screen text-slate-800 font-mazzard">
       <PaymentMethodModal
         isOpen={!!paymentToMarkPaid}
         onClose={() => setPaymentToMarkPaid(null)}

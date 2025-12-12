@@ -713,7 +713,7 @@ const CreateInvoiceComponent = ({
   updateItem,
   removeItem,
 }) => (
-  <div className="min-h-screen text-slate-800 font-sans">
+  <div className="min-h-screen text-slate-800 font-mazzard">
     <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 pb-8 pt-28">
       <div className="flex justify-between items-center mb-2">
         <div className="flex items-center">
@@ -1268,7 +1268,7 @@ const InvoiceManagementComponent = ({
   const tabs = ["All Invoices", "Paid", "Unpaid", "Drafts", "Overdue"];
 
   return (
-    <div className="min-h-screen text-slate-800 font-sans">
+    <div className="min-h-screen text-slate-800 font-mazzard">
       <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 pb-8 pt-28">
         <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-2">
           <div>
@@ -1810,7 +1810,7 @@ const InvoiceManagementSystem = () => {
     const newInvoice = {
       ...invoiceData,
       amount: calculations.total,
-      status: "sent", // Set as sent instead of Unpaid
+      status: invoiceData.status,
     };
 
     const result = await addInvoice(newInvoice);
@@ -2116,7 +2116,7 @@ const InvoiceManagementSystem = () => {
         <head>
           <title>Invoice ${invoice.invoiceNumber}</title>
           <style>
-            #invoice-pdf-wrapper {font - family: Arial, sans-serif; padding: 20px; background-color: #fff; font-size: 14px; color: black; }
+            #invoice-pdf-wrapper {font - family: mazzard; padding: 20px; background-color: #fff; font-size: 14px; color: black; }
             #invoice-pdf-wrapper .container {border: 2px solid black; padding: 15px; width: 100%; max-width: 800px; margin: auto; }
             #invoice-pdf-wrapper table {width: 100%; border-collapse: collapse; }
             #invoice-pdf-wrapper td, #invoice-pdf-wrapper th {padding: 5px; }
@@ -2126,9 +2126,9 @@ const InvoiceManagementSystem = () => {
             #invoice-pdf-wrapper .header-top .phone-right {font - weight: bold; color: black; }
             #invoice-pdf-wrapper .header-main {display: flex; align-items: center; justify-content: center; margin-bottom: 10px; }
             #invoice-pdf-wrapper .header-main .logo {margin - right: 20px; }
-            #invoice-pdf-wrapper .header-main .company-name {font - family: 'Times New Roman', serif; font-size: 28px; font-weight: bold; color: #8B0000; margin: 0; }
+            #invoice-pdf-wrapper .header-main .company-name {font - family: 'Mazzard', sans-serif; font-size: 28px; font-weight: bold; color: #8B0000; margin: 0; }
             #invoice-pdf-wrapper .header-details {text - align: center; }
-            #invoice-pdf-wrapper .header-details p {margin: 3px 0; color: black; font-family: Arial, sans-serif; }
+            #invoice-pdf-wrapper .header-details p {margin: 3px 0; color: black; font-family: 'Mazzard', sans-serif; }
             #invoice-pdf-wrapper .bordered-table {border: 1px solid black; border-collapse: collapse; width: 100%; }
             #invoice-pdf-wrapper .bordered-table th {border: 1px solid black; }
             #invoice-pdf-wrapper .bordered-table td {border: 1px solid black; }

@@ -35,7 +35,7 @@ const Dashboard = () => {
 
 
   return (
-    <div className="min-h-screen text-slate-800 font-sans">
+    <div className="min-h-screen text-slate-800 font-mazzard">
       {/* Optimized container for laptop/desktop view */}
       <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 pb-8 pt-20 md:pt-28">
         <Header />

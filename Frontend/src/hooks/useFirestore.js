@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 
 // LocalStorage helpers
 const load = (key, def) => {
@@ -108,15 +108,58 @@ export const useCustomers = (options = {}) => {
 // Invoices
 export const useInvoices = (options = {}) => {
   const [all, setAll] = useState(() => load(K.invoices, []));
-  const { data, pagination } = applyListView(all, options);
+
+  const filtered = useMemo(() => {
+    let res = all;
+
+    // Status Filtering
+    if (options.status) {
+      const status = options.status;
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      res = res.filter(inv => {
+        const s = (inv.status || "").toLowerCase();
+
+        if (status === "Paid") return s === "paid";
+        if (status === "Draft") return s === "draft";
+
+        // Overdue: Not paid/draft AND due date passed
+        if (status === "Overdue") {
+          const dueDate = inv.dueDate ? new Date(inv.dueDate) : null;
+          if (dueDate) dueDate.setHours(0, 0, 0, 0);
+          return s !== "paid" && s !== "draft" && dueDate && today > dueDate;
+        }
+
+        // Unpaid: Not paid/draft AND NOT overdue (to keep tabs distinct)
+        if (status === "Unpaid") {
+          const dueDate = inv.dueDate ? new Date(inv.dueDate) : null;
+          if (dueDate) dueDate.setHours(0, 0, 0, 0);
+          const isOverdue = dueDate && today > dueDate;
+          return s !== "paid" && s !== "draft" && !isOverdue;
+        }
+
+        return s === status.toLowerCase();
+      });
+    }
+
+    // Customer Filtering
+    if (options.customerId) {
+      res = res.filter(inv => inv.clientId === options.customerId || (inv.client && inv.client.id === options.customerId));
+    }
+
+    return res;
+  }, [all, options.status, options.customerId]);
+
+  const { data, pagination } = applyListView(filtered, options);
   const [view, setView] = useState(data);
   const [pageInfo, setPageInfo] = useState(pagination);
 
   useEffect(() => {
-    const res = applyListView(all, options);
+    const res = applyListView(filtered, options);
     setView(res.data);
     setPageInfo(res.pagination);
-  }, [all, options.search, options.page, options.limit, options.sortBy, options.sortDirection, options.status, options.customerId]);
+  }, [filtered, options.search, options.page, options.limit, options.sortBy, options.sortDirection]);
 
   const addInvoice = useCallback(async (payload) => {
     const id = `local-inv-${Date.now()}`;

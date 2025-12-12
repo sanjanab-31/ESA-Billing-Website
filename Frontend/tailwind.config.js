@@ -3,20 +3,7 @@ module.exports = {
   theme: {
     extend: {
       fontFamily: {
-        sans: [
-          "Poppins",
-          "Inter",
-          "ui-sans-serif",
-          "system-ui",
-          "-apple-system",
-          "BlinkMacSystemFont",
-          "Segoe UI",
-          "Roboto",
-          "Helvetica Neue",
-          "Arial",
-          "Noto Sans",
-          "sans-serif",
-        ],
+        sans: ["Mazzard", "sans-serif"],
       },
       fontSize: {
         xs: ["0.75rem", { lineHeight: "1.4" }], // 12px

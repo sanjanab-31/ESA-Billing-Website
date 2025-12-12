@@ -94,7 +94,7 @@ export const generateInvoiceHTML = (invoice, settings) => {
     <head>
       <title>Invoice ${invoice.invoiceNumber}</title>
       <style>
-        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #fff; font-size: 12px; }
+        body { font-family: "Mazzard", sans-serif; margin: 0; padding: 20px; background-color: #fff; font-size: 12px; }
         .container { border: 2px solid black; padding: 0; width: 100%; max-width: 800px; margin: auto; box-sizing: border-box; }
         table { width: 100%; border-collapse: collapse; }
         td, th { padding: 4px; border: 1px solid black; }
@@ -102,7 +102,7 @@ export const generateInvoiceHTML = (invoice, settings) => {
         .header-top { display: flex; justify-content: space-between; padding: 5px 10px; font-weight: bold; font-size: 12px; border-bottom: none; }
         .header-main { text-align: center; padding: 10px; border-bottom: 1px solid black; }
         .logo-section { display: flex; align-items: center; justify-content: center; gap: 20px; }
-        .company-name { font-family: 'Times New Roman', serif; font-size: 32px; font-weight: bold; color: #FF0000; margin: 0; text-transform: uppercase; }
+        .company-name { font-family: 'Mazzard', sans-serif; font-size: 32px; font-weight: bold; color: #FF0000; margin: 0; text-transform: uppercase; }
         .company-details { font-size: 12px; margin-top: 5px; line-height: 1.4; }
         .invoice-title { text-align: center; font-weight: bold; font-size: 18px; padding: 5px; border-bottom: 1px solid black; background-color: transparent; }
         .items-table th { text-align: center; font-weight: bold; }

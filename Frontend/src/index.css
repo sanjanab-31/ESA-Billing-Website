@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap");
+@import url('https://fonts.googleapis.com/css2?family=Mazzard:wght@300;400;500;600;700&display=swap');
 
 @import "tailwindcss";
 
@@ -84,8 +84,7 @@
 
 /* Apply Poppins globally for consistency */
 body {
-  font-family: "Poppins", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI",
-    "Roboto", sans-serif;
+  font-family: "Mazzard", sans-serif;
   font-size: var(--font-base);
   font-weight: var(--font-normal);
   line-height: 1.5;

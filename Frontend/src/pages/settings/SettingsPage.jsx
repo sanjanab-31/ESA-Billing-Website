@@ -858,7 +858,7 @@ const SettingsPage = () => {
   };
 
   return (
-    <div className="min-h-screen text-slate-800 font-sans">
+    <div className="min-h-screen text-slate-800 font-mazzard">
       <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 pb-8 pt-28">
         <header className="mb-2">
           <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
