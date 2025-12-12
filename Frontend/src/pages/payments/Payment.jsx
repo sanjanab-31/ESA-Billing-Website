@@ -651,8 +651,14 @@ const PaymentsPage = () => {
   const [viewingHistoryFor, setViewingHistoryFor] = useState(null); // { id, invoiceNo, amount }
 
   // Filter States
+  const currentYear = new Date().getFullYear();
   const [showFilters, setShowFilters] = useState(false);
-  const [filterDateRange, setFilterDateRange] = useState({ start: "", end: "" });
+  const [filterReportType, setFilterReportType] = useState("Yearly Report");
+  const [filterTimePeriod, setFilterTimePeriod] = useState(currentYear.toString());
+  const [filterMonth, setFilterMonth] = useState(new Date().getMonth());
+  const [filterYear, setFilterYear] = useState(new Date().getFullYear());
+  const [filterFromDate, setFilterFromDate] = useState("");
+  const [filterToDate, setFilterToDate] = useState("");
   const [filterClientId, setFilterClientId] = useState("");
 
   const tabs = ["All Payments", "Overdue", "Pending", "Paid"];
@@ -691,42 +697,17 @@ const PaymentsPage = () => {
     };
   }, [showFilters]);
 
-  // Helper for date presets
-  const applyDatePreset = (preset) => {
-    const now = new Date();
-    let start = "";
-    let end = "";
-    
-    const fmt = (d) => {
-      const y = d.getFullYear();
-      const m = String(d.getMonth() + 1).padStart(2, '0');
-      const day = String(d.getDate()).padStart(2, '0');
-      return `${y}-${m}-${day}`;
-    };
 
-    if (preset === "This Month") {
-      start = fmt(new Date(now.getFullYear(), now.getMonth(), 1));
-      end = fmt(new Date(now.getFullYear(), now.getMonth() + 1, 0));
-    } else if (preset === "Last Month") {
-      start = fmt(new Date(now.getFullYear(), now.getMonth() - 1, 1));
-      end = fmt(new Date(now.getFullYear(), now.getMonth(), 0));
-    } else if (preset === "Financial Year") {
-      const currentYear = now.getFullYear();
-      const fyStart = now.getMonth() >= 3 ? currentYear : currentYear - 1;
-      start = fmt(new Date(fyStart, 3, 1)); // April 1st
-      end = fmt(new Date(fyStart + 1, 2, 31)); // March 31st
-    }
-
-    setFilterDateRange({ start, end });
-  };
 
   const clearFilters = () => {
-    setFilterDateRange({ start: "", end: "" });
+    setFilterReportType("All Time");
+    setFilterFromDate("");
+    setFilterToDate("");
     setFilterClientId("");
     setShowFilters(false);
   };
 
-  const hasActiveFilters = filterDateRange.start || filterDateRange.end || filterClientId;
+  const hasActiveFilters = filterReportType !== "All Time" || filterClientId;
 
   // Memoized status calculation function matching InvoiceManagement.jsx
   const getDynamicInvoiceStatus = useCallback((invoice) => {
@@ -1103,32 +1084,48 @@ const PaymentsPage = () => {
       }
 
       // Filter by Date Range
-      if (filterDateRange.start && filterDateRange.end) {
-        const start = new Date(filterDateRange.start);
-        const end = new Date(filterDateRange.end);
-        start.setHours(0, 0, 0, 0);
-        end.setHours(23, 59, 59, 999);
-
-        // Determine which date to check based on tab
-        let dateToCheckStr = null;
-        if (activeTab === "Paid") {
-          dateToCheckStr = payment.paymentDate;
-          // If we don't have paymentDate (legacy), maybe fallback to invoiceDate
-          if (!dateToCheckStr) dateToCheckStr = payment.invoiceDate;
-        } else if (activeTab === "Overdue" || activeTab === "Pending") {
-          dateToCheckStr = payment.dueDate;
-        } else {
-          // All Payments - use invoiceDate as primary anchor
-          dateToCheckStr = payment.invoiceDate;
+      if (filterReportType !== "All Time") {
+        let startDate, endDate;
+        if (filterReportType === "Monthly Report") {
+          startDate = new Date(filterYear, filterMonth, 1);
+          endDate = new Date(filterYear, filterMonth + 1, 0);
+        } else if (filterReportType === "Yearly Report") {
+          const year = parseInt(filterTimePeriod);
+          startDate = new Date(year, 3, 1); // April 1st
+          endDate = new Date(year + 1, 2, 31); // March 31st
+        } else if (filterReportType === "Custom Report") {
+          if (filterFromDate && filterToDate) {
+            startDate = new Date(filterFromDate);
+            endDate = new Date(filterToDate);
+          }
         }
 
-        if (!dateToCheckStr || dateToCheckStr === "-") return false;
+        if (startDate && endDate) {
+          startDate.setHours(0, 0, 0, 0);
+          endDate.setHours(23, 59, 59, 999);
 
-        let d = new Date(dateToCheckStr);
-        // If invalid, try to handle potential errors (though YYYY-MM-DD should work)
-        if (isNaN(d.getTime())) return false;
+          // Determine which date to check based on tab
+          let dateToCheckStr = null;
+          if (activeTab === "Paid") {
+            dateToCheckStr = payment.paymentDate;
+            // If we don't have paymentDate (legacy), maybe fallback to invoiceDate
+            if (!dateToCheckStr) dateToCheckStr = payment.invoiceDate;
+          } else if (activeTab === "Overdue" || activeTab === "Pending") {
+            dateToCheckStr = payment.dueDate;
+          } else {
+            // All Payments - use invoiceDate as primary anchor
+            dateToCheckStr = payment.invoiceDate;
+          }
 
-        if (d < start || d > end) return false;
+          if (!dateToCheckStr || dateToCheckStr === "-") return false;
+
+          let d = new Date(dateToCheckStr);
+          // If invalid, try to handle potential errors (though YYYY-MM-DD should work)
+          if (isNaN(d.getTime())) return false;
+
+          // Check if date is within range
+          if (d < startDate || d > endDate) return false;
+        }
       }
 
       return true;
@@ -1354,13 +1351,187 @@ const PaymentsPage = () => {
         payment={editingPayment}
       />
       <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 pb-8 pt-28">
-        <header className="mb-2">
-          <h1 className="text-2xl font-bold text-gray-900">
-            Payment Management
-          </h1>
-          <p className="text-sm text-gray-600 mt-1">
-            Track payments, manage overdue invoices, and send reminders
-          </p>
+        <header className="mb-2 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">
+              Payment Management
+            </h1>
+            <p className="text-sm text-gray-600 mt-1">
+              Track payments, manage overdue invoices, and send reminders
+            </p>
+          </div>
+
+          {/* Filter Button & Dropdown */}
+          <div className="relative" ref={filterRef}>
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors border ${hasActiveFilters || showFilters
+                ? "bg-blue-50 text-blue-600 border-blue-200"
+                : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                }`}
+            >
+              <Filter size={16} />
+              Filter
+              {(hasActiveFilters) && <span className="w-2 h-2 bg-blue-600 rounded-full"></span>}
+            </button>
+
+            {showFilters && (
+              <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-xl shadow-xl border border-gray-200 z-50 p-4">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="font-bold text-gray-900">Filters</h3>
+                  <button
+                    onClick={clearFilters}
+                    className="text-xs text-red-500 hover:text-red-700 hover:underline"
+                  >
+                    Clear All
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  {/* Report Type Filter */}
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                      Report Type
+                    </label>
+                    <div className="relative">
+                      <select
+                        value={filterReportType}
+                        onChange={(e) => setFilterReportType(e.target.value)}
+                        className="w-full appearance-none bg-gray-50 border border-gray-200 text-gray-700 py-2 px-3 pr-8 rounded-lg leading-tight focus:outline-none focus:bg-white focus:border-blue-500 text-sm"
+                      >
+                        <option>All Time</option>
+                        <option>Monthly Report</option>
+                        <option>Yearly Report</option>
+                        <option>Custom Report</option>
+                      </select>
+                      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+                        <ChevronDown size={14} />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Dynamic Date Selectors based on Report Type */}
+                  {filterReportType === "Monthly Report" && (
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">Month</label>
+                        <div className="relative">
+                          <select
+                            value={filterMonth}
+                            onChange={(e) => setFilterMonth(parseInt(e.target.value))}
+                            className="w-full appearance-none bg-gray-50 border border-gray-200 text-gray-700 py-2 px-3 pr-8 rounded-lg leading-tight focus:outline-none focus:bg-white focus:border-blue-500 text-sm"
+                          >
+                            {Array.from({ length: 12 }, (_, i) => (
+                              <option key={i} value={i}>
+                                {new Date(0, i).toLocaleString("default", { month: "long" })}
+                              </option>
+                            ))}
+                          </select>
+                          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+                            <ChevronDown size={14} />
+                          </div>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">Year</label>
+                        <div className="relative">
+                          <select
+                            value={filterYear}
+                            onChange={(e) => setFilterYear(parseInt(e.target.value))}
+                            className="w-full appearance-none bg-gray-50 border border-gray-200 text-gray-700 py-2 px-3 pr-8 rounded-lg leading-tight focus:outline-none focus:bg-white focus:border-blue-500 text-sm"
+                          >
+                            {Array.from({ length: 5 }, (_, i) => currentYear - 2 + i).map(
+                              (year) => (
+                                <option key={year} value={year}>
+                                  {year}
+                                </option>
+                              )
+                            )}
+                          </select>
+                          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+                            <ChevronDown size={14} />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {filterReportType === "Yearly Report" && (
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Financial Year</label>
+                      <div className="relative">
+                        <select
+                          value={filterTimePeriod}
+                          onChange={(e) => setFilterTimePeriod(e.target.value)}
+                          className="w-full appearance-none bg-gray-50 border border-gray-200 text-gray-700 py-2 px-3 pr-8 rounded-lg leading-tight focus:outline-none focus:bg-white focus:border-blue-500 text-sm"
+                        >
+                          <option value="2024">2024-25</option>
+                          <option value="2025">2025-26</option>
+                          <option value="2023">2023-24</option>
+                        </select>
+                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+                          <ChevronDown size={14} />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {filterReportType === "Custom Report" && (
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">From</label>
+                        <div className="relative">
+                          <input
+                            type="date"
+                            value={filterFromDate}
+                            onChange={(e) => setFilterFromDate(e.target.value)}
+                            className="w-full bg-gray-50 border border-gray-200 text-gray-700 py-2 px-3 rounded-lg leading-tight focus:outline-none focus:bg-white focus:border-blue-500 text-sm"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">To</label>
+                        <div className="relative">
+                          <input
+                            type="date"
+                            value={filterToDate}
+                            onChange={(e) => setFilterToDate(e.target.value)}
+                            className="w-full bg-gray-50 border border-gray-200 text-gray-700 py-2 px-3 rounded-lg leading-tight focus:outline-none focus:bg-white focus:border-blue-500 text-sm"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Client Filter */}
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                      Client
+                    </label>
+                    <select
+                      value={filterClientId}
+                      onChange={(e) => setFilterClientId(e.target.value)}
+                      className="w-full text-sm px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-500"
+                    >
+                      <option value="">All Clients</option>
+                      {(customers || []).map(c => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="mt-4 pt-4 border-t border-gray-100 flex justify-end">
+                  <button
+                    onClick={() => setShowFilters(false)}
+                    className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700"
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </header>
         <main className="mt-6 flex flex-col gap-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
@@ -1436,95 +1607,6 @@ const PaymentsPage = () => {
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full bg-white border border-gray-300 rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none"
               />
-            </div>
-
-            {/* Filter Button & Dropdown */}
-            <div className="relative" ref={filterRef}>
-              <button
-                onClick={() => setShowFilters(!showFilters)}
-                className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors border ${hasActiveFilters || showFilters
-                  ? "bg-blue-50 text-blue-600 border-blue-200"
-                  : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                  }`}
-              >
-                <Filter size={16} />
-                Filter
-                {(hasActiveFilters) && <span className="w-2 h-2 bg-blue-600 rounded-full"></span>}
-              </button>
-
-              {showFilters && (
-                <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-xl shadow-xl border border-gray-200 z-50 p-4">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="font-bold text-gray-900">Filters</h3>
-                    <button
-                      onClick={clearFilters}
-                      className="text-xs text-red-500 hover:text-red-700 hover:underline"
-                    >
-                      Clear All
-                    </button>
-                  </div>
-
-                  <div className="space-y-4">
-                    {/* Date Range */}
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-                        Date Range
-                      </label>
-                      <div className="flex gap-2 mb-2">
-                        <button onClick={() => applyDatePreset("This Month")} className="flex-1 px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded text-gray-700">This Month</button>
-                        <button onClick={() => applyDatePreset("Last Month")} className="flex-1 px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded text-gray-700">Last Month</button>
-                        <button onClick={() => applyDatePreset("Financial Year")} className="flex-1 px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded text-gray-700">FY</button>
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <span className="text-xs text-gray-400 mb-1 block">From</span>
-                          <input
-                            type="date"
-                            value={filterDateRange.start}
-                            onChange={(e) => setFilterDateRange(prev => ({ ...prev, start: e.target.value }))}
-                            className="w-full text-xs px-2 py-1.5 bg-gray-50 border border-gray-200 rounded focus:border-blue-500 outline-none"
-                          />
-                        </div>
-                        <div>
-                          <span className="text-xs text-gray-400 mb-1 block">To</span>
-                          <input
-                            type="date"
-                            value={filterDateRange.end}
-                            onChange={(e) => setFilterDateRange(prev => ({ ...prev, end: e.target.value }))}
-                            className="w-full text-xs px-2 py-1.5 bg-gray-50 border border-gray-200 rounded focus:border-blue-500 outline-none"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Client Filter */}
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-                        Client
-                      </label>
-                      <select
-                        value={filterClientId}
-                        onChange={(e) => setFilterClientId(e.target.value)}
-                        className="w-full text-sm px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-500"
-                      >
-                        <option value="">All Clients</option>
-                        {(customers || []).map(c => (
-                          <option key={c.id} value={c.id}>{c.name}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 pt-4 border-t border-gray-100 flex justify-end">
-                    <button
-                      onClick={() => setShowFilters(false)}
-                      className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700"
-                    >
-                      Done
-                    </button>
-                  </div>
-                </div>
-              )}
             </div>
 
             <div className="flex items-center gap-4 w-full md:w-auto overflow-hidden">
