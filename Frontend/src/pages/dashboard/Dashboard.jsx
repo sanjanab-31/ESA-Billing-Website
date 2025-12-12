@@ -36,11 +36,19 @@ const Dashboard = () => {
     const validInvoices = activeInvoices.filter(i => (i.status || '').toLowerCase() !== 'draft');
 
     const totalInvoices = validInvoices.length;
-    // Revenue from valid (non-draft) invoices
-    const totalRevenue = validInvoices.reduce((sum, inv) => sum + (Number(inv.invoiceAmount) || 0), 0);
 
-    // TDS from valid invoices
-    const totalTDS = validInvoices.reduce((sum, inv) => sum + (Number(inv.tdsAmount) || 0), 0);
+    // Revenue from valid (non-draft) invoices - use total, amount, or totalAmount field
+    const totalRevenue = validInvoices.reduce((sum, inv) => {
+      const amount = Number(inv.total || inv.amount || inv.totalAmount || 0);
+      return sum + amount;
+    }, 0);
+
+    // TDS calculation - only count TDS once per invoice from the tdsAmount field
+    // This represents TDS deducted from payments, not recalculated
+    const totalTDS = validInvoices.reduce((sum, inv) => {
+      const tds = Number(inv.tdsAmount || 0);
+      return sum + tds;
+    }, 0);
 
     const paidInvoices = activeInvoices.filter(i => (i.status || '').toLowerCase() === 'paid').length;
     const draftInvoices = activeInvoices.filter(i => (i.status || '').toLowerCase() === 'draft').length;
@@ -55,8 +63,12 @@ const Dashboard = () => {
       ? (paidInvoices / (paidInvoices + unpaidInvoices + draftInvoices)) * 100
       : 0;
 
-    // Total Customers (unique clientIds)
-    const uniqueCustomers = new Set(activeInvoices.map(i => i.clientId).filter(Boolean)).size;
+    // Total Customers (unique clientIds from all invoices)
+    const uniqueCustomers = new Set(
+      activeInvoices
+        .map(i => i.clientId || i.client?.id)
+        .filter(Boolean)
+    ).size;
 
     return {
       totalInvoices,
