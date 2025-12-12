@@ -18,6 +18,7 @@ import {
   useInvoices,
   useAllPayments,
   useProducts,
+  useCustomers,
 } from "../../hooks/useFirestore";
 // Chart Components
 import InvoiceStatus from "./InvoiceStatus";
@@ -27,6 +28,7 @@ const Dashboard = () => {
   const { allInvoices } = useInvoices(); // Use allInvoices for accurate stats
   const { payments } = useAllPayments();
   const { products } = useProducts();
+  const { customers } = useCustomers(); // Get actual customers from customers collection
 
   // Calculate stats dynamically from allInvoices
   const stats = useMemo(() => {
@@ -63,12 +65,8 @@ const Dashboard = () => {
       ? (paidInvoices / (paidInvoices + unpaidInvoices + draftInvoices)) * 100
       : 0;
 
-    // Total Customers (unique clientIds from all invoices)
-    const uniqueCustomers = new Set(
-      activeInvoices
-        .map(i => i.clientId || i.client?.id)
-        .filter(Boolean)
-    ).size;
+    // Total Customers - count from actual customers collection
+    const totalCustomers = customers ? customers.length : 0;
 
     return {
       totalInvoices,
@@ -78,10 +76,10 @@ const Dashboard = () => {
       draftInvoices,
       paymentRate, // Percentage of Paid vs Total
       totalTDS,
-      totalCustomers: uniqueCustomers,
+      totalCustomers,
       financialYearLabel: 'Current FY' // Placeholder
     };
-  }, [allInvoices]);
+  }, [allInvoices, customers]);
 
   const memoizedPayments = useMemo(() => payments || [], [payments]);
   const memoizedProducts = useMemo(() => products || [], [products]);

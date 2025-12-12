@@ -543,9 +543,11 @@ const PendingPaymentCard = memo(({
           <p className="text-xl font-bold text-gray-900">
             ₹{remainingAmount.toLocaleString()}
           </p>
-          {currentPaidAmount > 0 ? (
+          {currentPaidAmount > 0 || currentTdsAmount > 0 ? (
             <p className="text-xs text-gray-500">
-              Paid: ₹{currentPaidAmount.toLocaleString()} | Total: ₹{invoiceAmount.toLocaleString()}
+              Paid: ₹{currentPaidAmount.toLocaleString()}
+              {currentTdsAmount > 0 && ` | TDS: ₹${currentTdsAmount.toLocaleString()}`}
+              {` | Total: ₹${(invoiceAmount - currentTdsAmount).toLocaleString()}`}
             </p>
           ) : (
             <p className="text-xs text-gray-500">
@@ -700,14 +702,19 @@ const PaymentsPage = () => {
 
 
   const clearFilters = () => {
-    setFilterReportType("All Time");
+    setFilterReportType("Yearly Report");
+    setFilterTimePeriod(currentYear.toString());
     setFilterFromDate("");
     setFilterToDate("");
     setFilterClientId("");
     setShowFilters(false);
   };
 
-  const hasActiveFilters = filterReportType !== "All Time" || filterClientId;
+  // Only show active filters if user changed from default (Yearly Report for current year) or selected a client
+  const hasActiveFilters =
+    (filterReportType !== "Yearly Report") ||
+    (filterReportType === "Yearly Report" && filterTimePeriod !== currentYear.toString()) ||
+    filterClientId;
 
   // Memoized status calculation function matching InvoiceManagement.jsx
   const getDynamicInvoiceStatus = useCallback((invoice) => {

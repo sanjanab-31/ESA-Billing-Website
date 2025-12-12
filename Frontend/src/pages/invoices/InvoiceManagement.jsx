@@ -1687,7 +1687,7 @@ const InvoiceManagementSystem = () => {
 
   // Filter state variables
   const [showFilters, setShowFilters] = useState(false);
-  const [filterReportType, setFilterReportType] = useState("All Time");
+  const [filterReportType, setFilterReportType] = useState("Yearly Report");
   const [filterMonth, setFilterMonth] = useState(new Date().getMonth());
   const [filterYear, setFilterYear] = useState(new Date().getFullYear());
   const [filterTimePeriod, setFilterTimePeriod] = useState(new Date().getFullYear().toString());
@@ -1854,7 +1854,7 @@ const InvoiceManagementSystem = () => {
 
   // Clear all filters
   const clearFilters = () => {
-    setFilterReportType("All Time");
+    setFilterReportType("Yearly Report");
     setFilterMonth(new Date().getMonth());
     setFilterYear(new Date().getFullYear());
     setFilterTimePeriod(new Date().getFullYear().toString());
@@ -1863,8 +1863,11 @@ const InvoiceManagementSystem = () => {
     setFilterClientId("");
   };
 
-  // Check if any filters are active
-  const hasActiveFilters = filterReportType !== "All Time" || filterClientId !== "";
+  // Check if any filters are active (excluding default yearly filter for current year)
+  const hasActiveFilters =
+    (filterReportType !== "Yearly Report") ||
+    (filterReportType === "Yearly Report" && filterTimePeriod !== currentYear.toString()) ||
+    filterClientId !== "";
 
 
 
