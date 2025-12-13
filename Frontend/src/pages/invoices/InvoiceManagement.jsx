@@ -921,13 +921,13 @@ const CreateInvoiceComponent = ({
                   </tr>
                 </thead>
                 <tbody>
-                  {invoiceData.items.map((item, index) => (
+                  {(invoiceData.items || invoiceData.products || []).map((item, index) => (
                     <tr key={item.id} className="border-t">
                       <td className="p-4 text-sm align-top">{index + 1}</td>
                       <td className="p-2">
                         <ProductAutocomplete
                           products={products}
-                          value={item.description}
+                          value={item.description || item.name || ''}
                           onSelect={(product) => {
                             updateItem(item.id, "description", product.name);
                             updateItem(item.id, "hsnCode", product.hsn);
@@ -944,7 +944,7 @@ const CreateInvoiceComponent = ({
                         <input
                           type="text"
                           placeholder="HSN"
-                          value={item.hsnCode}
+                          value={item.hsnCode || item.hsn || ''}
                           onChange={(e) =>
                             updateItem(item.id, "hsnCode", e.target.value)
                           }
@@ -954,7 +954,7 @@ const CreateInvoiceComponent = ({
                       <td className="p-2 align-top">
                         <input
                           type="number"
-                          value={item.quantity}
+                          value={item.quantity || 0}
                           onFocus={(e) => e.target.select()}
                           onChange={(e) =>
                             updateItem(
@@ -970,7 +970,7 @@ const CreateInvoiceComponent = ({
                       <td className="p-2 align-top">
                         <input
                           type="number"
-                          value={item.rate}
+                          value={item.rate || item.price || 0}
                           onFocus={(e) => e.target.select()}
                           onChange={(e) =>
                             updateItem(
@@ -986,7 +986,7 @@ const CreateInvoiceComponent = ({
                       <td className="p-2 align-top">
                         <input
                           type="text"
-                          value={item.amount.toLocaleString()}
+                          value={(item.amount || item.total || 0).toLocaleString()}
                           readOnly
                           className="w-full px-3 py-2 text-sm bg-gray-200 border-0 rounded-lg text-gray-600"
                         />
@@ -1182,28 +1182,6 @@ const CreateInvoiceComponent = ({
                   </div>
                 </div>
               </div>
-            </div>
-          </div>
-          <div className="p-6 bg-white rounded-xl border border-gray-200">
-            <h3 className="mb-2 text-lg font-bold text-gray-900">Status</h3>
-            <div>
-              <label className="block mb-2 text-sm text-gray-700">
-                Set Invoice Status
-              </label>
-              <select
-                value={invoiceData.status}
-                onChange={(e) =>
-                  setInvoiceData((prev) => ({
-                    ...prev,
-                    status: e.target.value,
-                  }))
-                }
-                className="w-full px-3 py-2 text-slate-900 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-0 cursor-pointer"
-              >
-                <option value="Unpaid">Unpaid</option>
-                <option value="Paid">Paid</option>
-                <option value="Draft">Draft</option>
-              </select>
             </div>
           </div>
           <div className="p-6 bg-white rounded-xl border border-gray-200">
@@ -1869,8 +1847,10 @@ const InvoiceManagementSystem = () => {
 
 
   useEffect(() => {
-    const subtotal = invoiceData.items.reduce(
-      (sum, item) => sum + item.quantity * item.rate,
+    // Handle both 'items' and 'products' fields
+    const itemsArray = invoiceData.items || invoiceData.products || [];
+    const subtotal = itemsArray.reduce(
+      (sum, item) => sum + (item.quantity || 0) * (item.rate || item.price || 0),
       0
     );
     const cgstAmount = (subtotal * invoiceData.cgst) / 100;
@@ -1893,6 +1873,7 @@ const InvoiceManagementSystem = () => {
     });
   }, [
     invoiceData.items,
+    invoiceData.products,
     invoiceData.cgst,
     invoiceData.sgst,
     invoiceData.igst,
