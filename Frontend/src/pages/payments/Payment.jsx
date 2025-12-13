@@ -496,12 +496,10 @@ const PendingPaymentCard = memo(({
   const handleEnterAmountClick = () => {
     setEditingPaymentId(invoiceNo);
     setPaidAmount("");
-    setTdsAmount("");
   };
   const handleCancel = () => {
     setEditingPaymentId(null);
     setPaidAmount("");
-    setTdsAmount("");
   };
   const handleSave = () => {
     // Validate amounts
@@ -742,15 +740,23 @@ const PaymentsPage = () => {
         "Unknown Client";
       const amount = inv.total || inv.amount || 0;
 
-      // Calculate received amount from payments
-      const safePayments = Array.isArray(allPayments) ? allPayments : [];
-      const invoicePayments = safePayments.filter(
-        (payment) => payment.invoiceId === inv.id
-      );
-      const received = invoicePayments.reduce(
-        (sum, payment) => sum + (payment.amount || 0),
-        0
-      );
+      // Calculate received amount - use paidAmount from invoice as primary source
+      // This is the source of truth updated by confirmMarkAsPaid and handleSavePayment
+      // Fallback to calculating from payments subcollection if paidAmount is not set
+      let received = 0;
+      if (inv.paidAmount !== undefined && inv.paidAmount !== null) {
+        received = Number.parseFloat(inv.paidAmount) || 0;
+      } else {
+        // Fallback: Calculate from payments subcollection
+        const safePayments = Array.isArray(allPayments) ? allPayments : [];
+        const invoicePayments = safePayments.filter(
+          (payment) => payment.invoiceId === inv.id
+        );
+        received = invoicePayments.reduce(
+          (sum, payment) => sum + (payment.amount || 0),
+          0
+        );
+      }
 
       const paymentDate = inv.paymentDate || null;
       const method = inv.paymentMethod || null;
@@ -901,17 +907,21 @@ const PaymentsPage = () => {
           amountToRecord = partialAmounts.paid;
 
           // Use TDS input from the modal (tdsAmountInput)
+          // Only add TDS if there's no existing TDS (TDS should be deducted only once per invoice)
           const enteredTds = Number.parseFloat(tdsAmountInput) || 0;
           tdsForDisplay = enteredTds;
 
           newPaidAmount = currentPaid + amountToRecord;
-          newTdsAmount = currentTds + tdsForDisplay;
+          // Only add TDS if currentTds is 0 (first time TDS is being recorded)
+          newTdsAmount = currentTds === 0 ? enteredTds : currentTds;
 
         } else {
           // Full Payment Logic
+          // Only add TDS if there's no existing TDS (TDS should be deducted only once per invoice)
           const enteredTds = Number.parseFloat(tdsAmountInput) || 0;
           tdsForDisplay = enteredTds;
-          newTdsAmount = currentTds + enteredTds;
+          // Only add TDS if currentTds is 0 (first time TDS is being recorded)
+          newTdsAmount = currentTds === 0 ? enteredTds : currentTds;
 
           // Calculate remaining payable
           const remainingToPay = Math.max(0, invoiceAmount - newTdsAmount - currentPaid);
@@ -1013,7 +1023,9 @@ const PaymentsPage = () => {
       const currentTdsAmount = Number.parseFloat(invoiceToUpdate.tdsAmount || 0) || 0;
 
       const newTotalPaidAmount = currentPaidAmount + enteredPaidAmount;
-      const newTotalTdsAmount = currentTdsAmount + enteredTdsAmount;
+      // Only add TDS if currentTdsAmount is 0 (first time TDS is being recorded)
+      // TDS should only be deducted once per invoice, not on every partial payment
+      const newTotalTdsAmount = currentTdsAmount === 0 ? enteredTdsAmount : currentTdsAmount;
 
       const totalCovered = newTotalPaidAmount + newTotalTdsAmount;
 

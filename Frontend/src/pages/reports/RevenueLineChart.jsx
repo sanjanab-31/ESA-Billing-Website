@@ -98,10 +98,11 @@ const GSTSummary = ({ invoices = [], getDynamicInvoiceStatus }) => {
 
     paidInvoices.forEach((inv) => {
       // Use the GST amounts directly from the invoice if available
-      if (inv.cgst !== undefined && inv.sgst !== undefined) {
-        totalCGST += Number(inv.cgst) || 0;
-        totalSGST += Number(inv.sgst) || 0;
-        totalIGST += Number(inv.igst) || 0;
+      // Note: cgst/sgst/igst are percentages, cgstAmount/sgstAmount/igstAmount are the actual amounts
+      if (inv.cgstAmount !== undefined || inv.sgstAmount !== undefined || inv.igstAmount !== undefined) {
+        totalCGST += Number(inv.cgstAmount) || 0;
+        totalSGST += Number(inv.sgstAmount) || 0;
+        totalIGST += Number(inv.igstAmount) || 0;
       } else {
         // Fallback: Calculate from items/products if GST amounts not stored
         const items = inv.items || inv.products || [];
@@ -109,13 +110,13 @@ const GSTSummary = ({ invoices = [], getDynamicInvoiceStatus }) => {
           return sum + (item.total || item.amount || (item.quantity || 0) * (item.price || item.rate || 0));
         }, 0);
 
-        const cgstRate = inv.cgstRate || 9; // Default 9%
-        const sgstRate = inv.sgstRate || 9; // Default 9%
-        const igstRate = inv.igstRate || 0;
+        const cgstPercent = inv.cgst || 9; // Default 9%
+        const sgstPercent = inv.sgst || 9; // Default 9%
+        const igstPercent = inv.igst || 0;
 
-        totalCGST += (subtotal * cgstRate) / 100;
-        totalSGST += (subtotal * sgstRate) / 100;
-        totalIGST += (subtotal * igstRate) / 100;
+        totalCGST += (subtotal * cgstPercent) / 100;
+        totalSGST += (subtotal * sgstPercent) / 100;
+        totalIGST += (subtotal * igstPercent) / 100;
       }
     });
 
