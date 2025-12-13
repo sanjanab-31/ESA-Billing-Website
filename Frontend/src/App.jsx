@@ -14,6 +14,7 @@ import Report from "./pages/reports/RevenueLineChart";
 import Settings from "./pages/settings/SettingsPage";
 import InactivityDetector from "./components/InactivityDetector";
 import DataSeeder from "./pages/admin/DataSeeder";
+import ClearAndReseed from "./pages/admin/ClearAndReseed";
 
 
 import PropTypes from 'prop-types';
@@ -69,6 +70,7 @@ export default function App() {
                       <Route path="/payments" element={<Payments />} />
                       <Route path="/settings" element={<Settings />} />
                       <Route path="/seed-data" element={<DataSeeder />} />
+                      <Route path="/clear-and-reseed" element={<ClearAndReseed />} />
                     </Routes>
                   </main>
                 </div>

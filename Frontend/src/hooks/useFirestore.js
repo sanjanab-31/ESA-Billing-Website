@@ -24,8 +24,15 @@ const applyListView = (items, { search = "", page = 1, limit = 20, sortBy, sortD
   }
   if (sortBy) {
     data.sort((a, b) => {
-      const av = a?.[sortBy];
-      const bv = b?.[sortBy];
+      let av = a?.[sortBy];
+      let bv = b?.[sortBy];
+
+      // Special handling for serialNumber - convert to number for proper sorting
+      if (sortBy === 'serialNumber') {
+        av = av ? parseInt(av, 10) : 0;
+        bv = bv ? parseInt(bv, 10) : 0;
+      }
+
       if (av === bv) return 0;
       if (av == null) return sortDirection === "asc" ? -1 : 1;
       if (bv == null) return sortDirection === "asc" ? 1 : -1;

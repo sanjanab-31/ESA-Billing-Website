@@ -304,25 +304,22 @@ const InvoicePreview = ({
   const { error: toastError } = useToast();
   const previewData = invoice || invoiceData;
   const previewCalcs = invoice
-    ? {
-      subtotal: invoice.items.reduce((sum, item) => sum + item.amount, 0),
-      cgstAmount:
-        (invoice.items.reduce((sum, item) => sum + item.amount, 0) *
-          (invoice.cgst || 0)) /
-        100,
-      sgstAmount:
-        (invoice.items.reduce((sum, item) => sum + item.amount, 0) *
-          (invoice.sgst || 0)) /
-        100,
-      igstAmount:
-        (invoice.items.reduce((sum, item) => sum + item.amount, 0) *
-          (invoice.igst || 0)) /
-        100,
-      roundOffAmount: invoice.isRoundOff
-        ? Math.round(invoice.amount) - invoice.amount
-        : 0,
-      total: invoice.isRoundOff ? Math.round(invoice.amount) : invoice.amount,
-    }
+    ? (() => {
+      // Handle both 'items' and 'products' fields
+      const itemsArray = invoice.items || invoice.products || [];
+      const subtotal = itemsArray.reduce((sum, item) => sum + (item.amount || item.total || 0), 0);
+
+      return {
+        subtotal: subtotal,
+        cgstAmount: (subtotal * (invoice.cgst || 0)) / 100,
+        sgstAmount: (subtotal * (invoice.sgst || 0)) / 100,
+        igstAmount: (subtotal * (invoice.igst || 0)) / 100,
+        roundOffAmount: invoice.isRoundOff
+          ? Math.round(invoice.amount) - invoice.amount
+          : 0,
+        total: invoice.isRoundOff ? Math.round(invoice.amount) : invoice.amount,
+      };
+    })()
     : calculations;
 
   const convertToWords = (amount) => {
@@ -567,18 +564,18 @@ const InvoicePreview = ({
                 </tr>
               </thead>
               <tbody>
-                {previewData.items.map((item, index) => (
+                {(previewData.items || previewData.products || []).map((item, index) => (
                   <tr key={index}>
                     <td className="border-r border-black p-1 text-center">{index + 1}</td>
-                    <td className="border-r border-black p-1">{item.description}</td>
-                    <td className="border-r border-black p-1 text-center">{item.hsnCode}</td>
+                    <td className="border-r border-black p-1">{item.description || item.name}</td>
+                    <td className="border-r border-black p-1 text-center">{item.hsnCode || item.hsn}</td>
                     <td className="border-r border-black p-1 text-center">{item.quantity}</td>
-                    <td className="border-r border-black p-1 text-right">{item.rate}</td>
-                    <td className="p-1 text-right">{item.amount}</td>
+                    <td className="border-r border-black p-1 text-right">{item.rate || item.price}</td>
+                    <td className="p-1 text-right">{item.amount || item.total}</td>
                   </tr>
                 ))}
 
-                {new Array(Math.max(0, 12 - previewData.items.length))
+                {new Array(Math.max(0, 12 - (previewData.items || previewData.products || []).length))
                   .fill(0)
                   .map((_, index) => (
                     <tr key={`empty-${index}`}>

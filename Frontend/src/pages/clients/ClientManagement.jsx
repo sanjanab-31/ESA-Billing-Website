@@ -42,7 +42,7 @@ const ClientManagement = () => {
       search: searchTerm,
       page: currentPage,
       limit: itemsPerPage,
-      sortBy: 'name',
+      sortBy: 'serialNumber', // Sort by serial number, not name
       sortDirection: 'asc'
     });
 
@@ -375,12 +375,15 @@ const ClientManagement = () => {
     if (customers && customers.length > 0) {
       return customers.map((client, index) => {
         const stats = getClientStats(client.id);
+        // Use the permanent serialNumber from the client data
+        const serialNumber = client.serialNumber || String(index + 1).padStart(2, '0');
+
         return (
           <ClientRow
             key={client.id}
             client={client}
             stats={stats}
-            serialNumber={String((currentPage - 1) * itemsPerPage + index + 1).padStart(2, '0')}
+            serialNumber={serialNumber}
             onView={handleViewClient}
             onEdit={handleEditClient}
           />

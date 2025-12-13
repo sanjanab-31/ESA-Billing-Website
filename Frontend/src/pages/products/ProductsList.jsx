@@ -404,7 +404,7 @@ export default function ProductManagement() {
     search: searchTerm,
     page: currentPage,
     limit: itemsPerPage,
-    sortBy: 'name',
+    sortBy: 'serialNumber', // Sort by serial number, not name
     sortDirection: 'asc'
   });
 
@@ -557,11 +557,8 @@ export default function ProductManagement() {
 
     if (products && products.length > 0) {
       return products.map((product, index) => {
-        // Find actual position in the full list
-        const actualIndex = allProducts ? allProducts.findIndex(p => p.id === product.id) : -1;
-        const serialNumber = actualIndex >= 0
-          ? String(actualIndex + 1).padStart(2, '0')
-          : String((currentPage - 1) * itemsPerPage + index + 1).padStart(2, '0');
+        // Use the permanent serialNumber from the product data
+        const serialNumber = product.serialNumber || String(index + 1).padStart(2, '0');
 
         return (
           <ProductRow

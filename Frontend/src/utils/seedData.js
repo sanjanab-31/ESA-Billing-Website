@@ -44,6 +44,7 @@ export function generateClients(count, onProgress) {
 
         const clientData = {
             id: `local-cust-${Date.now()}-${i}`,
+            serialNumber: String(i + 1).padStart(2, '0'), // S.No: 01, 02, 03... 99, 100... 1000
             name: company,
             email: `${firstName.toLowerCase()}.${lastName.toLowerCase()}${i}@example.com`,
             phone: `+91 ${getRandomNumber(70000, 99999)} ${getRandomNumber(10000, 99999)}`,
@@ -79,6 +80,7 @@ export function generateProducts(count, onProgress) {
 
         const productData = {
             id: `local-prod-${Date.now()}-${i}`,
+            serialNumber: String(i + 1).padStart(2, '0'), // S.No: 01, 02, 03... 99, 100... 2000
             name: productName,
             hsn: getRandomElement(hsnCodes),
             price: getRandomNumber(1000, 100000),
