@@ -382,42 +382,66 @@ const RecentActivity = memo(({ invoices = [], payments = [] }) => {
     // Add recent invoices with better status handling
     const recentInvoices = [...safeInvoices]
       .sort((a, b) => {
-        const dateA = new Date(
-          a.createdAt?.toDate?.() || a.createdAt || a.invoiceDate || 0
-        );
-        const dateB = new Date(
-          b.createdAt?.toDate?.() || b.createdAt || b.invoiceDate || 0
-        );
+        // Get activity date for invoice A
+        let dateA;
+        if (a.status === "Paid" || a.status === "paid") {
+          dateA = new Date(a.paymentDate || a.updatedAt?.toDate?.() || a.updatedAt || a.createdAt?.toDate?.() || a.createdAt || a.invoiceDate || 0);
+        } else if (a.status === "Draft" || a.status === "draft") {
+          dateA = new Date(a.updatedAt?.toDate?.() || a.updatedAt || a.createdAt?.toDate?.() || a.createdAt || a.invoiceDate || 0);
+        } else {
+          dateA = new Date(a.createdAt?.toDate?.() || a.createdAt || a.invoiceDate || 0);
+        }
+
+        // Get activity date for invoice B
+        let dateB;
+        if (b.status === "Paid" || b.status === "paid") {
+          dateB = new Date(b.paymentDate || b.updatedAt?.toDate?.() || b.updatedAt || b.createdAt?.toDate?.() || b.createdAt || b.invoiceDate || 0);
+        } else if (b.status === "Draft" || b.status === "draft") {
+          dateB = new Date(b.updatedAt?.toDate?.() || b.updatedAt || b.createdAt?.toDate?.() || b.createdAt || b.invoiceDate || 0);
+        } else {
+          dateB = new Date(b.createdAt?.toDate?.() || b.createdAt || b.invoiceDate || 0);
+        }
+
         return dateB - dateA;
       })
       .slice(0, 4);
 
     recentInvoices.forEach((inv) => {
-      const createdDate = new Date(
-        inv.createdAt?.toDate?.() || inv.createdAt || inv.invoiceDate
-      );
-      const timeAgo = getTimeAgo(createdDate);
-
-      // Determine activity type and color based on status
+      // Use the appropriate date based on the action/status
+      let activityDate;
       let action, color;
+
       if (inv.status === "Paid" || inv.status === "paid") {
+        // For paid invoices, use the payment date (when it was marked as paid)
+        activityDate = new Date(
+          inv.paymentDate || inv.updatedAt?.toDate?.() || inv.updatedAt || inv.createdAt?.toDate?.() || inv.createdAt || inv.invoiceDate
+        );
         action = "marked as paid";
         color = "bg-green-500";
       } else if (inv.status === "Draft" || inv.status === "draft") {
+        // For drafts, use the last updated date (when it was saved/modified)
+        activityDate = new Date(
+          inv.updatedAt?.toDate?.() || inv.updatedAt || inv.createdAt?.toDate?.() || inv.createdAt || inv.invoiceDate
+        );
         action = "saved as draft";
         color = "bg-yellow-500";
       } else {
+        // For created/unpaid invoices, use the creation date
+        activityDate = new Date(
+          inv.createdAt?.toDate?.() || inv.createdAt || inv.invoiceDate
+        );
         action = "created";
         color = "bg-blue-500";
       }
 
+      const timeAgo = getTimeAgo(activityDate);
       const clientName = inv.client?.name ? ` for ${inv.client.name}` : "";
 
       activities.push({
         text: `Invoice #${inv.invoiceNumber} ${action}${clientName}`,
         time: timeAgo,
         color: color,
-        timestamp: createdDate,
+        timestamp: activityDate,
         type: "invoice",
       });
     });
