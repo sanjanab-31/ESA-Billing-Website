@@ -827,8 +827,8 @@ const ReportsAnalytics = () => {
                   const paidInvoices = realTimeStats.paidInvoices;
                   const totalGST = paidInvoices.reduce((sum, inv) => {
                     // Use GST amounts directly from invoice if available
-                    if (inv.cgst !== undefined && inv.sgst !== undefined) {
-                      return sum + (Number(inv.cgst) || 0) + (Number(inv.sgst) || 0) + (Number(inv.igst) || 0);
+                    if (inv.cgstAmount !== undefined || inv.sgstAmount !== undefined || inv.igstAmount !== undefined) {
+                      return sum + (Number(inv.cgstAmount) || 0) + (Number(inv.sgstAmount) || 0) + (Number(inv.igstAmount) || 0);
                     }
 
                     // Fallback: Calculate from items/products
@@ -837,10 +837,10 @@ const ReportsAnalytics = () => {
                       return itemSum + (item.total || item.amount || (item.quantity || 0) * (item.price || item.rate || 0));
                     }, 0);
 
-                    const cgstRate = inv.cgstRate || 9;
-                    const sgstRate = inv.sgstRate || 9;
-                    const igstRate = inv.igstRate || 0;
-                    return sum + (subtotal * (cgstRate + sgstRate + igstRate)) / 100;
+                    const cgstPercent = inv.cgst || 9; // Default 9%
+                    const sgstPercent = inv.sgst || 9; // Default 9%
+                    const igstPercent = inv.igst || 0;
+                    return sum + (subtotal * (cgstPercent + sgstPercent + igstPercent)) / 100;
                   }, 0);
                   return totalGST.toLocaleString("en-IN");
                 })()}
