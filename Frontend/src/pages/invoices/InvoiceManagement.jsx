@@ -2253,13 +2253,15 @@ const InvoiceManagementSystem = () => {
   };
 
   const calculateInvoiceTotals = (invoice) => {
-    const subtotal = invoice.items.reduce(
-      (sum, item) => sum + item.quantity * item.rate,
+    // Handle both 'items' and 'products' fields
+    const itemsArray = invoice.items || invoice.products || [];
+    const subtotal = itemsArray.reduce(
+      (sum, item) => sum + (item.quantity || 0) * (item.rate || item.price || 0),
       0
     );
-    const cgstAmount = (subtotal * invoice.cgst) / 100;
-    const sgstAmount = (subtotal * invoice.sgst) / 100;
-    const igstAmount = (subtotal * invoice.igst) / 100;
+    const cgstAmount = (subtotal * (invoice.cgst || 0)) / 100;
+    const sgstAmount = (subtotal * (invoice.sgst || 0)) / 100;
+    const igstAmount = (subtotal * (invoice.igst || 0)) / 100;
     const total = subtotal + cgstAmount + sgstAmount + igstAmount;
     const roundOffAmount = invoice.isRoundOff ? Math.round(total) - total : 0;
     const finalTotal = total + roundOffAmount;
@@ -2437,21 +2439,21 @@ const InvoiceManagementSystem = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  ${invoice.items
+                  ${(invoice.items || invoice.products || [])
         .map(
           (item, index) => `
                 <tr>
                   <td class="text-center" style="border-right: 1px solid black; border-bottom: none;">${index + 1}</td>
-                  <td style="border-right: 1px solid black; border-bottom: none;">${item.description}</td>
-                  <td class="text-center" style="border-right: 1px solid black; border-bottom: none;">${item.hsnCode}</td>
-                  <td class="text-center" style="border-right: 1px solid black; border-bottom: none;">${item.quantity}</td>
-                  <td class="text-right" style="border-right: 1px solid black; border-bottom: none;">₹${item.rate.toFixed(2)}</td>
-                  <td class="text-right" style="border-bottom: none;">₹${(item.quantity * item.rate).toFixed(2)}</td>
+                  <td style="border-right: 1px solid black; border-bottom: none;">${item.description || item.name || ''}</td>
+                  <td class="text-center" style="border-right: 1px solid black; border-bottom: none;">${item.hsnCode || item.hsn || ''}</td>
+                  <td class="text-center" style="border-right: 1px solid black; border-bottom: none;">${item.quantity || 0}</td>
+                  <td class="text-right" style="border-right: 1px solid black; border-bottom: none;">₹${(item.rate || item.price || 0).toFixed(2)}</td>
+                  <td class="text-right" style="border-bottom: none;">₹${((item.quantity || 0) * (item.rate || item.price || 0)).toFixed(2)}</td>
                 </tr>
               `
         )
         .join("")}
-                  ${Array.from({ length: Math.max(0, 12 - invoice.items.length) })
+                  ${Array.from({ length: Math.max(0, 12 - (invoice.items || invoice.products || []).length) })
         .map(() =>
           '<tr><td style="border-right: 1px solid black; border-bottom: none;">&nbsp;</td><td style="border-right: 1px solid black; border-bottom: none;"></td><td style="border-right: 1px solid black; border-bottom: none;"></td><td style="border-right: 1px solid black; border-bottom: none;"></td><td style="border-right: 1px solid black; border-bottom: none;"></td><td style="border-bottom: none;"></td></tr>'
         )
