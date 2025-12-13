@@ -23,6 +23,8 @@ import { AuthContext } from "../../context/AuthContext";
 import { useToast } from "../../context/ToastContext";
 import { generateInvoiceHTML } from "../../utils/invoiceGenerator";
 import PropTypes from "prop-types";
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
 
 const ConfirmationModal = ({
   isOpen,
@@ -376,7 +378,7 @@ const InvoicePreview = ({
     try {
       // Create a temporary div for HTML to PDF conversion
       const tempDiv = document.createElement("div");
-      tempDiv.innerHTML = generateInvoiceHTML(previewData, settings);
+      tempDiv.innerHTML = generateInvoiceHTML(previewData);
       tempDiv.style.position = "absolute";
       tempDiv.style.left = "-9999px";
       tempDiv.style.top = "-9999px";
@@ -437,7 +439,7 @@ const InvoicePreview = ({
     const iframe = document.createElement("iframe");
     iframe.style.display = "none";
     document.body.appendChild(iframe);
-    const invoiceHTML = generateInvoiceHTML(previewData, settings);
+    const invoiceHTML = generateInvoiceHTML(previewData);
     iframe.contentDocument.write(invoiceHTML);
     iframe.contentDocument.close();
     iframe.onload = () => {
@@ -454,6 +456,13 @@ const InvoicePreview = ({
         <div className="p-4 border-b flex justify-between items-center bg-gray-50 rounded-t-lg">
           <h2 className="text-lg font-bold text-gray-900">Invoice Preview</h2>
           <div className="flex items-center space-x-2">
+            <button
+              onClick={handleDownloadPdf}
+              className="flex items-center px-3 py-1.5 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700"
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Download PDF
+            </button>
             <button
               onClick={handlePrint}
               className="flex items-center px-3 py-1.5 text-sm text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300"
@@ -526,27 +535,24 @@ const InvoicePreview = ({
 
             {/* Client & Invoice Details */}
             <div className="flex border-b border-black">
-              <div className="w-[70%] border-r border-black  text-sm">
+              <div className="w-[70%] border-r border-black text-sm">
                 <div className="pl-2">To, M/s,</div>
                 <div className="font-bold ml-4">{previewData.client?.name}</div>
                 <div className="ml-4 h-10">{previewData.client?.address}</div>
-                <div className="mt-2 border-t border-black pl-2">GSTIN : {previewData.client?.gst}</div>
+                <div className="mt-2 border-t border-black pl-2">GSTIN : {previewData.client?.gst || ""}</div>
               </div>
               <div className="w-[30%] text-sm">
                 <div className="border-b border-black pl-2 h-8 flex items-center">
-                  <span className="font-bold mr-2">P.O. No :</span> {previewData.poNumber}
+                  <span className="font-bold mr-2">P.O. No :</span> {previewData.poNumber || ""}
                 </div>
                 <div className="border-b border-black pl-2 h-8 flex items-center">
-                  <span className="font-bold mr-2">P.O. Date :</span> {previewData.poDate}
+                  <span className="font-bold mr-2">P.O. Date :</span> {previewData.poDate || ""}
                 </div>
                 <div className="border-b border-black pl-2 h-8 flex items-center">
-                  <span className="font-bold mr-2">D.C. No :</span> {previewData.dcNumber}
-                </div>
-                <div className="border-b border-black pl-2 h-8 flex items-center">
-                  <span className="font-bold mr-2">D.C. Date :</span> {previewData.dcDate}
+                  <span className="font-bold mr-2">D.C. No :</span> {previewData.dcNumber || ""}
                 </div>
                 <div className="pl-2 h-8 flex items-center">
-                  <span className="font-bold mr-2">Due Date :</span> {previewData.dueDate}
+                  <span className="font-bold mr-2">D.C. Date :</span> {previewData.dcDate || ""}
                 </div>
               </div>
             </div>
@@ -639,10 +645,9 @@ const InvoicePreview = ({
                   </td>
                 </tr>
                 <tr>
-                  {/* LEFT SIDE — Rupees spanning 2 rows */}
+                  {/* LEFT SIDE — Rupees spanning rows */}
                   <td
-                    className="border-t border-black font-bold align-top"
-                    rowSpan={2}
+                    className="border-t border-black p-1"
                     colSpan={2}
                   >
                     Rupees : <span className="font-normal">{amountInWords}</span>
@@ -658,6 +663,17 @@ const InvoicePreview = ({
                 </tr>
 
                 <tr>
+                  {/* LEFT SIDE — Notes if present */}
+                  {previewData.notes && (
+                    <td className="border-t border-black p-1" colSpan={2}>
+                      <div className="font-bold">Notes :</div>
+                      <div className="text-sm">{previewData.notes}</div>
+                    </td>
+                  )}
+                  {!previewData.notes && (
+                    <td className="border-t border-black p-1" colSpan={2}></td>
+                  )}
+
                   {/* RIGHT SIDE ROW 2 */}
                   <td className="border-l border-t border-b border-black font-bold text-right">
                     NET TOTAL

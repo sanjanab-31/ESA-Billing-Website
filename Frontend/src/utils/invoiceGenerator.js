@@ -1,94 +1,94 @@
 export const convertToWords = (num) => {
-  if (num === 0) return "Zero";
-  const a = [
-    "",
-    "One",
-    "Two",
-    "Three",
-    "Four",
-    "Five",
-    "Six",
-    "Seven",
-    "Eight",
-    "Nine",
-    "Ten",
-    "Eleven",
-    "Twelve",
-    "Thirteen",
-    "Fourteen",
-    "Fifteen",
-    "Sixteen",
-    "Seventeen",
-    "Eighteen",
-    "Nineteen",
-  ];
-  const b = [
-    "",
-    "",
-    "Twenty",
-    "Thirty",
-    "Forty",
-    "Fifty",
-    "Sixty",
-    "Seventy",
-    "Eighty",
-    "Ninety",
-  ];
+    if (num === 0) return "Zero";
+    const a = [
+        "",
+        "One",
+        "Two",
+        "Three",
+        "Four",
+        "Five",
+        "Six",
+        "Seven",
+        "Eight",
+        "Nine",
+        "Ten",
+        "Eleven",
+        "Twelve",
+        "Thirteen",
+        "Fourteen",
+        "Fifteen",
+        "Sixteen",
+        "Seventeen",
+        "Eighteen",
+        "Nineteen",
+    ];
+    const b = [
+        "",
+        "",
+        "Twenty",
+        "Thirty",
+        "Forty",
+        "Fifty",
+        "Sixty",
+        "Seventy",
+        "Eighty",
+        "Ninety",
+    ];
 
-  const inWords = (n) => {
-    let str = "";
-    if (n > 99) {
-      str += a[Math.floor(n / 100)] + " Hundred ";
-      n %= 100;
+    const inWords = (n) => {
+        let str = "";
+        if (n > 99) {
+            str += a[Math.floor(n / 100)] + " Hundred ";
+            n %= 100;
+        }
+        if (n > 19) {
+            str += b[Math.floor(n / 10)] + " " + a[n % 10];
+        } else {
+            str += a[n];
+        }
+        return str.trim();
+    };
+
+    let number = Math.floor(num);
+    const fraction = Math.round((num - number) * 100);
+    let words = "";
+
+    if (number > 9999999) {
+        words += inWords(Math.floor(number / 10000000)) + " Crore ";
+        number %= 10000000;
     }
-    if (n > 19) {
-      str += b[Math.floor(n / 10)] + " " + a[n % 10];
-    } else {
-      str += a[n];
+    if (number > 99999) {
+        words += inWords(Math.floor(number / 100000)) + " Lakh ";
+        number %= 100000;
     }
-    return str.trim();
-  };
+    if (number > 999) {
+        words += inWords(Math.floor(number / 1000)) + " Thousand ";
+        number %= 1000;
+    }
+    if (number > 0) {
+        words += inWords(number);
+    }
 
-  let number = Math.floor(num);
-  const fraction = Math.round((num - number) * 100);
-  let words = "";
+    if (fraction > 0) {
+        words += " and " + inWords(fraction) + " Paise";
+    }
 
-  if (number > 9999999) {
-    words += inWords(Math.floor(number / 10000000)) + " Crore ";
-    number %= 10000000;
-  }
-  if (number > 99999) {
-    words += inWords(Math.floor(number / 100000)) + " Lakh ";
-    number %= 100000;
-  }
-  if (number > 999) {
-    words += inWords(Math.floor(number / 1000)) + " Thousand ";
-    number %= 1000;
-  }
-  if (number > 0) {
-    words += inWords(number);
-  }
-
-  if (fraction > 0) {
-    words += " and " + inWords(fraction) + " Paise";
-  }
-
-  return "Indian Rupees " + words.trim() + " Only";
+    return "Indian Rupees " + words.trim() + " Only";
 };
 
-export const generateInvoiceHTML = (invoice, settings) => {
-  // Calculate totals if not present
-  const subtotal = invoice.items.reduce((sum, item) => sum + (item.amount || 0), 0);
-  const cgstAmount = (subtotal * (invoice.cgst || 0)) / 100;
-  const sgstAmount = (subtotal * (invoice.sgst || 0)) / 100;
-  const igstAmount = (subtotal * (invoice.igst || 0)) / 100;
-  const total = subtotal + cgstAmount + sgstAmount + igstAmount;
-  const roundOffAmount = invoice.isRoundOff ? Math.round(total) - total : 0;
-  const finalTotal = invoice.isRoundOff ? Math.round(total) : total;
+export const generateInvoiceHTML = (invoice, settings = null) => {
+    // Calculate totals if not present
+    const subtotal = invoice.items.reduce((sum, item) => sum + (item.amount || 0), 0);
+    const cgstAmount = (subtotal * (invoice.cgst || 0)) / 100;
+    const sgstAmount = (subtotal * (invoice.sgst || 0)) / 100;
+    const igstAmount = (subtotal * (invoice.igst || 0)) / 100;
+    const total = subtotal + cgstAmount + sgstAmount + igstAmount;
+    const roundOffAmount = invoice.isRoundOff ? Math.round(total) - total : 0;
+    const finalTotal = invoice.isRoundOff ? Math.round(total) : total;
 
-  const amountInWords = convertToWords(finalTotal);
+    const amountInWords = convertToWords(finalTotal);
 
-  return `
+    return `
     <!DOCTYPE html>
     <html>
     <head>
@@ -157,10 +157,11 @@ export const generateInvoiceHTML = (invoice, settings) => {
             <div>To, M/s,</div>
             <div style="margin-left: 20px; font-weight: bold;">${invoice.client?.name || ""}</div>
             <div style="margin-left: 20px; height: 40px;">${invoice.client?.address || ""}</div>
-            <div style="margin-top: 5px;">GSTIN : ${invoice.client?.gst || ""}</div>
+            <div style="margin-top: 5px; border-top: 1px solid black; padding-top: 5px;">GSTIN : ${invoice.client?.gst || ""}</div>
           </div>
           <div style="width: 30%;">
-            <div style="padding: 5px; border-bottom: 1px solid black; height: 20px;">J.O. No : ${invoice.poNumber || ""}</div>
+            <div style="padding: 5px; border-bottom: 1px solid black; height: 20px;">P.O. No : ${invoice.poNumber || ""}</div>
+            <div style="padding: 5px; border-bottom: 1px solid black; height: 20px;">P.O. Date : ${invoice.poDate || ""}</div>
             <div style="padding: 5px; border-bottom: 1px solid black; height: 20px;">D.C. No : ${invoice.dcNumber || ""}</div>
             <div style="padding: 5px; height: 20px;">D.C. Date : ${invoice.dcDate || ""}</div>
           </div>
@@ -190,7 +191,7 @@ export const generateInvoiceHTML = (invoice, settings) => {
               </tr>
             `).join("")}
             ${new Array(Math.max(0, 12 - (invoice.items?.length || 0))).fill(
-    `<tr>
+        `<tr>
                 <td style="height: 20px;">&nbsp;</td>
                 <td></td>
                 <td></td>
@@ -198,7 +199,7 @@ export const generateInvoiceHTML = (invoice, settings) => {
                 <td></td>
                 <td></td>
               </tr>`
-  ).join("")}
+    ).join("")}
           </tbody>
         </table>
 
@@ -235,20 +236,29 @@ export const generateInvoiceHTML = (invoice, settings) => {
             <td class="text-right">${igstAmount.toFixed(2)}</td>
           </tr>
           <tr>
-            <td colspan="2" style="font-weight: bold;">Rupees : <span style="font-weight: normal;">${amountInWords}</span></td>
+            <td colspan="2" style="padding: 4px;">Rupees : <span style="font-weight: normal;">${amountInWords}</span></td>
             <td>ROUND OFF</td>
             <td class="text-right">${roundOffAmount.toFixed(2)}</td>
           </tr>
           <tr>
-            <td colspan="2" rowspan="2" style="vertical-align: top;">
-              <div class="font-bold" style="margin-bottom: 5px;">Declaration</div>
-              <div style="font-size: 11px;">We declare that this invoice shows the actual price of the goods Described and that all Particulars are true and correct</div>
-            </td>
+            ${invoice.notes ? `
+              <td colspan="2" style="padding: 4px;">
+                <div style="font-weight: bold;">Notes :</div>
+                <div style="font-size: 11px;">${invoice.notes}</div>
+              </td>
+            ` : `<td colspan="2" style="padding: 4px;"></td>`}
             <td class="font-bold">NET TOTAL</td>
             <td class="text-right font-bold">${finalTotal.toFixed(2)}</td>
           </tr>
           <tr>
-            <td colspan="2" style="height: 60px; vertical-align: bottom; text-align: right;">
+            <td colspan="2" rowspan="2" style="vertical-align: top; padding: 4px;">
+              <div class="font-bold" style="margin-bottom: 5px;">Declaration</div>
+              <div style="font-size: 11px;">We declare that this invoice shows the actual price of the goods Described and that all Particulars are true and correct</div>
+            </td>
+
+          </tr>
+          <tr>
+            <td colspan="2" style="height: 60px; vertical-align: bottom; text-align: right; padding: 4px;">
               <div style="font-weight: bold; color: #FF0000; margin-bottom: 30px;">For ESA Engineering Works</div>
               <div style="font-size: 10px;">Authorized Signatory</div>
             </td>
