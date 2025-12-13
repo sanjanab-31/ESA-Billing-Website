@@ -105,7 +105,10 @@ export const useCustomers = (options = {}) => {
 
   const addCustomer = useCallback(async (payload) => {
     const id = `local-cust-${Date.now()}`;
-    const next = [{ id, ...payload }, ...all];
+    // Calculate next serial number
+    const nextSerialNumber = String(all.length + 1).padStart(2, '0');
+    // Add at the END of the array
+    const next = [...all, { id, serialNumber: nextSerialNumber, ...payload }];
     setAll(next);
     save(K.customers, next);
     return { success: true, id };
@@ -119,9 +122,15 @@ export const useCustomers = (options = {}) => {
   }, [all]);
 
   const removeCustomer = useCallback(async (id) => {
-    const next = all.filter((c) => c.id !== id);
-    setAll(next);
-    save(K.customers, next);
+    // Remove the customer
+    const filtered = all.filter((c) => c.id !== id);
+    // Renumber all customers sequentially
+    const renumbered = filtered.map((c, index) => ({
+      ...c,
+      serialNumber: String(index + 1).padStart(2, '0')
+    }));
+    setAll(renumbered);
+    save(K.customers, renumbered);
     return { success: true };
   }, [all]);
 
@@ -293,7 +302,10 @@ export const useProducts = (options = {}) => {
 
   const addProduct = useCallback(async (payload) => {
     const id = `local-prod-${Date.now()}`;
-    const next = [{ id, ...payload }, ...all];
+    // Calculate next serial number
+    const nextSerialNumber = String(all.length + 1).padStart(2, '0');
+    // Add at the END of the array
+    const next = [...all, { id, serialNumber: nextSerialNumber, ...payload }];
     setAll(next);
     save(K.products, next);
     return { success: true, id };
@@ -307,9 +319,15 @@ export const useProducts = (options = {}) => {
   }, [all]);
 
   const removeProduct = useCallback(async (id) => {
-    const next = all.filter((p) => p.id !== id);
-    setAll(next);
-    save(K.products, next);
+    // Remove the product
+    const filtered = all.filter((p) => p.id !== id);
+    // Renumber all products sequentially
+    const renumbered = filtered.map((p, index) => ({
+      ...p,
+      serialNumber: String(index + 1).padStart(2, '0')
+    }));
+    setAll(renumbered);
+    save(K.products, renumbered);
     return { success: true };
   }, [all]);
 
