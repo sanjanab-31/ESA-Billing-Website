@@ -147,22 +147,24 @@ export const useInvoices = (options = {}) => {
       res = res.filter(inv => {
         const s = (inv.status || "").toLowerCase();
 
+        // Exact matches for specific statuses
         if (status === "Paid") return s === "paid";
         if (status === "Draft") return s === "draft";
+        if (status === "Partial") return s === "partial";
 
-        // Overdue: Not paid/draft AND due date passed
+        // Overdue: Not paid/partial/draft AND due date passed
         if (status === "Overdue") {
           const dueDate = inv.dueDate ? new Date(inv.dueDate) : null;
           if (dueDate) dueDate.setHours(0, 0, 0, 0);
-          return s !== "paid" && s !== "draft" && dueDate && today > dueDate;
+          return s !== "paid" && s !== "partial" && s !== "draft" && dueDate && today > dueDate;
         }
 
-        // Unpaid: Not paid/draft AND NOT overdue (to keep tabs distinct)
+        // Unpaid: Not paid/partial/draft AND NOT overdue (to keep tabs distinct)
         if (status === "Unpaid") {
           const dueDate = inv.dueDate ? new Date(inv.dueDate) : null;
           if (dueDate) dueDate.setHours(0, 0, 0, 0);
           const isOverdue = dueDate && today > dueDate;
-          return s !== "paid" && s !== "draft" && !isOverdue;
+          return s !== "paid" && s !== "partial" && s !== "draft" && !isOverdue;
         }
 
         return s === status.toLowerCase();
@@ -175,7 +177,7 @@ export const useInvoices = (options = {}) => {
     }
 
     return res;
-  }, [all, options.status, options.customerId]);
+  }, [fyInvoices, options.status, options.customerId]);
 
   const { data, pagination } = applyListView(filtered, options);
   const [view, setView] = useState(data);

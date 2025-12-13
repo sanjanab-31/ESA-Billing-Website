@@ -148,7 +148,7 @@ export function generateInvoices(count, clients, products, onProgress) {
         const tdsAmount = Math.round(totalBeforeTDS * 0.20); // 20% TDS
         const totalAmount = totalBeforeTDS;
 
-        // Determine status
+        // Determine status - NO DRAFTS in seeded data
         const today = new Date();
         const isPastDue = dueDate < today;
         const randomPaid = Math.random();
@@ -169,10 +169,16 @@ export function generateInvoices(count, clients, products, onProgress) {
             status = 'Unpaid';
         }
 
+        // Generate invoice number in format: INV 001/2025-26
+        const fyStart = invoiceDate.getMonth() >= 3 ? invoiceDate.getFullYear() : invoiceDate.getFullYear() - 1;
+        const fyEnd = fyStart + 1;
+        const fyString = `${fyStart}-${fyEnd.toString().slice(2)}`;
+        const invoiceNumber = `INV ${String(i + 1).padStart(3, '0')}/${fyString}`;
+
         const invoiceId = `local-inv-${Date.now()}-${i}`;
         const invoiceData = {
             id: invoiceId,
-            invoiceNumber: `INV-${(i + 1).toString().padStart(6, '0')}`,
+            invoiceNumber: invoiceNumber,
             clientId: client.id,
             client: {
                 id: client.id,

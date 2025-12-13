@@ -80,6 +80,10 @@ export default function Header() {
       </div>
 
       <div className="flex items-center gap-2 md:gap-4">
+        <span className="hidden sm:inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
+          2025-2026 FY
+        </span>
+
         {user && (
           <div className="relative" ref={dropdownRef}>
             <button
