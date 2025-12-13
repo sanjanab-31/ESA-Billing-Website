@@ -18,6 +18,7 @@ import { AuthContext } from "../../context/AuthContext";
 import { useToast } from "../../context/ToastContext";
 import PropTypes from "prop-types";
 import TransactionHistoryModal from "./TransactionHistoryModal";
+import Pagination from "../../components/Pagination";
 
 // CHANGE: Updated modal to handle transaction ID
 const PaymentMethodModal = ({ isOpen, onClose, onConfirm, existingTds = 0 }) => {
@@ -661,6 +662,10 @@ const PaymentsPage = () => {
   const [filterToDate, setFilterToDate] = useState("");
   const [filterClientId, setFilterClientId] = useState("");
 
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
+
   const tabs = ["All Payments", "Overdue", "Pending", "Paid"];
   const filterRef = React.useRef(null); // Add Ref
 
@@ -1138,8 +1143,20 @@ const PaymentsPage = () => {
 
           if (!dateToCheckStr || dateToCheckStr === "-") return false;
 
-          let d = new Date(dateToCheckStr);
-          // If invalid, try to handle potential errors (though YYYY-MM-DD should work)
+          // Handle Firestore Timestamp, Date object, or date string
+          let d;
+          if (dateToCheckStr?.toDate && typeof dateToCheckStr.toDate === 'function') {
+            // Firestore Timestamp
+            d = dateToCheckStr.toDate();
+          } else if (dateToCheckStr instanceof Date) {
+            // Already a Date object
+            d = dateToCheckStr;
+          } else {
+            // String - try to parse it
+            d = new Date(dateToCheckStr);
+          }
+
+          // If invalid date, return false
           if (isNaN(d.getTime())) return false;
 
           // Check if date is within range
@@ -1161,7 +1178,17 @@ const PaymentsPage = () => {
       const bDate = b.dueDate || '';
       return bDate.localeCompare(aDate);
     });
-  }, [paymentsWithDynamicStatus, searchTerm, activeTab]);
+  }, [paymentsWithDynamicStatus, searchTerm, activeTab, filterClientId, filterReportType, filterTimePeriod, filterMonth, filterYear, filterFromDate, filterToDate]);
+
+  // Reset pagination when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab, searchTerm, filterReportType, filterTimePeriod, filterMonth, filterYear, filterFromDate, filterToDate, filterClientId]);
+
+  const paginatedPayments = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredPayments.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredPayments, currentPage, itemsPerPage]);
 
   const overdueCount = paymentsWithDynamicStatus.filter(
     (p) => p.status === "Overdue"
@@ -1191,8 +1218,8 @@ const PaymentsPage = () => {
             </p>
           </div>
           <div className="p-6 space-y-4">
-            {filteredPayments.length > 0 ? (
-              filteredPayments.map((payment) => (
+            {paginatedPayments.length > 0 ? (
+              paginatedPayments.map((payment) => (
                 <PendingPaymentCard
                   key={payment.invoiceNo}
                   invoice={payment}
@@ -1215,6 +1242,22 @@ const PaymentsPage = () => {
               </div>
             )}
           </div>
+
+          {
+            filteredPayments.length > 0 && (
+              <Pagination
+                pagination={{
+                  page: currentPage,
+                  totalPages: Math.ceil(filteredPayments.length / itemsPerPage),
+                  total: filteredPayments.length,
+                  limit: itemsPerPage,
+                }}
+                onPageChange={setCurrentPage}
+                itemsPerPage={itemsPerPage}
+                onItemsPerPageChange={setItemsPerPage}
+              />
+            )
+          }
         </div>
       );
     }
@@ -1244,7 +1287,7 @@ const PaymentsPage = () => {
               </tr>
             </thead>
             <tbody>
-              {filteredPayments.map((payment) => (
+              {paginatedPayments.map((payment) => (
                 <PaidPaymentRow
                   key={payment.invoiceNo}
                   {...payment}
@@ -1264,6 +1307,20 @@ const PaymentsPage = () => {
                 No completed payments found in the selected period.
               </p>
             </div>
+          )}
+
+          {filteredPayments.length > 0 && (
+            <Pagination
+              pagination={{
+                page: currentPage,
+                totalPages: Math.ceil(filteredPayments.length / itemsPerPage),
+                total: filteredPayments.length,
+                limit: itemsPerPage,
+              }}
+              onPageChange={setCurrentPage}
+              itemsPerPage={itemsPerPage}
+              onItemsPerPageChange={setItemsPerPage}
+            />
           )}
         </div>
       );
@@ -1289,7 +1346,7 @@ const PaymentsPage = () => {
             </tr>
           </thead>
           <tbody>
-            {filteredPayments.map((payment) => (
+            {paginatedPayments.map((payment) => (
               <PaymentRow
                 key={payment.invoiceNo}
                 {...payment}
@@ -1319,6 +1376,22 @@ const PaymentsPage = () => {
             </p>
           </div>
         )}
+
+        {
+          filteredPayments.length > 0 && (
+            <Pagination
+              pagination={{
+                page: currentPage,
+                totalPages: Math.ceil(filteredPayments.length / itemsPerPage),
+                total: filteredPayments.length,
+                limit: itemsPerPage,
+              }}
+              onPageChange={setCurrentPage}
+              itemsPerPage={itemsPerPage}
+              onItemsPerPageChange={setItemsPerPage}
+            />
+          )
+        }
       </div>
     );
   };

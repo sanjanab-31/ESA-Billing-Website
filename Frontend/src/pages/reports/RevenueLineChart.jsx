@@ -698,12 +698,39 @@ const ReportsAnalytics = () => {
     return invoices.filter(invoice => {
       // Handle Firestore Timestamp or Date string or Date object
       let invoiceDate;
+
+      // Check if invoiceDate exists and handle different formats
       if (invoice.invoiceDate) {
-        invoiceDate = new Date(invoice.invoiceDate);
-      } else if (invoice.createdAt && typeof invoice.createdAt.toDate === 'function') {
-        invoiceDate = invoice.createdAt.toDate();
+        if (invoice.invoiceDate?.toDate && typeof invoice.invoiceDate.toDate === 'function') {
+          // Firestore Timestamp
+          invoiceDate = invoice.invoiceDate.toDate();
+        } else if (invoice.invoiceDate instanceof Date) {
+          // Already a Date object
+          invoiceDate = invoice.invoiceDate;
+        } else {
+          // String - try to parse it
+          invoiceDate = new Date(invoice.invoiceDate);
+        }
+      } else if (invoice.createdAt) {
+        // Fallback to createdAt if invoiceDate doesn't exist
+        if (invoice.createdAt?.toDate && typeof invoice.createdAt.toDate === 'function') {
+          // Firestore Timestamp
+          invoiceDate = invoice.createdAt.toDate();
+        } else if (invoice.createdAt instanceof Date) {
+          // Already a Date object
+          invoiceDate = invoice.createdAt;
+        } else {
+          // String - try to parse it
+          invoiceDate = new Date(invoice.createdAt);
+        }
       } else {
-        invoiceDate = new Date(invoice.createdAt || new Date());
+        // No date available, use current date as fallback
+        invoiceDate = new Date();
+      }
+
+      // Validate the date before comparison
+      if (isNaN(invoiceDate.getTime())) {
+        return false; // Skip invalid dates
       }
 
       return invoiceDate >= startDate && invoiceDate <= endDate;
