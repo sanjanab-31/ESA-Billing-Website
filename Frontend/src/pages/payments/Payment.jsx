@@ -1094,13 +1094,18 @@ const PaymentsPage = () => {
   // PERFORMANCE: Filter and sort payments with secondary sorting for stability
   const filteredPayments = useMemo(() => {
     const filtered = paymentsWithDynamicStatus.filter((payment) => {
+      // First check search term match
       const matchesSearch =
         payment.invoiceNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
         payment.client.toLowerCase().includes(searchTerm.toLowerCase());
-      if (activeTab === "Paid" && !(payment.status === "Paid" && matchesSearch)) return false;
-      if (activeTab === "Overdue" && !(payment.status === "Overdue" && matchesSearch)) return false;
-      if (activeTab === "Pending" && !((payment.status === "Unpaid" || payment.status === "Partial") && matchesSearch)) return false;
-      if (activeTab === "All Payments" && !matchesSearch) return false;
+
+      if (!matchesSearch) return false;
+
+      // Check tab-specific status requirements
+      if (activeTab === "Paid" && payment.status !== "Paid") return false;
+      if (activeTab === "Overdue" && payment.status !== "Overdue") return false;
+      if (activeTab === "Pending" && payment.status !== "Unpaid" && payment.status !== "Partial") return false;
+      // "All Payments" tab doesn't filter by status
 
       // Filter by Client
       if (filterClientId && payment.clientId !== filterClientId) {
@@ -1152,8 +1157,18 @@ const PaymentsPage = () => {
             // Already a Date object
             d = dateToCheckStr;
           } else {
-            // String - try to parse it
-            d = new Date(dateToCheckStr);
+            // String - try to parse it (handles DD/MM/YYYY format)
+            if (typeof dateToCheckStr === 'string' && dateToCheckStr.includes('/')) {
+              // Parse DD/MM/YYYY format
+              const parts = dateToCheckStr.split('/');
+              if (parts.length === 3) {
+                d = new Date(parts[2], parts[1] - 1, parts[0]);
+              } else {
+                d = new Date(dateToCheckStr);
+              }
+            } else {
+              d = new Date(dateToCheckStr);
+            }
           }
 
           // If invalid date, return false
@@ -1628,23 +1643,25 @@ const PaymentsPage = () => {
         <main className="mt-6 flex flex-col gap-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
             {(() => {
-              const totalAmount = filteredPayments.reduce(
+              // Calculate statistics from ALL payments, not just filtered ones
+              const totalAmount = paymentsWithDynamicStatus.reduce(
                 (s, p) => s + ((p.amount || 0) - (p.tdsAmount || 0)),
                 0
               );
-              const amountReceived = filteredPayments.reduce(
+              const amountReceived = paymentsWithDynamicStatus.reduce(
                 (s, p) => s + (p.received || 0),
                 0
               );
-              // Pending = Total - Paid - TDS
-              const overdueAmount = filteredPayments
+              // Overdue Amount = sum of remaining amounts for overdue invoices
+              const overdueAmount = paymentsWithDynamicStatus
                 .filter((p) => p.status === "Overdue")
                 .reduce((s, p) => {
                   const remaining = Math.max(0, p.amount - (p.received || 0) - (p.tdsAmount || 0));
                   return s + remaining;
                 }, 0);
-              const pendingAmount = filteredPayments
-                .filter((p) => p.status === "Unpaid" || p.status === "Partial" || p.status === "Overdue") // Include overdue in pending total? Usually distinct, but user asks "how much are in pending". Safe to keep separate or aggregated. Let's keep typical definitions: Pending includes all non-paid.
+              // Pending Amount = sum of remaining amounts for all non-paid invoices (Unpaid, Partial, Overdue)
+              const pendingAmount = paymentsWithDynamicStatus
+                .filter((p) => p.status === "Unpaid" || p.status === "Partial" || p.status === "Overdue")
                 .reduce((s, p) => {
                   const remaining = Math.max(0, p.amount - (p.received || 0) - (p.tdsAmount || 0));
                   return s + remaining;
