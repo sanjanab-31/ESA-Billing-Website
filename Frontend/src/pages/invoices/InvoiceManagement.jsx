@@ -1748,9 +1748,6 @@ const InvoiceManagementSystem = () => {
       .toString()
       .slice(2)}`;
 
-    // Get prefix from settings or default to "INV"
-    const prefix = settings?.systemSettings?.value?.systemConfig?.invoicePrefix || "INV";
-
     // Use allInvoices instead of paginated invoices
     const invoicesInCurrentYear = (allInvoices || []).filter((inv) => {
       // Check if invoice belongs to current financial year
@@ -1758,7 +1755,7 @@ const InvoiceManagementSystem = () => {
     });
 
     if (invoicesInCurrentYear.length === 0) {
-      return `${prefix} 001/${financialYearString}`;
+      return `001/${financialYearString}`;
     }
 
     const maxNumber = invoicesInCurrentYear.reduce((max, invoice) => {
@@ -1772,7 +1769,7 @@ const InvoiceManagementSystem = () => {
       return max;
     }, 0);
 
-    return `${prefix} ${String(maxNumber + 1).padStart(3, "0")}/${financialYearString}`;
+    return `${String(maxNumber + 1).padStart(3, "0")}/${financialYearString}`;
   };
 
   const getInitialInvoiceData = () => ({
