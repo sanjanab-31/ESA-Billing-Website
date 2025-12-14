@@ -663,6 +663,7 @@ const ReportsAnalytics = () => {
 
   // PDF Modal State
   const [showPDFModal, setShowPDFModal] = useState(false);
+  const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [showExportDropdown, setShowExportDropdown] = useState(false);
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
@@ -1138,10 +1139,7 @@ const ReportsAnalytics = () => {
 
                     <button
                       onClick={() => {
-                        const result = exportSummaryReport(invoices, customers);
-                        if (!result.success) {
-                          toastError(result.message);
-                        }
+                        setShowSummaryModal(true);
                         setShowExportDropdown(false);
                       }}
                       className="w-full flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors text-left"
@@ -1151,7 +1149,7 @@ const ReportsAnalytics = () => {
                       </div>
                       <div className="flex-1">
                         <div className="text-sm font-semibold text-gray-900">Summary Report</div>
-                        <div className="text-xs text-gray-500 mt-0.5">Yearly & Monthly Overview</div>
+                        <div className="text-xs text-gray-500 mt-0.5">Client-wise detailed summary</div>
                       </div>
                     </button>
                   </div>
@@ -1186,6 +1184,19 @@ const ReportsAnalytics = () => {
               await exportToPDF(inv, cust, pay, st, title, subtitle);
               setIsGeneratingPDF(false);
             }, 100);
+          }}
+        />
+
+        {/* Summary Report Modal */}
+        <PDFExportModal
+          isOpen={showSummaryModal}
+          onClose={() => setShowSummaryModal(false)}
+          invoices={invoices}
+          customers={customers}
+          payments={payments}
+          stats={stats}
+          onExport={(inv, cust, pay, st, title, subtitle) => {
+            // This won't be called for summary reports, but required by PropTypes
           }}
         />
 
