@@ -304,9 +304,11 @@ const InvoicePreview = ({
   setShowPreview,
 }) => {
   const { error: toastError } = useToast();
-  const previewData = invoice || invoiceData;
-  const previewCalcs = invoice
-    ? (() => {
+  // Prioritize invoiceData (current form) over invoice (previously viewed)
+  const previewData = invoiceData || invoice;
+  const previewCalcs = invoiceData
+    ? calculations
+    : (() => {
       // Handle both 'items' and 'products' fields
       const itemsArray = invoice.items || invoice.products || [];
       const subtotal = itemsArray.reduce((sum, item) => sum + (item.amount || item.total || 0), 0);
@@ -321,8 +323,7 @@ const InvoicePreview = ({
           : 0,
         total: invoice.isRoundOff ? Math.round(invoice.amount) : invoice.amount,
       };
-    })()
-    : calculations;
+    })();
 
   const convertToWords = (amount) => {
     const ones = [
@@ -603,6 +604,17 @@ const InvoicePreview = ({
             {/* Footer Section */}
             <table className="w-full text-sm">
               <tbody>
+                {/* Invoice Notes Row - Only show if notes exist */}
+                {previewData.invoiceNotes && (
+                  <tr>
+                    <td className="p-1 pl-10 align-top border-b" colSpan="2">
+                      <div className="text-sm">{previewData.invoiceNotes}</div>
+                    </td>
+                    <td className="border-black p-1 border-b" colSpan="2"></td>
+                  </tr>
+                )}
+
+                {/* Bank Details Row */}
                 <tr>
                   <th scope="row" className="w-[15%] p-1 font-normal text-left">Bank Details :</th>
                   <td className="w-[55%] p-1">Bank Name : State Bank Of India</td>
@@ -2639,7 +2651,10 @@ const InvoiceManagementSystem = () => {
           calculations={calculations}
           setCurrentPage={setCurrentPage}
           saveDraft={saveDraft}
-          handlePreview={() => checkProductsAndProceed(() => setShowPreview(true))}
+          handlePreview={() => checkProductsAndProceed(() => {
+            setSelectedInvoice(null); // Clear any previously selected invoice
+            setShowPreview(true);
+          })}
           setShowPreview={setShowPreview}
           updateInvoice={() => checkProductsAndProceed(updateInvoice)}
           saveInvoice={() => checkProductsAndProceed(saveInvoice)}

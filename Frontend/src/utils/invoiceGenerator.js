@@ -73,7 +73,7 @@ export const convertToWords = (num) => {
     words += " and " + inWords(fraction) + " Paise";
   }
 
-  return "Indian Rupees " + words.trim() + " Only";
+  return words.trim() + " Only";
 };
 
 export const generateInvoiceHTML = (invoice, settings = null) => {
@@ -205,6 +205,15 @@ export const generateInvoiceHTML = (invoice, settings = null) => {
 
         <!-- Footer Section -->
         <table style="border-top: none;">
+          ${invoice.invoiceNotes ? `
+          <tr>
+            <td colspan="2" style="padding: 4px; vertical-align: top;">
+              <div style="font-weight: bold;">Notes :</div>
+              <div style="font-size: 11px;">${invoice.invoiceNotes}</div>
+            </td>
+            <td colspan="2" style="border-left: 1px solid black;"></td>
+          </tr>
+          ` : ''}
           <tr>
             <td style="width: 15%; border-right: none;">Bank Details :</td>
             <td style="width: 55%; border-left: none;">Bank Name : State Bank Of India</td>
@@ -241,12 +250,7 @@ export const generateInvoiceHTML = (invoice, settings = null) => {
             <td class="text-right">${roundOffAmount.toFixed(2)}</td>
           </tr>
           <tr>
-            ${invoice.notes ? `
-              <td colspan="2" style="padding: 4px;">
-                <div style="font-weight: bold;">Notes :</div>
-                <div style="font-size: 11px;">${invoice.notes}</div>
-              </td>
-            ` : `<td colspan="2" style="padding: 4px;"></td>`}
+            <td colspan="2" style="padding: 4px;"></td>
             <td class="font-bold">NET TOTAL</td>
             <td class="text-right font-bold">${finalTotal.toFixed(2)}</td>
           </tr>
@@ -264,8 +268,6 @@ export const generateInvoiceHTML = (invoice, settings = null) => {
             </td>
           </tr>
         </table>
-
-        <div class="footer-text">This is a Computer generated bill</div>
       </div>
     </body>
     </html>
