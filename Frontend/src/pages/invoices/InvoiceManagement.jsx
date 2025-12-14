@@ -2653,8 +2653,8 @@ const InvoiceManagementSystem = () => {
           saveDraft={saveDraft}
           handlePreview={() => checkProductsAndProceed(() => setShowPreview(true))}
           setShowPreview={setShowPreview}
-          updateInvoice={updateInvoice}
-          saveInvoice={saveInvoice}
+          updateInvoice={() => checkProductsAndProceed(updateInvoice)}
+          saveInvoice={() => checkProductsAndProceed(saveInvoice)}
           setInvoiceData={setInvoiceData}
           handleClientSelect={handleClientSelect}
           handleAddNewProduct={handleAddNewProduct}
