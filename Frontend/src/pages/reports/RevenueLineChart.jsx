@@ -308,7 +308,7 @@ const PDFExportModal = ({ isOpen, onClose, invoices, customers, payments, stats,
 
   const handleTypeSelect = (type) => {
     setReportType(type);
-    if (type === "client") {
+    if (type === "client" || type === "summary") {
       setStep("client-selection");
     } else {
       setStep("date-selection");
@@ -317,7 +317,11 @@ const PDFExportModal = ({ isOpen, onClose, invoices, customers, payments, stats,
 
   const handleClientSelect = (client) => {
     setSelectedClient(client);
-    setStep("client-options");
+    if (reportType === "summary") {
+      setStep("client-options"); // For summary, show filter options
+    } else {
+      setStep("client-options");
+    }
   };
 
   const handleClientOptionSelect = (type) => {
@@ -329,6 +333,64 @@ const PDFExportModal = ({ isOpen, onClose, invoices, customers, payments, stats,
     let filteredInvoices = [...invoices];
     let title = "Business Report";
     let subtitle = "";
+
+    // Handle Summary Report separately
+    if (reportType === "summary") {
+      if (!selectedClient) {
+        toastError("Please select a client.");
+        return;
+      }
+
+      // Filter by Client
+      filteredInvoices = filteredInvoices.filter(inv =>
+        inv.clientId === selectedClient.id || inv.client?.id === selectedClient.id
+      );
+
+      // Filter by Date based on clientReportType
+      const isMonthly = clientReportType === "monthly";
+      const isYearly = clientReportType === "yearly";
+
+      if (isMonthly) {
+        const start = new Date(selectedYear, selectedMonth, 1);
+        const end = new Date(selectedYear, selectedMonth + 1, 0);
+        end.setHours(23, 59, 59, 999);
+
+        filteredInvoices = filteredInvoices.filter(inv => {
+          const d = new Date(inv.invoiceDate || inv.createdAt?.toDate?.() || inv.createdAt);
+          return d >= start && d <= end;
+        });
+      } else if (isYearly) {
+        const start = new Date(selectedYear, 3, 1); // April 1st
+        const end = new Date(selectedYear + 1, 2, 31); // March 31st next year
+        end.setHours(23, 59, 59, 999);
+
+        filteredInvoices = filteredInvoices.filter(inv => {
+          const d = new Date(inv.invoiceDate || inv.createdAt?.toDate?.() || inv.createdAt);
+          return d >= start && d <= end;
+        });
+      }
+
+      if (filteredInvoices.length === 0) {
+        toastError("No bills found for the selected period.");
+        return;
+      }
+
+      // Call the summary report function
+      const result = exportClientSummaryReport(
+        filteredInvoices,
+        selectedClient,
+        clientReportType,
+        selectedMonth,
+        selectedYear
+      );
+
+      if (result.success) {
+        onClose();
+      } else {
+        toastError(result.message || "Failed to generate summary report.");
+      }
+      return;
+    }
 
     // Filter by Client if needed
     if (reportType === "client" && selectedClient) {
@@ -398,6 +460,13 @@ const PDFExportModal = ({ isOpen, onClose, invoices, customers, payments, stats,
 
           {step === "type-selection" && (
             <div className="space-y-3">
+              <button
+                onClick={() => handleTypeSelect("summary")}
+                className="w-full p-4 text-left border border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all group bg-gray-50"
+              >
+                <div className="font-semibold text-gray-900 group-hover:text-blue-700">Summary Report</div>
+                <div className="text-sm text-gray-500">Detailed client summary with all invoice details</div>
+              </button>
               <button
                 onClick={() => handleTypeSelect("client")}
                 className="w-full p-4 text-left border border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all group bg-gray-50"
@@ -1330,110 +1399,187 @@ const exportToPDF = async (invoices, customers, payments, stats, title = "Busine
   doc.save(`business_report_${new Date().toISOString().split("T")[0]}.pdf`);
 };
 
-const exportSummaryReport = (invoices, customers) => {
+const exportClientSummaryReport = (invoices, selectedClient, filterType, filterMonth, filterYear) => {
   if (!invoices || invoices.length === 0) {
     return { success: false, message: "No bills found to generate summary report." };
   }
 
+  if (!selectedClient) {
+    return { success: false, message: "Please select a client." };
+  }
+
   const doc = new jsPDF();
-  const currentYear = new Date().getFullYear();
-  const currentMonth = new Date().getMonth();
 
-  // 1. Calculate Financial Summaries
-  let yearlyRevenue = 0;
-  let monthlyRevenue = 0;
-  let totalGST = 0;
+  // Company Header (Centered at top)
+  doc.setFontSize(16);
+  doc.setFont(undefined, 'bold');
+  doc.setTextColor(139, 0, 0); // Dark red color
+  doc.text("ESA ENGINEERING WORKS", doc.internal.pageSize.getWidth() / 2, 15, { align: 'center' });
 
-  invoices.forEach(inv => {
-    const invDate = new Date(inv.invoiceDate || inv.createdAt);
-    const amount = parseFloat(inv.total || inv.amount || 0);
+  doc.setFontSize(9);
+  doc.setTextColor(0, 0, 0);
+  doc.setFont(undefined, 'normal');
+  doc.text("All Kinds of Lathe and Milling Works", doc.internal.pageSize.getWidth() / 2, 21, { align: 'center' });
+  doc.text("Specialist in: Press Tools, Die Casting Tools, Precision Components", doc.internal.pageSize.getWidth() / 2, 26, { align: 'center' });
+  doc.text("1/100, Chettipalayam Road, E.B. Compound, Malumichampatti, CBE - 641 050", doc.internal.pageSize.getWidth() / 2, 31, { align: 'center' });
+  doc.text("E-Mail: esaengineeringworks@gmail.com | GSTIN: 33AMWPB2116Q1ZS", doc.internal.pageSize.getWidth() / 2, 36, { align: 'center' });
 
-    // Yearly Revenue
-    if (invDate.getFullYear() === currentYear) {
-      yearlyRevenue += amount;
-    }
-
-    // Monthly Revenue
-    if (invDate.getFullYear() === currentYear && invDate.getMonth() === currentMonth) {
-      monthlyRevenue += amount;
-    }
-
-    // Total GST
-    const subtotal = inv.items?.reduce((sum, item) => sum + (item.amount || 0), 0) || amount;
-    const cgst = (subtotal * (inv.cgst || 0)) / 100;
-    const sgst = (subtotal * (inv.sgst || 0)) / 100;
-    const igst = (subtotal * (inv.igst || 0)) / 100;
-    totalGST += (cgst + sgst + igst);
-  });
-
-  // 2. Calculate Client-wise Revenue
-  const clientRevenueMap = {};
-  invoices.forEach(inv => {
-    const clientId = inv.clientId || inv.client?.id;
-    const clientName = inv.client?.name || "Unknown Client";
-    const amount = parseFloat(inv.total || inv.amount || 0);
-
-    if (clientId) {
-      if (!clientRevenueMap[clientId]) {
-        clientRevenueMap[clientId] = { name: clientName, total: 0, count: 0 };
-      }
-      clientRevenueMap[clientId].total += amount;
-      clientRevenueMap[clientId].count += 1;
-    }
-  });
-
-  const clientRevenueData = Object.values(clientRevenueMap).sort((a, b) => b.total - a.total);
-
-  // --- Generate PDF ---
-
-  // Title
-  doc.setFontSize(20);
-  doc.setTextColor(40);
-  doc.text("Business Summary Report", 14, 22);
-
+  // Client Details (Left side)
   doc.setFontSize(11);
-  doc.setTextColor(100);
-  doc.text(`Generated on: ${new Date().toLocaleDateString('en-IN')}`, 14, 30);
+  doc.setFont(undefined, 'bold');
+  doc.text("Client Details:", 14, 48);
 
-  // Financial Summary Section
+  doc.setFontSize(10);
+  doc.setFont(undefined, 'normal');
+  doc.text(`Name: ${selectedClient.name || 'N/A'}`, 14, 54);
+  doc.text(`Address: ${selectedClient.address || 'N/A'}`, 14, 60);
+  doc.text(`GSTIN: ${selectedClient.taxId || selectedClient.gst || 'N/A'}`, 14, 66);
+
+  // Period Info
+  let periodText = "";
+  if (filterType === "monthly") {
+    const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    periodText = `Period: ${months[filterMonth]} ${filterYear}`;
+  } else if (filterType === "yearly") {
+    periodText = `Period: Financial Year ${filterYear}-${filterYear + 1}`;
+  } else if (filterType === "custom") {
+    periodText = `Period: Custom Range`;
+  }
+  doc.setFontSize(9);
+  doc.text(periodText, 14, 72);
+
+  // Prepare table data
+  const tableData = [];
+  let totalBillAmount = 0;
+  let totalGST = 0;
+  let totalAmount = 0;
+  let totalTDS = 0;
+  let totalPaid = 0;
+  let totalBalance = 0;
+
+  invoices.forEach((inv, index) => {
+    // Calculate bill amount (subtotal without GST)
+    const items = inv.items || inv.products || [];
+    const billAmount = items.reduce((sum, item) => {
+      return sum + (item.amount || item.total || (item.quantity || 0) * (item.price || item.rate || 0));
+    }, 0);
+
+    // Calculate GST
+    const cgst = (billAmount * (inv.cgst || 0)) / 100;
+    const sgst = (billAmount * (inv.sgst || 0)) / 100;
+    const igst = (billAmount * (inv.igst || 0)) / 100;
+    const gstAmount = cgst + sgst + igst;
+
+    // Total amount = Bill Amount + GST
+    const invoiceTotal = billAmount + gstAmount;
+
+    // TDS Amount
+    const tdsAmount = inv.tdsAmount || 0;
+
+    // Paid Amount
+    const paidAmount = inv.paidAmount || 0;
+
+    // Balance = Total - TDS - Paid
+    const balance = invoiceTotal - tdsAmount - paidAmount;
+
+    // Format date
+    let billDate = "N/A";
+    if (inv.invoiceDate) {
+      if (typeof inv.invoiceDate === 'string') {
+        billDate = inv.invoiceDate;
+      } else if (inv.invoiceDate?.toDate && typeof inv.invoiceDate.toDate === 'function') {
+        billDate = inv.invoiceDate.toDate().toLocaleDateString('en-IN');
+      } else if (inv.invoiceDate instanceof Date) {
+        billDate = inv.invoiceDate.toLocaleDateString('en-IN');
+      }
+    }
+
+    tableData.push([
+      (index + 1).toString(),
+      billDate,
+      inv.invoiceNumber || inv.displayId || 'N/A',
+      "Sales Invoice",
+      `₹${billAmount.toFixed(2)}`,
+      `₹${gstAmount.toFixed(2)}`,
+      `₹${invoiceTotal.toFixed(2)}`,
+      `₹${tdsAmount.toFixed(2)}`,
+      `₹${paidAmount.toFixed(2)}`,
+      `₹${balance.toFixed(2)}`
+    ]);
+
+    // Add to totals
+    totalBillAmount += billAmount;
+    totalGST += gstAmount;
+    totalAmount += invoiceTotal;
+    totalTDS += tdsAmount;
+    totalPaid += paidAmount;
+    totalBalance += balance;
+  });
+
+  // Add totals row
+  tableData.push([
+    { content: 'TOTAL', colSpan: 4, styles: { fontStyle: 'bold', halign: 'right' } },
+    { content: `₹${totalBillAmount.toFixed(2)}`, styles: { fontStyle: 'bold' } },
+    { content: `₹${totalGST.toFixed(2)}`, styles: { fontStyle: 'bold' } },
+    { content: `₹${totalAmount.toFixed(2)}`, styles: { fontStyle: 'bold' } },
+    { content: `₹${totalTDS.toFixed(2)}`, styles: { fontStyle: 'bold' } },
+    { content: `₹${totalPaid.toFixed(2)}`, styles: { fontStyle: 'bold' } },
+    { content: `₹${totalBalance.toFixed(2)}`, styles: { fontStyle: 'bold' } }
+  ]);
+
+  // Generate table
   autoTable(doc, {
-    startY: 40,
-    head: [['Metric', 'Amount']],
-    body: [
-      ['Total Revenue (This Year)', `Rs. ${yearlyRevenue.toLocaleString('en-IN')}`],
-      ['Total Revenue (This Month)', `Rs. ${monthlyRevenue.toLocaleString('en-IN')}`],
-      ['Total GST Collected', `Rs. ${totalGST.toLocaleString('en-IN')}`],
-    ],
+    startY: 78,
+    head: [[
+      'S.No',
+      'Bill Date',
+      'Bill No',
+      'Particulars',
+      'Bill Amount',
+      'GST',
+      'Total Amount',
+      'TDS',
+      'Paid Amount',
+      'Balance'
+    ]],
+    body: tableData,
     theme: 'grid',
-    headStyles: { fillColor: [41, 128, 185], textColor: 255, fontStyle: 'bold' },
-    columnStyles: {
-      0: { fontStyle: 'bold', cellWidth: 100 },
-      1: { halign: 'right' }
+    headStyles: {
+      fillColor: [41, 128, 185],
+      textColor: 255,
+      fontStyle: 'bold',
+      fontSize: 8,
+      halign: 'center'
     },
-    styles: { fontSize: 12, cellPadding: 6 }
+    columnStyles: {
+      0: { cellWidth: 12, halign: 'center' },  // S.No
+      1: { cellWidth: 20, halign: 'center' },  // Bill Date
+      2: { cellWidth: 22, halign: 'center' },  // Bill No
+      3: { cellWidth: 25, halign: 'left' },    // Particulars
+      4: { cellWidth: 22, halign: 'right' },   // Bill Amount
+      5: { cellWidth: 18, halign: 'right' },   // GST
+      6: { cellWidth: 22, halign: 'right' },   // Total Amount
+      7: { cellWidth: 18, halign: 'right' },   // TDS
+      8: { cellWidth: 22, halign: 'right' },   // Paid Amount
+      9: { cellWidth: 22, halign: 'right' }    // Balance
+    },
+    styles: {
+      fontSize: 7,
+      cellPadding: 2
+    },
+    didParseCell: function (data) {
+      // Make the totals row bold
+      if (data.row.index === tableData.length - 1) {
+        data.cell.styles.fontStyle = 'bold';
+        data.cell.styles.fillColor = [240, 240, 240];
+      }
+    }
   });
 
-  // Client-wise Revenue Section
-  doc.text("Client-wise Revenue", 14, doc.lastAutoTable.finalY + 15);
+  // Save the PDF
+  const fileName = `${selectedClient.name.replace(/\s+/g, '_')}_Summary_${new Date().toISOString().split('T')[0]}.pdf`;
+  doc.save(fileName);
 
-  autoTable(doc, {
-    startY: doc.lastAutoTable.finalY + 20,
-    head: [['Client Name', 'Invoices', 'Total Revenue']],
-    body: clientRevenueData.map(c => [
-      c.name,
-      c.count,
-      `Rs. ${c.total.toLocaleString('en-IN')}`
-    ]),
-    theme: 'striped',
-    headStyles: { fillColor: [52, 73, 94], textColor: 255 },
-    columnStyles: {
-      1: { halign: 'center' },
-      2: { halign: 'right' }
-    },
-    styles: { fontSize: 10 }
-  });
-
-  doc.save(`summary_report_${new Date().toISOString().split('T')[0]}.pdf`);
   return { success: true };
 };
 
