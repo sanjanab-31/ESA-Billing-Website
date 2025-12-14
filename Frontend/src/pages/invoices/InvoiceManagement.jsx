@@ -367,7 +367,7 @@ const InvoicePreview = ({
     if (thousands > 0) words += convertHundreds(thousands) + "Thousand ";
     if (hundreds > 0) words += convertHundreds(hundreds);
 
-    return "Indian Rupees " + words.trim() + " Only";
+    return words.trim() + " Only";
   };
 
   const amountInWords = convertToWords(Math.floor(previewCalcs.total));
@@ -525,23 +525,27 @@ const InvoicePreview = ({
               <div className="w-[20%] border-r border-black pl-2 flex items-center text-sm">
                 <span className="font-bold mr-2">NO :</span> {previewData.invoiceNumber}
               </div>
-              <div className="w-[60%] text-center font-bold text-2xl pl-2">
+              <div className="w-[49.9%] text-center font-bold text-2xl pl-2">
                 INVOICE
               </div>
-              <div className="w-[20%] border-l border-black pl-2 flex items-center text-sm">
+              <div className="w-[30.1%] border-l border-black pl-2 flex items-center text-sm">
                 <span className="font-bold mr-2">DATE :</span> {previewData.invoiceDate}
               </div>
             </div>
 
             {/* Client & Invoice Details */}
             <div className="flex border-b border-black">
-              <div className="w-[70%] border-r border-black text-sm">
-                <div className="pl-2">To, M/s,</div>
-                <div className="font-bold ml-4">{previewData.client?.name}</div>
-                <div className="ml-4 h-10">{previewData.client?.address}</div>
-                <div className="mt-2 border-t border-black pl-2">GSTIN : {previewData.client?.taxId || previewData.client?.company || previewData.client?.gst || ""}</div>
+              <div className="w-[70%] border-r border-black text-sm flex flex-col h-32">
+                <div className="pl-2 pt-1 flex-grow">
+                  <div>To, M/s,</div>
+                  <div className="font-bold ml-4">{previewData.client?.name}</div>
+                  <div className="ml-4">{previewData.client?.address}</div>
+                </div>
+                <div className="h-8 border-t border-black pl-2 flex items-center">
+                  GSTIN : {previewData.client?.taxId || previewData.client?.company || previewData.client?.gst || ""}
+                </div>
               </div>
-              <div className="w-[30%] text-sm">
+              <div className="w-[30%] text-sm h-32">
                 <div className="border-b border-black pl-2 h-8 flex items-center">
                   <span className="font-bold mr-2">P.O. No :</span> {previewData.poNumber || ""}
                 </div>
@@ -562,11 +566,11 @@ const InvoicePreview = ({
               <thead>
                 <tr className="border-b border-black">
                   <th className="w-[5%] border-r border-black p-1 text-center">S.No.</th>
-                  <th className="w-[50%] border-r border-black p-1 text-center">PARTICULARS</th>
-                  <th className="w-[12%] border-r border-black p-1 text-center">HSN CODE</th>
-                  <th className="w-[8%] border-r border-black p-1 text-center">QTY.</th>
-                  <th className="w-[12.%] border-r border-black p-1 text-center">RATE</th>
-                  <th className="w-[15%] p-1 text-center">AMOUNT</th>
+                  <th className="w-[55%] border-r border-black p-1 text-center">PARTICULARS</th>
+                  <th className="w-[10%] border-r border-black p-1 text-center">HSN CODE</th>
+                  <th className="w-[6%] border-r border-black p-1 text-center">QTY.</th>
+                  <th className="w-[10%] border-r border-black p-1 text-center">RATE</th>
+                  <th className="w-[19%] p-1 text-center">AMOUNT</th>
                 </tr>
               </thead>
               <tbody>
@@ -602,8 +606,8 @@ const InvoicePreview = ({
                 <tr>
                   <th scope="row" className="w-[15%] p-1 font-normal text-left">Bank Details :</th>
                   <td className="w-[55%] p-1">Bank Name : State Bank Of India</td>
-                  <th scope="row" className="w-[15%] border-l border-b border-black p-1 font-normal text-left">SUB TOTAL</th>
-                  <td className="w-[15%] border-l border-b border-black p-1 text-right">
+                  <th scope="row" className="w-[16%] border-l border-b border-black p-1 font-normal text-left">SUB TOTAL</th>
+                  <td className="w-[16%] border-l border-b border-black p-1 text-right">
                     {previewCalcs.subtotal.toFixed(2)}
                   </td>
                 </tr>
@@ -645,43 +649,34 @@ const InvoicePreview = ({
                   </td>
                 </tr>
                 <tr>
-                  {/* LEFT SIDE — Rupees spanning rows */}
+                  {/* LEFT SIDE — Rupees spans 2 rows */}
                   <td
-                    className="border-t border-black p-1"
+                    className="border-t p-1  pt-2align-top"
                     colSpan={2}
+                    rowSpan={2}
                   >
                     Rupees : <span className="font-normal">{amountInWords}</span>
                   </td>
 
-                  {/* RIGHT SIDE ROW 1 */}
-                  <td className="border-l border-t border-b border-black text-right font-bold">
+                  {/* RIGHT SIDE — ROUND OFF */}
+                  <td className="border-b border-l text-right font-bold">
                     ROUND OFF
                   </td>
-                  <td className="border-l border-t border-b border-black text-right">
+                  <td className="border-b border-l  text-right">
                     {(previewCalcs.roundOffAmount || 0).toFixed(2)}
                   </td>
                 </tr>
 
                 <tr>
-                  {/* LEFT SIDE — Notes if present */}
-                  {previewData.notes && (
-                    <td className="border-t border-black p-1" colSpan={2}>
-                      <div className="font-bold">Notes :</div>
-                      <div className="text-sm">{previewData.notes}</div>
-                    </td>
-                  )}
-                  {!previewData.notes && (
-                    <td className="border-t border-black p-1" colSpan={2}></td>
-                  )}
-
-                  {/* RIGHT SIDE ROW 2 */}
-                  <td className="border-l border-t border-b border-black font-bold text-right">
+                  {/* RIGHT SIDE — NET TOTAL */}
+                  <td className="border-b border-l text-right font-bold">
                     NET TOTAL
                   </td>
-                  <td className="border-l border-t border-b border-black  text-right font-bold">
+                  <td className="border-b border-l text-right font-bold">
                     {previewCalcs.total.toFixed(2)}
                   </td>
                 </tr>
+
                 <tr>
                   <td className=" border-t border-black align-top" colSpan="2" rowSpan="2">
                     <div className="font-bold mb-1">Declaration</div>
@@ -699,10 +694,6 @@ const InvoicePreview = ({
                 </tr>
               </tbody>
             </table>
-
-            <div className="text-center font-bold text-md bg-gray-200 p-1 border-t border-black">
-              This is a Computer generated bill
-            </div>
           </div>
         </div>
       </div>
