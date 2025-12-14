@@ -1410,15 +1410,18 @@ const exportClientSummaryReport = (invoices, selectedClient, filterType, filterM
 
   const doc = new jsPDF();
 
+  // Set default font to Helvetica (closest to Mazzard in standard PDF fonts)
+  doc.setFont('helvetica');
+
   // Company Header (Centered at top)
   doc.setFontSize(16);
-  doc.setFont(undefined, 'bold');
+  doc.setFont('helvetica', 'bold');
   doc.setTextColor(139, 0, 0); // Dark red color
   doc.text("ESA ENGINEERING WORKS", doc.internal.pageSize.getWidth() / 2, 15, { align: 'center' });
 
   doc.setFontSize(9);
   doc.setTextColor(0, 0, 0);
-  doc.setFont(undefined, 'normal');
+  doc.setFont('helvetica', 'normal');
   doc.text("All Kinds of Lathe and Milling Works", doc.internal.pageSize.getWidth() / 2, 21, { align: 'center' });
   doc.text("Specialist in: Press Tools, Die Casting Tools, Precision Components", doc.internal.pageSize.getWidth() / 2, 26, { align: 'center' });
   doc.text("1/100, Chettipalayam Road, E.B. Compound, Malumichampatti, CBE - 641 050", doc.internal.pageSize.getWidth() / 2, 31, { align: 'center' });
@@ -1426,11 +1429,11 @@ const exportClientSummaryReport = (invoices, selectedClient, filterType, filterM
 
   // Client Details (Left side)
   doc.setFontSize(11);
-  doc.setFont(undefined, 'bold');
+  doc.setFont('helvetica', 'bold');
   doc.text("Client Details:", 14, 48);
 
   doc.setFontSize(10);
-  doc.setFont(undefined, 'normal');
+  doc.setFont('helvetica', 'normal');
   doc.text(`Name: ${selectedClient.name || 'N/A'}`, 14, 54);
   doc.text(`Address: ${selectedClient.address || 'N/A'}`, 14, 60);
   doc.text(`GSTIN: ${selectedClient.taxId || selectedClient.gst || 'N/A'}`, 14, 66);
@@ -1499,12 +1502,12 @@ const exportClientSummaryReport = (invoices, selectedClient, filterType, filterM
       billDate,
       inv.invoiceNumber || inv.displayId || 'N/A',
       "Sales Invoice",
-      `₹${billAmount.toFixed(2)}`,
-      `₹${gstAmount.toFixed(2)}`,
-      `₹${invoiceTotal.toFixed(2)}`,
-      `₹${tdsAmount.toFixed(2)}`,
-      `₹${paidAmount.toFixed(2)}`,
-      `₹${balance.toFixed(2)}`
+      billAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+      gstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+      invoiceTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+      tdsAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+      paidAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+      balance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
     ]);
 
     // Add to totals
@@ -1519,12 +1522,12 @@ const exportClientSummaryReport = (invoices, selectedClient, filterType, filterM
   // Add totals row
   tableData.push([
     { content: 'TOTAL', colSpan: 4, styles: { fontStyle: 'bold', halign: 'right' } },
-    { content: `₹${totalBillAmount.toFixed(2)}`, styles: { fontStyle: 'bold' } },
-    { content: `₹${totalGST.toFixed(2)}`, styles: { fontStyle: 'bold' } },
-    { content: `₹${totalAmount.toFixed(2)}`, styles: { fontStyle: 'bold' } },
-    { content: `₹${totalTDS.toFixed(2)}`, styles: { fontStyle: 'bold' } },
-    { content: `₹${totalPaid.toFixed(2)}`, styles: { fontStyle: 'bold' } },
-    { content: `₹${totalBalance.toFixed(2)}`, styles: { fontStyle: 'bold' } }
+    { content: totalBillAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), styles: { fontStyle: 'bold' } },
+    { content: totalGST.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), styles: { fontStyle: 'bold' } },
+    { content: totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), styles: { fontStyle: 'bold' } },
+    { content: totalTDS.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), styles: { fontStyle: 'bold' } },
+    { content: totalPaid.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), styles: { fontStyle: 'bold' } },
+    { content: totalBalance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), styles: { fontStyle: 'bold' } }
   ]);
 
   // Generate table
@@ -1535,11 +1538,11 @@ const exportClientSummaryReport = (invoices, selectedClient, filterType, filterM
       'Bill Date',
       'Bill No',
       'Particulars',
-      'Bill Amount',
+      'Bill Amt',
       'GST',
-      'Total Amount',
+      'Total Amt',
       'TDS',
-      'Paid Amount',
+      'Paid Amt',
       'Balance'
     ]],
     body: tableData,
@@ -1547,25 +1550,32 @@ const exportClientSummaryReport = (invoices, selectedClient, filterType, filterM
     headStyles: {
       fillColor: [41, 128, 185],
       textColor: 255,
+      font: 'helvetica',
       fontStyle: 'bold',
       fontSize: 8,
-      halign: 'center'
+      halign: 'center',
+      valign: 'middle'
     },
     columnStyles: {
-      0: { cellWidth: 12, halign: 'center' },  // S.No
-      1: { cellWidth: 20, halign: 'center' },  // Bill Date
-      2: { cellWidth: 22, halign: 'center' },  // Bill No
-      3: { cellWidth: 25, halign: 'left' },    // Particulars
-      4: { cellWidth: 22, halign: 'right' },   // Bill Amount
-      5: { cellWidth: 18, halign: 'right' },   // GST
-      6: { cellWidth: 22, halign: 'right' },   // Total Amount
-      7: { cellWidth: 18, halign: 'right' },   // TDS
-      8: { cellWidth: 22, halign: 'right' },   // Paid Amount
-      9: { cellWidth: 22, halign: 'right' }    // Balance
+      0: { cellWidth: 8, halign: 'center' },   // S.No
+      1: { cellWidth: 20, halign: 'center' },   // Bill Date
+      2: { cellWidth: 20, halign: 'center' },   // Bill No
+      3: { cellWidth: 22, halign: 'left' },     // Particulars
+      4: { cellWidth: 'auto', halign: 'right' }, // Bill Amount
+      5: { cellWidth: 'auto', halign: 'right' }, // GST
+      6: { cellWidth: 'auto', halign: 'right' }, // Total Amount
+      7: { cellWidth: 'auto', halign: 'right' }, // TDS
+      8: { cellWidth: 'auto', halign: 'right' }, // Paid Amount
+      9: { cellWidth: 'auto', halign: 'right' }  // Balance
     },
     styles: {
-      fontSize: 7,
-      cellPadding: 2
+      font: 'helvetica',
+      fontSize: 8,
+      cellPadding: 2,
+      overflow: 'linebreak',
+      cellWidth: 'wrap',
+      minCellHeight: 8,
+      valign: 'middle'
     },
     didParseCell: function (data) {
       // Make the totals row bold
