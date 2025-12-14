@@ -539,7 +539,7 @@ const InvoicePreview = ({
                 <div className="pl-2">To, M/s,</div>
                 <div className="font-bold ml-4">{previewData.client?.name}</div>
                 <div className="ml-4 h-10">{previewData.client?.address}</div>
-                <div className="mt-2 border-t border-black pl-2">GSTIN : {previewData.client?.gst || ""}</div>
+                <div className="mt-2 border-t border-black pl-2">GSTIN : {previewData.client?.taxId || previewData.client?.company || previewData.client?.gst || ""}</div>
               </div>
               <div className="w-[30%] text-sm">
                 <div className="border-b border-black pl-2 h-8 flex items-center">
@@ -2409,7 +2409,7 @@ const InvoiceManagementSystem = () => {
                       <tr><td>To, M/s. ${invoice.client?.name || ""}</td></tr>
                       <tr><td style="height: 60px;">${invoice.client?.address || ""
       }</td></tr>
-                      <tr><td>GSTIN : ${invoice.client?.gst || ""}</td></tr>
+                      <tr><td>GSTIN : ${invoice.client?.taxId || invoice.client?.company || invoice.client?.gst || ""}</td></tr>
                     </table>
                   </td>
                   <td style="width: 30%; vertical-align: top;">
