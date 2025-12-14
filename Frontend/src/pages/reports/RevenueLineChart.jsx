@@ -758,10 +758,16 @@ const ReportsAnalytics = () => {
   const realTimeStats = React.useMemo(() => {
     const paidInvoices = filteredInvoices.filter(inv => getDynamicInvoiceStatus(inv) === "Paid");
     const totalRevenue = paidInvoices.reduce((sum, inv) => sum + (Number.parseFloat(inv.total || inv.amount || 0) || 0), 0);
+
+    // Calculate unique clients in filtered invoices
+    const uniqueClientIds = new Set(filteredInvoices.map(inv => inv.clientId || inv.client?.id).filter(Boolean));
+    const activeClientsCount = uniqueClientIds.size;
+
     return {
       totalInvoices: filteredInvoices.length,
       paidInvoices,
-      totalRevenue
+      totalRevenue,
+      activeClientsCount
     };
   }, [filteredInvoices, getDynamicInvoiceStatus]); // Replaced missing useRealTimeStats
   const handleReportTypeChange = (e) => {
@@ -832,7 +838,7 @@ const ReportsAnalytics = () => {
             </div>
             <div className="mt-1">
               <p className="text-xl font-bold text-gray-900">
-                {(invoices || []).length}
+                {realTimeStats.totalInvoices}
               </p>
               <p className="text-xs text-green-500 flex items-center mt-0.5">
                 <TrendingUp className="w-3 h-3 mr-1" /> Total Invoices
@@ -888,7 +894,7 @@ const ReportsAnalytics = () => {
             </div>
             <div className="mt-1">
               <p className="text-xl font-bold text-gray-900">
-                {(customers || []).length}
+                {realTimeStats.activeClientsCount}
               </p>
               <p className="text-xs text-green-500 flex items-center mt-0.5">
                 <TrendingUp className="w-3 h-3 mr-1" /> Total Clients

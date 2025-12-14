@@ -1628,22 +1628,22 @@ const PaymentsPage = () => {
         <main className="mt-6 flex flex-col gap-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
             {(() => {
-              const totalAmount = paymentsState.reduce(
+              const totalAmount = filteredPayments.reduce(
                 (s, p) => s + ((p.amount || 0) - (p.tdsAmount || 0)),
                 0
               );
-              const amountReceived = paymentsState.reduce(
+              const amountReceived = filteredPayments.reduce(
                 (s, p) => s + (p.received || 0),
                 0
               );
               // Pending = Total - Paid - TDS
-              const overdueAmount = paymentsState
+              const overdueAmount = filteredPayments
                 .filter((p) => p.status === "Overdue")
                 .reduce((s, p) => {
                   const remaining = Math.max(0, p.amount - (p.received || 0) - (p.tdsAmount || 0));
                   return s + remaining;
                 }, 0);
-              const pendingAmount = paymentsState
+              const pendingAmount = filteredPayments
                 .filter((p) => p.status === "Unpaid" || p.status === "Partial" || p.status === "Overdue") // Include overdue in pending total? Usually distinct, but user asks "how much are in pending". Safe to keep separate or aggregated. Let's keep typical definitions: Pending includes all non-paid.
                 .reduce((s, p) => {
                   const remaining = Math.max(0, p.amount - (p.received || 0) - (p.tdsAmount || 0));
