@@ -377,27 +377,22 @@ const InvoicePreview = ({
 
   const handleDownloadPdf = async () => {
     try {
-      // Create a temporary div for HTML to PDF conversion
-      const tempDiv = document.createElement("div");
-      tempDiv.innerHTML = generateInvoiceHTML(previewData);
-      tempDiv.style.position = "absolute";
-      tempDiv.style.left = "-9999px";
-      tempDiv.style.top = "-9999px";
-      tempDiv.style.width = "800px";
-      document.body.appendChild(tempDiv);
+      // Get the preview element
+      const previewElement = document.querySelector('.invoice-preview-content');
+      if (!previewElement) {
+        toastError("Preview content not found");
+        return;
+      }
 
-      // Convert HTML to canvas
-      const canvas = await html2canvas(tempDiv, {
+      // Convert HTML to canvas using the actual preview element
+      const canvas = await html2canvas(previewElement, {
         scale: 2,
         useCORS: true,
         allowTaint: true,
         backgroundColor: "#ffffff",
         width: 800,
-        height: tempDiv.scrollHeight,
+        height: previewElement.scrollHeight,
       });
-
-      // Remove temporary div
-      document.body.removeChild(tempDiv);
 
       // Create PDF
       const pdf = new jsPDF("p", "mm", "a4");
@@ -437,11 +432,41 @@ const InvoicePreview = ({
   };
 
   const handlePrint = () => {
+    // Get the preview element
+    const previewElement = document.querySelector('.invoice-preview-content');
+    if (!previewElement) {
+      toastError("Preview content not found");
+      return;
+    }
+
+    // Create iframe for printing
     const iframe = document.createElement("iframe");
     iframe.style.display = "none";
     document.body.appendChild(iframe);
-    const invoiceHTML = generateInvoiceHTML(previewData);
-    iframe.contentDocument.write(invoiceHTML);
+
+    // Get the computed styles and HTML
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Invoice ${previewData.invoiceNumber}</title>
+          <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { font-family: Arial, sans-serif; }
+            @media print {
+              @page { margin: 0; }
+              body { margin: 0; }
+            }
+          </style>
+          <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+        </head>
+        <body>
+          ${previewElement.innerHTML}
+        </body>
+      </html>
+    `;
+
+    iframe.contentDocument.write(printContent);
     iframe.contentDocument.close();
     iframe.onload = () => {
       iframe.contentWindow.print();
@@ -481,7 +506,7 @@ const InvoicePreview = ({
         </div>
         <div className="overflow-y-auto bg-gray-100 p-8">
           <div
-            className="bg-white shadow-lg mx-auto border-2 border-black"
+            className="invoice-preview-content bg-white shadow-lg mx-auto border-2 border-black"
             style={{ maxWidth: "750px", padding: "0" }}
           >
             {/* Header Phone Numbers */}
