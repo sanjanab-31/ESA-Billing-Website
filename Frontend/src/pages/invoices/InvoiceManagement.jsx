@@ -23,8 +23,7 @@ import { AuthContext } from "../../context/AuthContext";
 import { useToast } from "../../context/ToastContext";
 import { generateInvoiceHTML } from "../../utils/invoiceGenerator";
 import PropTypes from "prop-types";
-import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
+// Removed jsPDF and html2canvas imports
 
 const ConfirmationModal = ({
   isOpen,
@@ -302,6 +301,9 @@ const InvoicePreview = ({
   invoiceData,
   calculations,
   setShowPreview,
+  embedded = false,
+  autoDownload = false,
+  onDownloadComplete
 }) => {
   const { error: toastError } = useToast();
   // Prioritize invoiceData (current form) over invoice (previously viewed)
@@ -375,364 +377,419 @@ const InvoicePreview = ({
 
 
 
-  const handleDownloadPdf = async () => {
+  const handleSaveAsPDF = async () => {
     try {
-      // Get the preview element
-      const previewElement = document.querySelector('.invoice-preview-content');
-      if (!previewElement) {
+      const element = document.getElementById("invoice-print-root");
+      if (!element) {
         toastError("Preview content not found");
+        if (onDownloadComplete) onDownloadComplete();
         return;
       }
 
-      // Convert HTML to canvas using the actual preview element
-      const canvas = await html2canvas(previewElement, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: "#ffffff",
-        width: 800,
-        height: previewElement.scrollHeight,
+      // Capture all styles
+      const styles = Array.from(document.querySelectorAll("style, link[rel='stylesheet']"))
+        .map(style => style.outerHTML)
+        .join("\n");
+
+      // Send to backend
+      const response = await fetch("http://localhost:5000/generate-pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          html: element.outerHTML,
+          css: styles,
+          baseUrl: window.location.origin + '/'
+        })
       });
 
-      // Create PDF
-      const pdf = new jsPDF("p", "mm", "a4");
-      const imgData = canvas.toDataURL("image/png");
-
-      // Calculate dimensions to fit A4
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
-      const imgWidth = pdfWidth - 20; // 10mm margin on each side
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-      let heightLeft = imgHeight;
-      let position = 10; // 10mm top margin
-
-      // Add first page
-      pdf.addImage(imgData, "PNG", 10, position, imgWidth, imgHeight);
-      heightLeft -= pdfHeight - 20; // Account for margins
-
-      // Add additional pages if needed
-      while (heightLeft >= 0) {
-        position = heightLeft - imgHeight + 10;
-        pdf.addPage();
-        pdf.addImage(imgData, "PNG", 10, position, imgWidth, imgHeight);
-        heightLeft -= pdfHeight - 20;
+      if (!response.ok) {
+        throw new Error("Server failed to generate PDF");
       }
 
-      // Download the PDF
-      const fileName = `Invoice_${previewData.invoiceNumber.replaceAll(
-        "/",
-        "_"
-      )}.pdf`;
-      pdf.save(fileName);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Invoice_${(previewData || invoice).invoiceNumber.replaceAll("/", "_")}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      if (onDownloadComplete) onDownloadComplete();
+
     } catch (error) {
       console.error("PDF Generation Error:", error);
       toastError("Failed to generate PDF. Please try again.");
+      if (onDownloadComplete) onDownloadComplete();
     }
   };
+
+  useEffect(() => {
+    if (autoDownload) {
+      // Small delay to ensure render
+      const timer = setTimeout(() => {
+        handleSaveAsPDF();
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [autoDownload]);
 
   const handlePrint = () => {
-    // Get the preview element
-    const previewElement = document.querySelector('.invoice-preview-content');
-    if (!previewElement) {
-      toastError("Preview content not found");
-      return;
-    }
+    // Select the OUTER wrapper which has the padding
+    const printContent = document.querySelector('.invoice-print-wrapper');
+    if (!printContent) return;
 
-    // Create iframe for printing
     const iframe = document.createElement("iframe");
-    iframe.style.display = "none";
+    iframe.style.position = "fixed";
+    iframe.style.left = "-10000px";
+    iframe.style.top = "0";
+    iframe.style.width = "0";
+    iframe.style.height = "0";
+    iframe.style.border = "none";
     document.body.appendChild(iframe);
 
-    // Get the computed styles and HTML
-    const printContent = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Invoice ${previewData.invoiceNumber}</title>
-          <style>
-            * { margin: 0; padding: 0; box-sizing: border-box; }
-            body { font-family: Arial, sans-serif; }
-            @media print {
-              @page { margin: 0; }
-              body { margin: 0; }
-            }
-          </style>
-          <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-        </head>
-        <body>
-          ${previewElement.innerHTML}
-        </body>
-      </html>
-    `;
+    const doc = iframe.contentDocument || iframe.contentWindow.document;
 
-    iframe.contentDocument.write(printContent);
-    iframe.contentDocument.close();
-    iframe.onload = () => {
-      iframe.contentWindow.print();
-      setTimeout(() => iframe.remove(), 100);
-    };
+    document.querySelectorAll('style, link[rel="stylesheet"]').forEach(node => {
+      doc.head.appendChild(node.cloneNode(true));
+    });
+
+    const style = document.createElement('style');
+    style.textContent = `
+      @media print {
+        @page { 
+            size: A4; 
+            margin: 0; 
+        }
+        body { 
+            margin: 0;
+            background: white;
+            -webkit-print-color-adjust: exact;
+        }
+        /* Wrapper ensures 15mm padding */
+        .invoice-print-wrapper {
+            margin: 0 !important;
+            width: 210mm !important;
+            min-height: 297mm !important;
+            padding: 15mm !important;
+            box-sizing: border-box !important;
+            background-color: white !important;
+            display: flex !important;
+            flex-direction: column !important;
+        }
+        /* Content fills the wrapper area */
+        .invoice-preview-content {
+            border: 2px solid black !important;
+            width: 100% !important;
+            flex-grow: 1 !important;
+            box-shadow: none !important;
+            margin: 0 !important;
+        }
+      }
+    `;
+    doc.head.appendChild(style);
+
+    doc.body.appendChild(printContent.cloneNode(true));
+
+    const images = doc.querySelectorAll('img');
+    const promises = Array.from(images).map(img => {
+      if (img.complete) return Promise.resolve();
+      return new Promise(resolve => {
+        img.onload = resolve;
+        img.onerror = resolve;
+      });
+    });
+
+    Promise.all(promises).then(() => {
+      setTimeout(() => {
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+        setTimeout(() => document.body.removeChild(iframe), 2000);
+      }, 500);
+    });
   };
 
 
 
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-2xl max-w-4xl w-full flex flex-col max-h-[90vh]">
-        <div className="p-4 border-b flex justify-between items-center bg-gray-50 rounded-t-lg">
-          <h2 className="text-lg font-bold text-gray-900">Invoice Preview</h2>
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={handleDownloadPdf}
-              className="flex items-center px-3 py-1.5 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700"
-            >
-              <Download className="w-4 h-4 mr-2" />
-              Download PDF
-            </button>
-            <button
-              onClick={handlePrint}
-              className="flex items-center px-3 py-1.5 text-sm text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300"
-            >
-              <Printer className="w-4 h-4 mr-2" />
-              Print
-            </button>
-            <button
-              onClick={() => setShowPreview(false)}
-              className="p-2 text-gray-500 hover:bg-gray-200 rounded-full"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-        <div className="overflow-y-auto bg-gray-100 p-8">
-          <div
-            className="invoice-preview-content bg-white shadow-lg mx-auto border-2 border-black"
-            style={{ maxWidth: "750px", padding: "0" }}
-          >
-            {/* Header Phone Numbers */}
-            <div className="flex justify-between px-4 py-2 font-bold text-sm">
-              <div>☎ 98432 94464</div>
-              <div>☎ 96984 87096</div>
-            </div>
 
-            {/* Main Header */}
-            <div className="text-center border-b border-black pb-2 ">
-              <div className="flex pl-8">
-                <img
-                  src="https://res.cloudinary.com/dnmvriw3e/image/upload/v1756868204/ESA_uggt8u.png"
-                  alt="ESA Logo"
-                  className="h-16"
-                />
-                <div className="flex">
-                  <div className="text-center">
-                    <h1
-                      className="text-4xl font-bold"
-                      style={{
-                        fontFamily: '"Times New Roman", serif',
-                        color: "#d00000ff",
-                        margin: 0,
-                      }}
-                    >
-                      ESA ENGINEERING WORKS
-                    </h1>
-                    <div className="text-md text-black">
-                      <p>All Kinds of Lathe and Milling Works</p>
-                      <p>Specialist in : Press Tools, Die Casting Tools, Precision Components</p>
-                      <p>1/100, Chettipalayam Road, E.B. Compound, Malumichampatti, CBE - 641 050.</p>
-                      <p>E-Mail : esaengineeringworks@gmail.com | GSTIN : 33AMWPB2116Q1ZS</p>
+
+  // If not embedded, render the modal
+  return (
+    <div className={embedded ? "absolute top-0 left-0 bg-white z-50 w-auto" : "fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"}>
+      <div className={embedded ? "w-full" : "bg-white rounded-lg shadow-2xl max-w-5xl w-full flex flex-col max-h-[90vh]"}>
+        {!embedded && (
+          <div className="p-4 border-b flex justify-between items-center bg-gray-50 rounded-t-lg">
+            <h2 className="text-lg font-bold text-gray-900">Invoice Preview</h2>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={handleSaveAsPDF}
+                className="flex items-center px-3 py-1.5 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Save as PDF
+              </button>
+              <button
+                onClick={handlePrint}
+                className="flex items-center px-3 py-1.5 text-sm text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300"
+              >
+                <Printer className="w-4 h-4 mr-2" />
+                Print
+              </button>
+              <button
+                onClick={() => setShowPreview(false)}
+                className="p-2 text-gray-500 hover:bg-gray-200 rounded-full"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+        )}
+        <div className={embedded ? "bg-white flex justify-center p-0" : "overflow-y-auto bg-gray-100 p-8 flex justify-center"}>
+
+          {/* Outer Page Wrapper (A4) - Handles the 15mm white space */}
+          <div
+            className="invoice-print-wrapper bg-white shadow-lg mx-auto flex flex-col"
+            style={{
+              width: "210mm",
+              minHeight: "297mm",
+              padding: "15mm",
+              boxSizing: "border-box"
+            }}
+          >
+            {/* Inner Content (Invoice) - Handles the border and actual data */}
+            <div
+              id="invoice-print-root"
+              className="invoice-preview-content border-2 border-black flex flex-col flex-grow"
+              style={{ width: "100%", height: "100%" }}
+            >
+              {/* Header Phone Numbers */}
+              <div className="flex justify-between px-4 py-2 font-bold text-sm">
+                <div>☎ 98432 94464</div>
+                <div>☎ 96984 87096</div>
+              </div>
+
+              {/* Main Header */}
+              <div className="text-center border-b border-black pb-2 ">
+                <div className="flex pl-8">
+                  <img
+                    src="https://res.cloudinary.com/dnmvriw3e/image/upload/v1756868204/ESA_uggt8u.png"
+                    alt="ESA Logo"
+                    className="h-16"
+                  />
+                  <div className="flex">
+                    <div className="text-center">
+                      <h1
+                        className="text-4xl font-bold"
+                        style={{
+                          fontFamily: '"Times New Roman", serif',
+                          color: "#d00000ff",
+                          margin: 0,
+                        }}
+                      >
+                        ESA ENGINEERING WORKS
+                      </h1>
+                      <div className="text-md text-black">
+                        <p>All Kinds of Lathe and Milling Works</p>
+                        <p>Specialist in : Press Tools, Die Casting Tools, Precision Components</p>
+                        <p>1/100, Chettipalayam Road, E.B. Compound, Malumichampatti, CBE - 641 050.</p>
+                        <p>E-Mail : esaengineeringworks@gmail.com | GSTIN : 33AMWPB2116Q1ZS</p>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-            {/* Invoice Title */}
-            <div className="flex border-b border-black">
-              <div className="w-[20%] border-r border-black pl-2 flex items-center text-sm">
-                <span className="font-bold mr-2">NO :</span> {previewData.invoiceNumber}
+              {/* Invoice Title */}
+              <div className="flex border-b border-black">
+                <div className="w-[20%] border-r border-black pl-2 flex items-center text-sm">
+                  <span className="font-bold mr-2">NO :</span> {previewData.invoiceNumber}
+                </div>
+                <div className="w-[49.9%] text-center font-bold text-2xl pl-2">
+                  INVOICE
+                </div>
+                <div className="w-[30.1%] border-l border-black pl-2 flex items-center text-sm">
+                  <span className="font-bold mr-2">DATE :</span> {previewData.invoiceDate}
+                </div>
               </div>
-              <div className="w-[49.9%] text-center font-bold text-2xl pl-2">
-                INVOICE
-              </div>
-              <div className="w-[30.1%] border-l border-black pl-2 flex items-center text-sm">
-                <span className="font-bold mr-2">DATE :</span> {previewData.invoiceDate}
-              </div>
-            </div>
 
-            {/* Client & Invoice Details */}
-            <div className="flex border-b border-black">
-              <div className="w-[70%] border-r border-black text-sm flex flex-col h-32">
-                <div className="pl-2 pt-1 flex-grow">
-                  <div>To, M/s,</div>
-                  <div className="font-bold ml-4">{previewData.client?.name}</div>
-                  <div className="ml-4">{previewData.client?.address}</div>
+              {/* Client & Invoice Details */}
+              <div className="flex border-b border-black">
+                <div className="w-[70%] border-r border-black text-sm flex flex-col h-32">
+                  <div className="pl-2 pt-1 flex-grow">
+                    <div>To, M/s,</div>
+                    <div className="font-bold ml-4">{previewData.client?.name}</div>
+                    <div className="ml-4">{previewData.client?.address}</div>
+                  </div>
+                  <div className="h-8 border-t border-black pl-2 flex items-center">
+                    GSTIN : {previewData.client?.taxId || previewData.client?.company || previewData.client?.gst || ""}
+                  </div>
                 </div>
-                <div className="h-8 border-t border-black pl-2 flex items-center">
-                  GSTIN : {previewData.client?.taxId || previewData.client?.company || previewData.client?.gst || ""}
+                <div className="w-[30%] text-sm h-32">
+                  <div className="border-b border-black pl-2 h-8 flex items-center">
+                    <span className="font-bold mr-2">P.O. No :</span> {previewData.poNumber || ""}
+                  </div>
+                  <div className="border-b border-black pl-2 h-8 flex items-center">
+                    <span className="font-bold mr-2">P.O. Date :</span> {previewData.poDate || ""}
+                  </div>
+                  <div className="border-b border-black pl-2 h-8 flex items-center">
+                    <span className="font-bold mr-2">D.C. No :</span> {previewData.dcNumber || ""}
+                  </div>
+                  <div className="pl-2 h-8 flex items-center">
+                    <span className="font-bold mr-2">D.C. Date :</span> {previewData.dcDate || ""}
+                  </div>
                 </div>
               </div>
-              <div className="w-[30%] text-sm h-32">
-                <div className="border-b border-black pl-2 h-8 flex items-center">
-                  <span className="font-bold mr-2">P.O. No :</span> {previewData.poNumber || ""}
-                </div>
-                <div className="border-b border-black pl-2 h-8 flex items-center">
-                  <span className="font-bold mr-2">P.O. Date :</span> {previewData.poDate || ""}
-                </div>
-                <div className="border-b border-black pl-2 h-8 flex items-center">
-                  <span className="font-bold mr-2">D.C. No :</span> {previewData.dcNumber || ""}
-                </div>
-                <div className="pl-2 h-8 flex items-center">
-                  <span className="font-bold mr-2">D.C. Date :</span> {previewData.dcDate || ""}
-                </div>
-              </div>
-            </div>
 
-            {/* Items Table */}
-            <table className="w-full text-sm border-b border-black">
-              <thead>
-                <tr className="border-b border-black">
-                  <th className="w-[5%] border-r border-black p-1 text-center">S.No.</th>
-                  <th className="w-[55%] border-r border-black p-1 text-center">PARTICULARS</th>
-                  <th className="w-[10%] border-r border-black p-1 text-center">HSN CODE</th>
-                  <th className="w-[6%] border-r border-black p-1 text-center">QTY.</th>
-                  <th className="w-[10%] border-r border-black p-1 text-center">RATE</th>
-                  <th className="w-[19%] p-1 text-center">AMOUNT</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(previewData.items || previewData.products || []).map((item, index) => (
-                  <tr key={index}>
-                    <td className="border-r border-black p-1 text-center">{index + 1}</td>
-                    <td className="border-r border-black p-1">{item.description || item.name}</td>
-                    <td className="border-r border-black p-1 text-center">{item.hsnCode || item.hsn}</td>
-                    <td className="border-r border-black p-1 text-center">{item.quantity}</td>
-                    <td className="border-r border-black p-1 text-right">{item.rate || item.price}</td>
-                    <td className="p-1 text-right">{item.amount || item.total}</td>
-                  </tr>
-                ))}
-
-                {new Array(Math.max(0, 12 - (previewData.items || previewData.products || []).length))
-                  .fill(0)
-                  .map((_, index) => (
-                    <tr key={`empty-${index}`}>
-                      <td className="border-r border-black p-1 h-6">&nbsp;</td>
-                      <td className="border-r border-black p-1"></td>
-                      <td className="border-r border-black p-1"></td>
-                      <td className="border-r border-black p-1"></td>
-                      <td className="border-r border-black p-1"></td>
-                      <td className="p-1"></td>
+              {/* Items Table - Added flex-grow to push footer down */}
+              <div className="flex-grow">
+                <table className="w-full text-sm border-b border-black h-full">
+                  <thead>
+                    <tr className="border-b border-black">
+                      <th className="w-[5%] border-r border-black p-1 text-center">S.No.</th>
+                      <th className="w-[55%] border-r border-black p-1 text-center">PARTICULARS</th>
+                      <th className="w-[10%] border-r border-black p-1 text-center">HSN CODE</th>
+                      <th className="w-[6%] border-r border-black p-1 text-center">QTY.</th>
+                      <th className="w-[10%] border-r border-black p-1 text-center">RATE</th>
+                      <th className="w-[19%] p-1 text-center">AMOUNT</th>
                     </tr>
-                  ))}
-              </tbody>
-            </table>
+                  </thead>
+                  <tbody>
+                    {(previewData.items || previewData.products || []).map((item, index) => (
+                      <tr key={index}>
+                        <td className="border-r border-black p-1 text-center">{index + 1}</td>
+                        <td className="border-r border-black p-1">{item.description || item.name}</td>
+                        <td className="border-r border-black p-1 text-center">{item.hsnCode || item.hsn}</td>
+                        <td className="border-r border-black p-1 text-center">{item.quantity}</td>
+                        <td className="border-r border-black p-1 text-right">{item.rate || item.price}</td>
+                        <td className="p-1 text-right">{item.amount || item.total}</td>
+                      </tr>
+                    ))}
 
-            {/* Footer Section */}
-            <table className="w-full text-sm">
-              <tbody>
-                {/* Invoice Notes Row - Only show if notes exist */}
-                {previewData.invoiceNotes && (
+                    {new Array(Math.max(0, 12 - (previewData.items || previewData.products || []).length))
+                      .fill(0)
+                      .map((_, index) => (
+                        <tr key={`empty-${index}`}>
+                          <td className="border-r border-black p-1 h-6">&nbsp;</td>
+                          <td className="border-r border-black p-1"></td>
+                          <td className="border-r border-black p-1"></td>
+                          <td className="border-r border-black p-1"></td>
+                          <td className="border-r border-black p-1"></td>
+                          <td className="p-1"></td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Footer Section - Added mt-auto to ensure it sits at bottom */}
+              <table className="w-full text-sm mt-auto">
+                <tbody>
+                  {/* Invoice Notes Row - Only show if notes exist */}
+                  {previewData.invoiceNotes && (
+                    <tr>
+                      <td className="p-1 pl-10 align-top border-b" colSpan="2">
+                        <div className="text-sm">{previewData.invoiceNotes}</div>
+                      </td>
+                      <td className="border-black p-1 border-b" colSpan="2"></td>
+                    </tr>
+                  )}
+
+                  {/* Bank Details Row */}
                   <tr>
-                    <td className="p-1 pl-10 align-top border-b" colSpan="2">
-                      <div className="text-sm">{previewData.invoiceNotes}</div>
+                    <th scope="row" className="w-[15%] p-1 font-normal text-left">Bank Details :</th>
+                    <td className="w-[55%] p-1">Bank Name : State Bank Of India</td>
+                    <th scope="row" className="w-[16%] border-l border-b border-black p-1 font-normal text-left">SUB TOTAL</th>
+                    <td className="w-[16%] border-l border-b border-black p-1 text-right">
+                      {previewCalcs.subtotal.toFixed(2)}
                     </td>
-                    <td className="border-black p-1 border-b" colSpan="2"></td>
                   </tr>
-                )}
+                  <tr>
+                    <td className="p-1 pl-9" colSpan="2">
+                      <span className="inline-block w-20">&nbsp;</span>
+                      A/C No : 42455711572
+                    </td>
+                    <th scope="row" className="border-l border-b border-black p-1 font-normal text-left">
+                      CGST <span className="ml-6">{previewData.cgst}%</span>
+                    </th>
+                    <td className="border-l border-b border-black p-1 text-right">
+                      {previewCalcs.cgstAmount.toFixed(2)}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="p-1 pl-9" colSpan="2">
+                      <span className="inline-block w-20">&nbsp;</span>
+                      IFSC Code : SBIN0015017
+                    </td>
+                    <th scope="row" className="border-l border-b border-black p-1 font-normal text-left">
+                      SGST <span className="ml-6">{previewData.sgst}%</span>
+                    </th>
+                    <td className="border-l border-b border-black p-1 text-right">
+                      {previewCalcs.sgstAmount.toFixed(2)}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="p-1 pl-9" colSpan="2">
+                      <span className="inline-block w-20">&nbsp;</span>
+                      Branch : Malumichampatti
+                    </td>
+                    <th scope="row" className="border-l border-b border-black p-1 font-normal text-left">
+                      IGST <span className="ml-6">{previewData.igst}%</span>
+                    </th>
+                    <td className="border-l border-b border-black p-1 text-right">
+                      {previewCalcs.igstAmount.toFixed(2)}
 
-                {/* Bank Details Row */}
-                <tr>
-                  <th scope="row" className="w-[15%] p-1 font-normal text-left">Bank Details :</th>
-                  <td className="w-[55%] p-1">Bank Name : State Bank Of India</td>
-                  <th scope="row" className="w-[16%] border-l border-b border-black p-1 font-normal text-left">SUB TOTAL</th>
-                  <td className="w-[16%] border-l border-b border-black p-1 text-right">
-                    {previewCalcs.subtotal.toFixed(2)}
-                  </td>
-                </tr>
-                <tr>
-                  <td className="p-1 pl-9" colSpan="2">
-                    <span className="inline-block w-20">&nbsp;</span>
-                    A/C No : 42455711572
-                  </td>
-                  <th scope="row" className="border-l border-b border-black p-1 font-normal text-left">
-                    CGST <span className="ml-6">{previewData.cgst}%</span>
-                  </th>
-                  <td className="border-l border-b border-black p-1 text-right">
-                    {previewCalcs.cgstAmount.toFixed(2)}
-                  </td>
-                </tr>
-                <tr>
-                  <td className="p-1 pl-9" colSpan="2">
-                    <span className="inline-block w-20">&nbsp;</span>
-                    IFSC Code : SBIN0015017
-                  </td>
-                  <th scope="row" className="border-l border-b border-black p-1 font-normal text-left">
-                    SGST <span className="ml-6">{previewData.sgst}%</span>
-                  </th>
-                  <td className="border-l border-b border-black p-1 text-right">
-                    {previewCalcs.sgstAmount.toFixed(2)}
-                  </td>
-                </tr>
-                <tr>
-                  <td className="p-1 pl-9" colSpan="2">
-                    <span className="inline-block w-20">&nbsp;</span>
-                    Branch : Malumichampatti
-                  </td>
-                  <th scope="row" className="border-l border-b border-black p-1 font-normal text-left">
-                    IGST <span className="ml-6">{previewData.igst}%</span>
-                  </th>
-                  <td className="border-l border-b border-black p-1 text-right">
-                    {previewCalcs.igstAmount.toFixed(2)}
+                    </td>
+                  </tr>
+                  <tr>
+                    {/* LEFT SIDE — Rupees spans 2 rows */}
+                    <td
+                      className="border-t p-1  pt-2align-top"
+                      colSpan={2}
+                      rowSpan={2}
+                    >
+                      Rupees : <span className="font-normal">{amountInWords}</span>
+                    </td>
 
-                  </td>
-                </tr>
-                <tr>
-                  {/* LEFT SIDE — Rupees spans 2 rows */}
-                  <td
-                    className="border-t p-1  pt-2align-top"
-                    colSpan={2}
-                    rowSpan={2}
-                  >
-                    Rupees : <span className="font-normal">{amountInWords}</span>
-                  </td>
+                    {/* RIGHT SIDE — ROUND OFF */}
+                    <td className="border-b border-l text-right font-bold">
+                      ROUND OFF
+                    </td>
+                    <td className="border-b border-l  text-right">
+                      {(previewCalcs.roundOffAmount || 0).toFixed(2)}
+                    </td>
+                  </tr>
 
-                  {/* RIGHT SIDE — ROUND OFF */}
-                  <td className="border-b border-l text-right font-bold">
-                    ROUND OFF
-                  </td>
-                  <td className="border-b border-l  text-right">
-                    {(previewCalcs.roundOffAmount || 0).toFixed(2)}
-                  </td>
-                </tr>
+                  <tr>
+                    {/* RIGHT SIDE — NET TOTAL */}
+                    <td className="border-b border-l text-right font-bold">
+                      NET TOTAL
+                    </td>
+                    <td className="border-b border-l text-right font-bold">
+                      {previewCalcs.total.toFixed(2)}
+                    </td>
+                  </tr>
 
-                <tr>
-                  {/* RIGHT SIDE — NET TOTAL */}
-                  <td className="border-b border-l text-right font-bold">
-                    NET TOTAL
-                  </td>
-                  <td className="border-b border-l text-right font-bold">
-                    {previewCalcs.total.toFixed(2)}
-                  </td>
-                </tr>
+                  <tr>
+                    <td className=" border-t border-black align-top" colSpan="2" rowSpan="2">
+                      <div className="font-bold mb-1">Declaration</div>
+                      <div className="text-md">
+                        We declare that this invoice shows the actual price of the goods Described and that all Particulars are true and correct
+                      </div>
+                    </td>
 
-                <tr>
-                  <td className=" border-t border-black align-top" colSpan="2" rowSpan="2">
-                    <div className="font-bold mb-1">Declaration</div>
-                    <div className="text-md">
-                      We declare that this invoice shows the actual price of the goods Described and that all Particulars are true and correct
-                    </div>
-                  </td>
-
-                </tr>
-                <tr>
-                  <td className="border-l border-black h-20 align-bottom text-left" colSpan="2">
-                    <div className="font-bold text-red-600 mb-8">For ESA Engineering Works</div>
-                    <div className="text-md text-right">Authorized Signatory</div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
+                  </tr>
+                  <tr>
+                    <td className="border-l border-black h-20 align-bottom text-left" colSpan="2">
+                      <div className="font-bold text-red-600 mb-8">For ESA Engineering Works</div>
+                      <div className="text-md text-right">Authorized Signatory</div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div> {/* End of Inner Invoice Content */}
+          </div> {/* End of Outer Print Wrapper */}
+        </div> {/* End of Overflow Container */}
       </div>
     </div>
   );
@@ -1700,6 +1757,7 @@ const InvoiceManagementSystem = () => {
   const [activeTab, setActiveTab] = useState("All Invoices");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedInvoice, setSelectedInvoice] = useState(null);
+  const [downloadingInvoice, setDownloadingInvoice] = useState(null);
   const [showPreview, setShowPreview] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState(null);
   const { success, error: showError, warning } = useToast();
@@ -2194,383 +2252,12 @@ const InvoiceManagementSystem = () => {
     setEditingInvoice(invoiceToEdit);
     setCurrentPage("edit");
   };
-  const handleDownloadInvoice = async (invoice) => {
-    try {
-      // Generate PDF for existing invoice
-      await generateInvoicePDF(invoice, settings);
-    } catch (error) {
-      showError("Error generating PDF. Please try again.", "Error");
-    }
+  const handleDownloadInvoice = (invoice) => {
+    // Trigger hidden download
+    setDownloadingInvoice(invoice);
   };
 
-  const generateInvoicePDF = async (invoiceData, settings) => {
-    try {
-      // Calculate totals for the invoice
-      const invoiceCalcs = calculateInvoiceTotals(invoiceData);
-
-      // Generate HTML for the invoice
-      const invoiceHTML = generateInvoiceHTML(
-        invoiceData,
-        invoiceCalcs,
-        settings
-      );
-
-      // Create a temporary div for HTML to PDF conversion
-      const tempDiv = document.createElement("div");
-      tempDiv.innerHTML = invoiceHTML;
-      tempDiv.style.position = "fixed";
-      tempDiv.style.left = "-10000px";
-      tempDiv.style.top = "0";
-      tempDiv.style.zIndex = "-9999";
-      tempDiv.style.width = "800px";
-      document.body.appendChild(tempDiv);
-
-      // Convert HTML to canvas
-      const canvas = await html2canvas(tempDiv, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: "#ffffff",
-        width: 800,
-        height: tempDiv.scrollHeight,
-      });
-
-      // Remove temporary div
-      document.body.removeChild(tempDiv);
-
-      // Create PDF
-      const pdf = new jsPDF("p", "mm", "a4");
-      const imgData = canvas.toDataURL("image/png");
-
-      // Calculate dimensions to fit A4
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
-      const imgWidth = pdfWidth - 20; // 10mm margin on each side
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-      let heightLeft = imgHeight;
-      let position = 10; // 10mm top margin
-
-      // Add first page
-      pdf.addImage(imgData, "PNG", 10, position, imgWidth, imgHeight);
-      heightLeft -= pdfHeight - 20; // Account for margins
-
-      // Add additional pages if needed
-      while (heightLeft >= 0) {
-        position = heightLeft - imgHeight + 10;
-        pdf.addPage();
-        pdf.addImage(imgData, "PNG", 10, position, imgWidth, imgHeight);
-        heightLeft -= pdfHeight - 20;
-      }
-
-      // Download the PDF
-      const fileName = `Invoice_${invoiceData.invoiceNumber.replaceAll(
-        "/",
-        "_"
-      )}.pdf`;
-      pdf.save(fileName);
-    } catch (error) {
-      throw error;
-    }
-  };
-
-  const calculateInvoiceTotals = (invoice) => {
-    // Handle both 'items' and 'products' fields
-    const itemsArray = invoice.items || invoice.products || [];
-    const subtotal = itemsArray.reduce(
-      (sum, item) => sum + (item.quantity || 0) * (item.rate || item.price || 0),
-      0
-    );
-    const cgstAmount = (subtotal * (invoice.cgst || 0)) / 100;
-    const sgstAmount = (subtotal * (invoice.sgst || 0)) / 100;
-    const igstAmount = (subtotal * (invoice.igst || 0)) / 100;
-    const total = subtotal + cgstAmount + sgstAmount + igstAmount;
-    const roundOffAmount = invoice.isRoundOff ? Math.round(total) - total : 0;
-    const finalTotal = total + roundOffAmount;
-
-    return {
-      subtotal,
-      cgstAmount,
-      sgstAmount,
-      igstAmount,
-      roundOffAmount,
-      total: finalTotal,
-    };
-  };
-
-  const generateInvoiceHTML = (invoice, calculations, settings) => {
-    // Convert amount to words
-    const convertToWords = (amount) => {
-      // Simple number to words conversion (you can enhance this)
-      const ones = [
-        "",
-        "One",
-        "Two",
-        "Three",
-        "Four",
-        "Five",
-        "Six",
-        "Seven",
-        "Eight",
-        "Nine",
-      ];
-      const tens = [
-        "",
-        "",
-        "Twenty",
-        "Thirty",
-        "Forty",
-        "Fifty",
-        "Sixty",
-        "Seventy",
-        "Eighty",
-        "Ninety",
-      ];
-      const teens = [
-        "Ten",
-        "Eleven",
-        "Twelve",
-        "Thirteen",
-        "Fourteen",
-        "Fifteen",
-        "Sixteen",
-        "Seventeen",
-        "Eighteen",
-        "Nineteen",
-      ];
-
-      const convertHundreds = (num) => {
-        let result = "";
-        if (num >= 100) {
-          result += ones[Math.floor(num / 100)] + " Hundred ";
-          num %= 100;
-        }
-        if (num >= 20) {
-          result += tens[Math.floor(num / 10)] + " ";
-          num %= 10;
-        } else if (num >= 10) {
-          result += teens[num - 10] + " ";
-          return result;
-        }
-        if (num > 0) {
-          result += ones[num] + " ";
-        }
-        return result;
-      };
-
-      const crores = Math.floor(amount / 10000000);
-      const lakhs = Math.floor((amount % 10000000) / 100000);
-      const thousands = Math.floor((amount % 100000) / 1000);
-      const hundreds = amount % 1000;
-
-      let words = "";
-      if (crores > 0) words += convertHundreds(crores) + "Crore ";
-      if (lakhs > 0) words += convertHundreds(lakhs) + "Lakh ";
-      if (thousands > 0) words += convertHundreds(thousands) + "Thousand ";
-      if (hundreds > 0) words += convertHundreds(hundreds);
-
-      return "Indian Rupees " + words.trim() + " Only";
-    };
-
-    const amountInWords = convertToWords(Math.floor(calculations.total));
-
-    return `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Invoice ${invoice.invoiceNumber}</title>
-          <style>
-            #invoice-pdf-wrapper {font - family: mazzard; padding: 20px; background-color: #fff; font-size: 14px; color: black; }
-            #invoice-pdf-wrapper .container {border: 2px solid black; padding: 15px; width: 100%; max-width: 800px; margin: auto; }
-            #invoice-pdf-wrapper table {width: 100%; border-collapse: collapse; }
-            #invoice-pdf-wrapper td, #invoice-pdf-wrapper th {padding: 5px; }
-            #invoice-pdf-wrapper .header {text - align: center; }
-            #invoice-pdf-wrapper .header-top {display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
-            #invoice-pdf-wrapper .header-top .phone-left {font - weight: bold; color: black; }
-            #invoice-pdf-wrapper .header-top .phone-right {font - weight: bold; color: black; }
-            #invoice-pdf-wrapper .header-main {display: flex; align-items: center; justify-content: center; margin-bottom: 10px; }
-            #invoice-pdf-wrapper .header-main .logo {margin - right: 20px; }
-            #invoice-pdf-wrapper .header-main .company-name {font - family: 'Mazzard', sans-serif; font-size: 28px; font-weight: bold; color: #8B0000; margin: 0; }
-            #invoice-pdf-wrapper .header-details {text - align: center; }
-            #invoice-pdf-wrapper .header-details p {margin: 3px 0; color: black; font-family: 'Mazzard', sans-serif; }
-            #invoice-pdf-wrapper .bordered-table {border: 1px solid black; border-collapse: collapse; width: 100%; }
-            #invoice-pdf-wrapper .bordered-table th {border: 1px solid black; }
-            #invoice-pdf-wrapper .bordered-table td {border: 1px solid black; }
-            #invoice-pdf-wrapper .text-right {text - align: right; }
-            #invoice-pdf-wrapper .text-center {text - align: center; }
-            #invoice-pdf-wrapper .font-bold {font - weight: bold; }
-            #invoice-pdf-wrapper .items-table {min - height: 300px; border-collapse: collapse; }
-            #invoice-pdf-wrapper .items-table th {border: 1px solid black; border-bottom: 1px solid black; }
-            #invoice-pdf-wrapper .items-table td {border - right: 1px solid black; border-left: 1px solid black; border-top: none; border-bottom: none; vertical-align: top; }
-            #invoice-pdf-wrapper .items-table tr:last-child td {border - bottom: 1px solid black; }
-          </style>
-        </head>
-        <body>
-          <div id="invoice-pdf-wrapper">
-            <div class="container">
-              <div class="header">
-                <div class="header-top">
-                  <div class="phone-left">☎ 98432 94464</div>
-                  <div class="phone-right">☎ 96984 87096</div>
-                </div>
-                <div class="header-main">
-                  <div class="logo">
-                    <img src="https://res.cloudinary.com/dnmvriw3e/image/upload/v1756868204/ESA_uggt8u.png" alt="ESA Logo" style="height: 60px; max-width: 120px;">
-                  </div>
-                  <h1 class="company-name">ESA ENGINEERING WORKS</h1>
-                </div>
-                <div class="header-details">
-                  <p>All Kinds of Lathe and Milling Works</p>
-                  <p>Specialist in : Press Tools, Die Casting Tools, Precision Components</p>
-                  <p>1/100, Chettipalayam Road, E.B. Compound, Malumichampatti, CBE - 641 050.</p>
-                  <p>E-Mail : esaengineeringworks@gmail.com | GSTIN : 33AMWPB2116Q1ZS</p>
-                </div>
-              </div>
-              <h2 class="text-center font-bold" style="background-color: #ccc; margin: 10px -15px; padding: 5px;">INVOICE</h2>
-              <table style="margin-bottom: 10px;">
-                <tr>
-                  <td style="width: 70%; vertical-align: top;">
-                    <table class="bordered-table">
-                      <tr><td>To, M/s. ${invoice.client?.name || ""}</td></tr>
-                      <tr><td style="height: 60px;">${invoice.client?.address || ""
-      }</td></tr>
-                      <tr><td>GSTIN : ${invoice.client?.taxId || invoice.client?.company || invoice.client?.gst || ""}</td></tr>
-                    </table>
-                  </td>
-                  <td style="width: 30%; vertical-align: top;">
-                    <table class="bordered-table">
-                      <tr><td>NO : ${invoice.invoiceNumber}</td><td>DATE : ${invoice.invoiceDate
-      }</td></tr>
-                      <tr><td colspan="2">P.O. No : ${invoice.poNumber}</td></tr>
-                      <tr><td colspan="2">P.O. Date : ${invoice.poDate}</td></tr>
-                      <tr><td colspan="2">D.C. No : ${invoice.dcNumber}</td></tr>
-                      <tr><td colspan="2">D.C. Date : ${invoice.dcDate}</td></tr>
-                    </table>
-                  </td>
-                </tr>
-              </table>
-              <table class="bordered-table items-table">
-                <thead>
-                  <tr style="background-color: #ccc;">
-                    <th style="width: 5%;">S.No</th>
-                    <th style="width: 45%;">Description of Goods</th>
-                    <th style="width: 10%;">HSN/SAC</th>
-                    <th style="width: 10%;">Qty</th>
-                    <th style="width: 15%;">Rate</th>
-                    <th style="width: 15%;">Amount</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${(invoice.items || invoice.products || [])
-        .map(
-          (item, index) => `
-                <tr>
-                  <td class="text-center" style="border-right: 1px solid black; border-bottom: none;">${index + 1}</td>
-                  <td style="border-right: 1px solid black; border-bottom: none;">${item.description || item.name || ''}</td>
-                  <td class="text-center" style="border-right: 1px solid black; border-bottom: none;">${item.hsnCode || item.hsn || ''}</td>
-                  <td class="text-center" style="border-right: 1px solid black; border-bottom: none;">${item.quantity || 0}</td>
-                  <td class="text-right" style="border-right: 1px solid black; border-bottom: none;">₹${(item.rate || item.price || 0).toFixed(2)}</td>
-                  <td class="text-right" style="border-bottom: none;">₹${((item.quantity || 0) * (item.rate || item.price || 0)).toFixed(2)}</td>
-                </tr>
-              `
-        )
-        .join("")}
-                  ${Array.from({ length: Math.max(0, 12 - (invoice.items || invoice.products || []).length) })
-        .map(() =>
-          '<tr><td style="border-right: 1px solid black; border-bottom: none;">&nbsp;</td><td style="border-right: 1px solid black; border-bottom: none;"></td><td style="border-right: 1px solid black; border-bottom: none;"></td><td style="border-right: 1px solid black; border-bottom: none;"></td><td style="border-right: 1px solid black; border-bottom: none;"></td><td style="border-bottom: none;"></td></tr>'
-        )
-        .join("")}
-                </tbody>
-                <tr>
-                  <td colspan="5" class="text-right font-bold">Sub Total</td>
-                  <td class="text-right font-bold">₹${calculations.subtotal.toFixed(
-          2
-        )}</td>
-                </tr>
-                ${invoice.cgst > 0
-        ? `
-                <tr>
-                  <td colspan="5" class="text-right">CGST @ ${invoice.cgst
-        }%</td>
-                  <td class="text-right">₹${calculations.cgstAmount.toFixed(
-          2
-        )}</td>
-                </tr>
-              `
-        : ""
-      }
-                ${invoice.sgst > 0
-        ? `
-                <tr>
-                  <td colspan="5" class="text-right">SGST @ ${invoice.sgst
-        }%</td>
-                  <td class="text-right">₹${calculations.sgstAmount.toFixed(
-          2
-        )}</td>
-                </tr>
-              `
-        : ""
-      }
-                ${invoice.igst > 0
-        ? `
-                <tr>
-                  <td colspan="5" class="text-right">IGST @ ${invoice.igst
-        }%</td>
-                  <td class="text-right">₹${calculations.igstAmount.toFixed(
-          2
-        )}</td>
-                </tr>
-              `
-        : ""
-      }
-                ${invoice.isRoundOff && calculations.roundOffAmount !== 0
-        ? `
-                <tr>
-                  <td colspan="5" class="text-right">Round Off</td>
-                  <td class="text-right">₹${calculations.roundOffAmount.toFixed(
-          2
-        )}</td>
-                </tr>
-              `
-        : ""
-      }
-                <tr style="background-color: #ccc;">
-                  <td colspan="5" class="text-right font-bold">Total</td>
-                  <td class="text-right font-bold">₹${calculations.total.toFixed(
-        2
-      )}</td>
-                </tr>
-              </tbody>
-            </table>
-            <p class="font-bold">Amount in Words: ${amountInWords}</p>
-            <table style="margin-top: 20px;">
-              <tr>
-                <td style="width: 50%; vertical-align: top;">
-                  <table class="bordered-table">
-                    <tr><td class="text-center font-bold">Declaration</td></tr>
-                    <tr><td style="height: 60px;">${invoice.declaration ||
-      "We declare that this invoice shows the actual price of the goods Described and that all Particulars are true and correct."
-      }</td></tr>
-                  </table>
-                </td>
-                <td style="width: 50%; vertical-align: top;">
-                  <table class="bordered-table">
-                    <tr><td class="text-center font-bold">Authorised Signatory</td></tr>
-                    <tr><td style="height: 60px;">&nbsp;</td></tr>
-                  </table>
-                </td>
-              </tr>
-            </table>
-            ${invoice.invoiceNotes
-        ? `<p style="margin-top: 10px; font-size: 12px;"><strong>Notes:</strong> ${invoice.invoiceNotes}</p>`
-        : ""
-      }
-          </div>
-        </div>
-      </body>
-    </html>
-    `;
-  };
+  // generateInvoicePDF and generateInvoiceHTML removed
 
   // Filter invoices based on date range and client
   const filteredInvoices = useMemo(() => {
@@ -2702,13 +2389,26 @@ const InvoiceManagementSystem = () => {
           handleProductConfirmationConfirm={handleProductConfirmationConfirm}
         />
       )}
+
+      {/* Hidden Invoice Preview for Downloading */}
+      {downloadingInvoice && (
+        <div style={{ position: 'fixed', left: '-1000vw', top: 0 }}>
+          <InvoicePreview
+            invoice={downloadingInvoice}
+            setShowPreview={() => setDownloadingInvoice(null)}
+            embedded={true}
+            autoDownload={true}
+            onDownloadComplete={() => setDownloadingInvoice(null)}
+          />
+        </div>
+      )}
       {/* Product Confirmation Modal attached to System level */}
       <ConfirmationModal
         isOpen={productConfirmation.isOpen}
         onClose={handleProductConfirmationSkip}
         onConfirm={handleProductConfirmationConfirm}
         title="Add New Products?"
-        message={`The following items are not in your database:\n\n${productConfirmation.products.map(p => "• " + p.description).join("\n")}\n\nDo you want to add them to your product list?`}
+        message={`The following items are not in your database: \n\n${productConfirmation.products.map(p => "• " + p.description).join("\n")} \n\nDo you want to add them to your product list ? `}
         confirmLabel="Yes, Add items"
         cancelLabel="No, Skip"
         confirmClass="bg-green-600 hover:bg-green-700"

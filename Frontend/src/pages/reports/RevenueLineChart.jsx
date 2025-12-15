@@ -1244,7 +1244,7 @@ const exportToPDF = async (invoices, customers, payments, stats, title = "Busine
 
         // Convert to canvas
         const canvas = await html2canvas(tempDiv, {
-          scale: 2,
+          scale: 3, // Increased scale for better quality
           useCORS: true,
           allowTaint: true,
           backgroundColor: "#ffffff",
@@ -1255,7 +1255,8 @@ const exportToPDF = async (invoices, customers, payments, stats, title = "Busine
         document.body.removeChild(tempDiv);
 
         const imgData = canvas.toDataURL("image/png");
-        const imgWidth = pdfWidth - 20; // 10mm margin
+        const margin = 15; // 15mm margin to match standard
+        const imgWidth = pdfWidth - (margin * 2);
         const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
         // Add page (except for first one)
@@ -1264,14 +1265,13 @@ const exportToPDF = async (invoices, customers, payments, stats, title = "Busine
         }
 
         // Add image to PDF
-        // If image is taller than page, we might need to split it, but for now assuming 1 page per invoice
-        // or scaling to fit if needed, but standard invoice fits A4
-        if (imgHeight > pdfHeight - 20) {
-          // If too tall, scale it down to fit one page
-          const scaleFactor = (pdfHeight - 20) / imgHeight;
-          doc.addImage(imgData, "PNG", 10, 10, imgWidth * scaleFactor, imgHeight * scaleFactor);
+        // standard invoice fits A4 usually
+        if (imgHeight > pdfHeight - (margin * 2)) {
+          // If too tall, scale it down to fit one page within margins
+          const scaleFactor = (pdfHeight - (margin * 2)) / imgHeight;
+          doc.addImage(imgData, "PNG", margin, margin, imgWidth * scaleFactor, imgHeight * scaleFactor);
         } else {
-          doc.addImage(imgData, "PNG", 10, 10, imgWidth, imgHeight);
+          doc.addImage(imgData, "PNG", margin, margin, imgWidth, imgHeight);
         }
       }
 
