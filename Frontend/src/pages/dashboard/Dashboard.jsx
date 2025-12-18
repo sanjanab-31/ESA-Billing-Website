@@ -55,10 +55,12 @@ const Dashboard = () => {
     const paidInvoices = activeInvoices.filter(i => (i.status || '').toLowerCase() === 'paid').length;
     const draftInvoices = activeInvoices.filter(i => (i.status || '').toLowerCase() === 'draft').length;
 
+    const canceledInvoices = allInvoices.filter(i => (i.status || '').toLowerCase().includes('cancel')).length;
+
     // Unpaid includes Pending, Unpaid, Sent, Overdue
     const unpaidInvoices = activeInvoices.filter(i => {
       const s = (i.status || '').toLowerCase();
-      return s !== 'paid' && s !== 'draft' && s !== 'cancelled';
+      return s !== 'paid' && s !== 'draft' && !s.includes('cancel');
     }).length;
 
     const paymentRate = (paidInvoices + unpaidInvoices + draftInvoices) > 0
@@ -74,6 +76,7 @@ const Dashboard = () => {
       paidInvoices,
       unpaidInvoices,
       draftInvoices,
+      canceledInvoices,
       paymentRate, // Percentage of Paid vs Total
       totalTDS,
       totalCustomers,

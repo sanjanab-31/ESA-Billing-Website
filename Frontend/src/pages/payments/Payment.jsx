@@ -380,7 +380,8 @@ const StatusBadge = ({ status, overdueDays }) => {
     Paid: "bg-green-100 text-green-700",
     Unpaid: "bg-yellow-100 text-yellow-700",
     Overdue: "bg-red-100 text-red-700",
-    Partial: "bg-purple-100 text-purple-700"
+    Partial: "bg-purple-100 text-purple-700",
+    Canceled: "bg-gray-100 text-gray-700"
   };
 
   const className = `text-xs font-medium px-2.5 py-1 rounded-full ${styles[status] || ""}`;
@@ -789,16 +790,26 @@ const PaymentsPage = () => {
     });
   }, [allInvoices, allPayments, getDynamicInvoiceStatus]);
 
-  const parseDateDDMMYYYY = (dateString) => {
-    const [day, month, year] = dateString.split("/");
-    return new Date(year, month - 1, day);
+  const parseDate = (dateString) => {
+    if (!dateString) return new Date();
+    // Handle YYYY-MM-DD
+    if (String(dateString).match(/^\d{4}-\d{2}-\d{2}$/)) return new Date(dateString);
+    // Handle DD/MM/YYYY
+    if (String(dateString).includes("/")) {
+      const parts = String(dateString).split("/");
+      if (parts.length === 3) {
+        // Assuming DD/MM/YYYY
+        return new Date(parts[2], parts[1] - 1, parts[0]);
+      }
+    }
+    return new Date(dateString);
   };
 
   const getDynamicStatus = (payment) => {
     if (payment.status === "Paid") return payment;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const dueDate = parseDateDDMMYYYY(payment.dueDate);
+    const dueDate = parseDate(payment.dueDate);
     const diffTime = today - dueDate;
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     if (diffDays > 0)
@@ -1091,6 +1102,81 @@ const PaymentsPage = () => {
     return paymentsState.map(getDynamicStatus);
   }, [paymentsState]);
 
+  // Filter payments for STATISTICS (Apply Search, Client, and Invoice Date filters)
+  const paymentsForStats = useMemo(() => {
+    return paymentsWithDynamicStatus.filter((payment) => {
+      // 1. Search Term
+      const matchesSearch =
+        payment.invoiceNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        payment.client.toLowerCase().includes(searchTerm.toLowerCase());
+      if (!matchesSearch) return false;
+
+      // 2. Client Filter
+      if (filterClientId && payment.clientId !== filterClientId) {
+        return false;
+      }
+
+      // 3. Date Range Filter using Invoice Date
+      if (filterReportType !== "All Time") {
+        let startDate, endDate;
+        if (filterReportType === "Monthly Report") {
+          startDate = new Date(filterYear, filterMonth, 1);
+          endDate = new Date(filterYear, filterMonth + 1, 0);
+        } else if (filterReportType === "Yearly Report") {
+          const year = parseInt(filterTimePeriod);
+          startDate = new Date(year, 3, 1); // April 1st
+          endDate = new Date(year + 1, 2, 31); // March 31st
+        } else if (filterReportType === "Custom Report") {
+          if (filterFromDate && filterToDate) {
+            startDate = new Date(filterFromDate);
+            endDate = new Date(filterToDate);
+          }
+        }
+
+        if (startDate && endDate) {
+          startDate.setHours(0, 0, 0, 0);
+          endDate.setHours(23, 59, 59, 999);
+
+          // Always check Invoice Date for consistent stats
+          const dateToCheckStr = payment.invoiceDate;
+          if (!dateToCheckStr) return false;
+
+          let d;
+          if (dateToCheckStr?.toDate && typeof dateToCheckStr.toDate === 'function') {
+            d = dateToCheckStr.toDate();
+          } else if (dateToCheckStr instanceof Date) {
+            d = dateToCheckStr;
+          } else {
+            if (typeof dateToCheckStr === 'string' && dateToCheckStr.includes('/')) {
+              const parts = dateToCheckStr.split('/');
+              if (parts.length === 3) {
+                d = new Date(parts[2], parts[1] - 1, parts[0]);
+              } else {
+                d = new Date(dateToCheckStr);
+              }
+            } else {
+              d = new Date(dateToCheckStr);
+            }
+          }
+
+          if (isNaN(d.getTime())) return false;
+          if (d < startDate || d > endDate) return false;
+        }
+      }
+      return true;
+    });
+  }, [
+    paymentsWithDynamicStatus,
+    searchTerm,
+    filterClientId,
+    filterReportType,
+    filterTimePeriod,
+    filterMonth,
+    filterYear,
+    filterFromDate,
+    filterToDate
+  ]);
+
   // PERFORMANCE: Filter and sort payments with secondary sorting for stability
   const filteredPayments = useMemo(() => {
     const filtered = paymentsWithDynamicStatus.filter((payment) => {
@@ -1182,16 +1268,28 @@ const PaymentsPage = () => {
       return true;
     });
 
-    // Sort with secondary sorting for stable ordering
+    // Sort with tab-specific logic
     return [...filtered].sort((a, b) => {
-      // Primary sort by invoice number (descending - newest first)
-      const invoiceCompare = (b.invoiceNo || '').localeCompare(a.invoiceNo || '');
-      if (invoiceCompare !== 0) return invoiceCompare;
+      if (activeTab === 'Overdue' || activeTab === 'Pending') {
+        // Sort by Due Date ASC (Oldest first for Overdue urgency, Soonest first for Pending)
+        // Handle missing dates by pushing them to end
+        const dateA = a.dueDate ? parseDate(a.dueDate) : new Date(9999, 11, 31);
+        const dateB = b.dueDate ? parseDate(b.dueDate) : new Date(9999, 11, 31);
+        return dateA - dateB;
+      }
 
-      // Secondary sort by due date for stability
-      const aDate = a.dueDate || '';
-      const bDate = b.dueDate || '';
-      return bDate.localeCompare(aDate);
+      if (activeTab === 'Paid') {
+        // Sort by Payment Date DESC (Most recent payments first)
+        // Fallback to Invoice Date if Payment Date missing
+        const getPaymentDate = (p) => p.paymentDate ? parseDate(p.paymentDate) : (p.invoiceDate ? parseDate(p.invoiceDate) : new Date(0));
+        const dateA = getPaymentDate(a);
+        const dateB = getPaymentDate(b);
+        return dateB - dateA;
+      }
+
+      // Default / All Payments: Sort by Invoice Number DESC (Newest Generated First)
+      // Using localeCompare with numeric option if invoice numbers are numeric-ish
+      return (b.invoiceNo || '').localeCompare(a.invoiceNo || '', undefined, { numeric: true, sensitivity: 'base' });
     });
   }, [paymentsWithDynamicStatus, searchTerm, activeTab, filterClientId, filterReportType, filterTimePeriod, filterMonth, filterYear, filterFromDate, filterToDate]);
 
@@ -1643,24 +1741,25 @@ const PaymentsPage = () => {
         <main className="mt-6 flex flex-col gap-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
             {(() => {
-              // Calculate statistics from ALL payments, not just filtered ones
-              const totalAmount = paymentsWithDynamicStatus.reduce(
+              // Calculate statistics from FILTERED payments (paymentsForStats)
+              const totalAmount = paymentsForStats.reduce(
                 (s, p) => s + ((p.amount || 0) - (p.tdsAmount || 0)),
                 0
               );
-              const amountReceived = paymentsWithDynamicStatus.reduce(
+
+              const amountReceived = paymentsForStats.reduce(
                 (s, p) => s + (p.received || 0),
                 0
               );
               // Overdue Amount = sum of remaining amounts for overdue invoices
-              const overdueAmount = paymentsWithDynamicStatus
+              const overdueAmount = paymentsForStats
                 .filter((p) => p.status === "Overdue")
                 .reduce((s, p) => {
                   const remaining = Math.max(0, p.amount - (p.received || 0) - (p.tdsAmount || 0));
                   return s + remaining;
                 }, 0);
               // Pending Amount = sum of remaining amounts for all non-paid invoices (Unpaid, Partial, Overdue)
-              const pendingAmount = paymentsWithDynamicStatus
+              const pendingAmount = paymentsForStats
                 .filter((p) => p.status === "Unpaid" || p.status === "Partial" || p.status === "Overdue")
                 .reduce((s, p) => {
                   const remaining = Math.max(0, p.amount - (p.received || 0) - (p.tdsAmount || 0));

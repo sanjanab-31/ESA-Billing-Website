@@ -6,7 +6,8 @@ const InvoiceStatus = ({ stats }) => {
   const unpaid = stats?.unpaidInvoices || 0;
   const overdue = stats?.overdueInvoices || 0;
   const draft = stats?.draftInvoices || 0;
-  const total = paid + unpaid + overdue + draft;
+  const canceled = stats?.canceledInvoices || 0;
+  const total = paid + unpaid + overdue + draft + canceled;
 
   if (total === 0) {
     return (
@@ -41,6 +42,7 @@ const InvoiceStatus = ({ stats }) => {
       ? [{ id: "Overdue", label: "Overdue", value: overdue, color: "#ef4444" }]
       : []), // red-500
     { id: "Draft", label: "Draft", value: draft, color: "#eab308" }, // yellow-500
+    { id: "Canceled", label: "Canceled", value: canceled, color: "#9ca3af" }, // gray-400
   ].filter((item) => item.value > 0);
 
   return (
@@ -106,6 +108,13 @@ const InvoiceStatus = ({ stats }) => {
           />
           <span>Draft ({draft})</span>
         </div>
+        <div className="flex items-center gap-2">
+          <span
+            className="w-3 h-3 rounded-full"
+            style={{ background: "#9ca3af", display: "inline-block" }}
+          />
+          <span>Canceled ({canceled})</span>
+        </div>
       </div>
     </div>
   );
@@ -117,6 +126,7 @@ InvoiceStatus.propTypes = {
     unpaidInvoices: PropTypes.number,
     overdueInvoices: PropTypes.number,
     draftInvoices: PropTypes.number,
+    canceledInvoices: PropTypes.number,
     financialYearLabel: PropTypes.string,
   }),
 };
