@@ -167,19 +167,16 @@ export const useInvoices = (options = {}) => {
         if (status === "Paid") return s === "paid";
         if (status === "Draft") return s === "draft";
         if (status === "Partial") return s === "partial";
-        if (status === "Canceled") return s.includes("cancel");
 
-        // Overdue: Not paid/partial/draft/canceled AND due date passed
+        // Overdue: Not paid/partial/draft AND due date passed
         if (status === "Overdue") {
-          if (s.includes("cancel")) return false; // Exclude canceled
           const dueDate = inv.dueDate ? new Date(inv.dueDate) : null;
           if (dueDate) dueDate.setHours(0, 0, 0, 0);
           return s !== "paid" && s !== "partial" && s !== "draft" && dueDate && today > dueDate;
         }
 
-        // Unpaid: Not paid/partial/draft/canceled AND NOT overdue (to keep tabs distinct)
+        // Unpaid: Not paid/partial/draft AND NOT overdue (to keep tabs distinct)
         if (status === "Unpaid") {
-          if (s.includes("cancel")) return false; // Exclude canceled
           const dueDate = inv.dueDate ? new Date(inv.dueDate) : null;
           if (dueDate) dueDate.setHours(0, 0, 0, 0);
           const isOverdue = dueDate && today > dueDate;
@@ -210,9 +207,7 @@ export const useInvoices = (options = {}) => {
 
   const addInvoice = useCallback(async (payload) => {
     const id = `local-inv-${Date.now()}`;
-    // Remove any existing id from payload to prevent duplicates, then set new id
-    const { id: _existingId, ...cleanPayload } = payload;
-    const next = [{ ...cleanPayload, id }, ...all];
+    const next = [{ id, ...payload }, ...all];
     setAll(next);
     save(K.invoices, next);
     return { success: true, id };

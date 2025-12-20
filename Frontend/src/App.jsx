@@ -1,9 +1,8 @@
 import React, { useContext } from "react";
-import { createBrowserRouter, RouterProvider, Navigate, Outlet } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import SignIn from "./pages/auth/SignIn";
 import Dashboard from "./pages/dashboard/Dashboard";
 import Invoices from "./pages/invoices/InvoiceManagement";
-import InvoiceForm from "./pages/invoices/InvoiceForm";
 import Products from "./pages/products/ProductsList";
 import Payments from "./pages/payments/Payment";
 import Header from "./components/Header";
@@ -16,72 +15,71 @@ import Settings from "./pages/settings/SettingsPage";
 import InactivityDetector from "./components/InactivityDetector";
 import DataSeeder from "./pages/admin/DataSeeder";
 import ClearAndReseed from "./pages/admin/ClearAndReseed";
+
+
 import PropTypes from 'prop-types';
 
-function ProtectedLayout() {
+function ProtectedRoute({ children }) {
   const { user, authInitialized } = useContext(AuthContext);
 
+  // Wait for Firebase to initialize authentication before making decisions
   if (!authInitialized) {
-    return null;
+    return null; // Don't show anything while Firebase initializes
   }
 
   if (!user) {
     return <Navigate to="/signin" replace />;
   }
 
+  // ✅ 2. RENDER THE DETECTOR ALONGSIDE YOUR PROTECTED CONTENT
   return (
     <>
       <InactivityDetector />
-      <div className="min-h-screen flex flex-col">
-        <Header />
-        <main className="flex-1 p-6">
-          <Outlet />
-        </main>
-      </div>
+      {children}
     </>
   );
 }
 
-const router = createBrowserRouter([
-  {
-    path: "/signin",
-    element: <SignIn />,
-  },
-  {
-    path: "/",
-    element: <ProtectedLayout />,
-    children: [
-      { index: true, element: <Navigate to="/dashboard" replace /> },
-      { path: "dashboard", element: <Dashboard /> },
-      { path: "invoices", element: <Invoices /> },
-      { path: "invoices/new", element: <InvoiceForm /> },
-      { path: "invoices/edit/:id", element: <InvoiceForm /> },
-      { path: "clients", element: <Clients /> },
-      { path: "products", element: <Products /> },
-      { path: "reports", element: <Report /> },
-      { path: "payments", element: <Payments /> },
-      { path: "settings", element: <Settings /> },
-      { path: "seed-data", element: <DataSeeder /> },
-      { path: "clear-and-reseed", element: <ClearAndReseed /> },
-      { path: "*", element: <Navigate to="/dashboard" replace /> }
-    ]
-  }
-], {
-  future: {
-    v7_startTransition: true,
-    v7_relativeSplatPath: true,
-    v7_fetcherPersist: true,
-    v7_normalizeFormMethod: true,
-    v7_partialHydration: true,
-    v7_skipActionErrorRevalidation: true,
-  }
-});
+ProtectedRoute.propTypes = {
+  children: PropTypes.node.isRequired,
+};
 
 export default function App() {
   return (
     <ToastProvider>
-      <RouterProvider router={router} future={{ v7_startTransition: true }} />
-      <ToastContainer />
+      <Router>
+        <Routes>
+          {/* Public */}
+          <Route path="/signin" element={<SignIn />} />
+
+          {/* Protected with header */}
+          <Route
+            path="/*"
+            element={
+              <ProtectedRoute>
+                <div className="min-h-screen flex flex-col">
+                  <Header />
+                  <main className="flex-1 p-6">
+                    <Routes>
+                      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                      <Route path="/dashboard" element={<Dashboard />} />
+                      <Route path="/invoices" element={<Invoices />} />
+                      <Route path="/clients" element={<Clients />} />
+                      <Route path="/products" element={<Products />} />
+                      <Route path="/reports" element={<Report />} />
+                      <Route path="/payments" element={<Payments />} />
+                      <Route path="/settings" element={<Settings />} />
+                      <Route path="/seed-data" element={<DataSeeder />} />
+                      <Route path="/clear-and-reseed" element={<ClearAndReseed />} />
+                    </Routes>
+                  </main>
+                </div>
+              </ProtectedRoute>
+            }
+          />
+        </Routes>
+        <ToastContainer />
+      </Router>
     </ToastProvider>
   );
 }
