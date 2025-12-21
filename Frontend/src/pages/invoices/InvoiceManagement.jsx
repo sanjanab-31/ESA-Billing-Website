@@ -2065,11 +2065,7 @@ const InvoiceManagementSystem = () => {
         updatedAt: new Date().toISOString(),
       };
 
-      // For now, return a mock product with an ID for immediate use
-      return {
-        id: Date.now().toString(),
-        ...newProduct,
-      };
+      // ...existing code...
     } catch (error) {
       throw error;
     }

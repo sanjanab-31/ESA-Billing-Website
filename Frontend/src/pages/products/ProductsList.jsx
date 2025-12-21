@@ -384,7 +384,7 @@ export default function ProductManagement() {
   const [searchTerm, setSearchTerm] = useState("");
   const [modal, setModal] = useState({ isOpen: false, type: null, data: null });
 
-  // const { user } = useContext(AuthContext); // Removed unused used
+	// ...existing code...
   const { success, error: showError, warning } = useToast();
 
   const [currentPage, setCurrentPage] = useState(1);

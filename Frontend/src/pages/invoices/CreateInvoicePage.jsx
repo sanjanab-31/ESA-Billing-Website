@@ -158,16 +158,7 @@ export default function CreateInvoicePage() {
   };
 
   const handleAddNewProduct = async (productName, clientId) => {
-    // For now, just return a mock product
-    return {
-      id: Date.now().toString(),
-      name: productName,
-      price: 0,
-      hsn: "",
-      category: "General",
-      unit: "Nos",
-      createdAt: new Date().toISOString(),
-    };
+    // ...existing code...
   };
 
   const saveDraft = async () => {

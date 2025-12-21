@@ -29,7 +29,7 @@ const ClientManagement = () => {
 
   // Get authentication context
   // Get authentication context
-  // const { user } = useContext(AuthContext); // Removed unused user
+	// ...existing code...
   const { success, error: showError, warning } = useToast();
 
   // Use data hooks
