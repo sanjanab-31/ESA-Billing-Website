@@ -654,7 +654,7 @@ const PaymentsPage = () => {
   // Filter States
   const currentYear = new Date().getFullYear();
   const [showFilters, setShowFilters] = useState(false);
-  const [filterReportType, setFilterReportType] = useState("Yearly Report");
+  const [filterReportType, setFilterReportType] = useState("All Time");
   const [filterTimePeriod, setFilterTimePeriod] = useState(currentYear.toString());
   const [filterMonth, setFilterMonth] = useState(new Date().getMonth());
   const [filterYear, setFilterYear] = useState(new Date().getFullYear());
@@ -675,7 +675,7 @@ const PaymentsPage = () => {
 
   // Use data hooks
   const {
-    invoices: allInvoices = [],
+    allInvoices = [],
     error: invoicesError,
     editInvoice,
   } = useInvoices();
@@ -683,6 +683,12 @@ const PaymentsPage = () => {
   const { payments: allPayments = [], error: paymentsError, refetch: refetchPayments } = useAllPayments();
   const { addPayment } = usePayments();
   const { customers } = useCustomers();
+
+  // Debug logging
+  useEffect(() => {
+    console.log('Payment Page - allInvoices:', allInvoices?.length);
+    console.log('Payment Page - allPayments:', allPayments?.length);
+  }, [allInvoices, allPayments]);
 
   // Handle errors gracefully
 
@@ -705,7 +711,7 @@ const PaymentsPage = () => {
 
 
   const clearFilters = () => {
-    setFilterReportType("Yearly Report");
+    setFilterReportType("All Time");
     setFilterTimePeriod(currentYear.toString());
     setFilterFromDate("");
     setFilterToDate("");
@@ -713,17 +719,24 @@ const PaymentsPage = () => {
     setShowFilters(false);
   };
 
-  // Only show active filters if user changed from default (Yearly Report for current year) or selected a client
+  // Only show active filters if user changed from default (All Time) or selected a client
   const hasActiveFilters =
-    (filterReportType !== "Yearly Report") ||
-    (filterReportType === "Yearly Report" && filterTimePeriod !== currentYear.toString()) ||
+    (filterReportType !== "All Time") ||
     filterClientId;
 
   // Memoized status calculation function matching InvoiceManagement.jsx
   const getDynamicInvoiceStatus = useCallback((invoice) => {
     if (invoice.status === "Paid" || invoice.status === "paid") return "Paid";
-    if (invoice.status === "Draft" || invoice.status === "draft")
-      return "Draft";
+    if (invoice.status === "Draft" || invoice.status === "draft") return "Draft";
+
+    // Check for partial payment - if some amount is received but not fully paid
+    const received = invoice.paidAmount || invoice.received || 0;
+    const total = invoice.total || invoice.amount || 0;
+    const tds = invoice.tdsAmount || 0;
+    
+    if (received > 0 && received + tds < total) {
+      return "Partial";
+    }
 
     const today = new Date();
     const dueDate = new Date(invoice.dueDate);
@@ -736,6 +749,7 @@ const PaymentsPage = () => {
 
   // Memoized calculation of paymentsState from invoices and payments
   const paymentsState = useMemo(() => {
+    console.log('Computing paymentsState from allInvoices:', allInvoices?.length);
     return (allInvoices || []).map((inv) => {
       const invoiceNo = inv.invoiceNumber || inv.displayId || inv.id;
       const client =
@@ -796,6 +810,17 @@ const PaymentsPage = () => {
 
   const getDynamicStatus = (payment) => {
     if (payment.status === "Paid") return payment;
+    if (payment.status === "Partial") {
+      // Check if partial payment is now overdue
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const dueDate = parseDateDDMMYYYY(payment.dueDate);
+      const diffTime = today - dueDate;
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      if (diffDays > 0)
+        return { ...payment, status: "Overdue", overdueDays: diffDays };
+      return { ...payment, overdueDays: 0 };
+    }
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const dueDate = parseDateDDMMYYYY(payment.dueDate);
@@ -1088,18 +1113,22 @@ const PaymentsPage = () => {
   };
 
   const paymentsWithDynamicStatus = useMemo(() => {
-    return paymentsState.map(getDynamicStatus);
+    const result = paymentsState.map(getDynamicStatus);
+    console.log('paymentsWithDynamicStatus:', result?.length);
+    return result;
   }, [paymentsState]);
 
   // PERFORMANCE: Filter and sort payments with secondary sorting for stability
   const filteredPayments = useMemo(() => {
     const filtered = paymentsWithDynamicStatus.filter((payment) => {
-      // First check search term match
-      const matchesSearch =
-        payment.invoiceNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        payment.client.toLowerCase().includes(searchTerm.toLowerCase());
+      // First check search term match (only filter if search term exists)
+      if (searchTerm) {
+        const matchesSearch =
+          payment.invoiceNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          payment.client.toLowerCase().includes(searchTerm.toLowerCase());
 
-      if (!matchesSearch) return false;
+        if (!matchesSearch) return false;
+      }
 
       // Check tab-specific status requirements
       if (activeTab === "Paid" && payment.status !== "Paid") return false;
@@ -1182,10 +1211,21 @@ const PaymentsPage = () => {
       return true;
     });
 
+    console.log('filteredPayments length:', filtered?.length, 'activeTab:', activeTab);
+
     // Sort with secondary sorting for stable ordering
     return [...filtered].sort((a, b) => {
       // Primary sort by invoice number (descending - newest first)
-      const invoiceCompare = (b.invoiceNo || '').localeCompare(a.invoiceNo || '');
+      // Extract numeric part from invoice number (e.g., "001/2025-26" -> 1)
+      const extractInvoiceNum = (invoiceNo) => {
+        const match = (invoiceNo || '').match(/(\d+)\/\d{4}-\d{2}$/);
+        return match ? parseInt(match[1], 10) : 0;
+      };
+      
+      const numA = extractInvoiceNum(a.invoiceNo);
+      const numB = extractInvoiceNum(b.invoiceNo);
+      const invoiceCompare = numB - numA; // Descending order (newest first)
+      
       if (invoiceCompare !== 0) return invoiceCompare;
 
       // Secondary sort by due date for stability
@@ -1261,12 +1301,11 @@ const PaymentsPage = () => {
           {
             filteredPayments.length > 0 && (
               <Pagination
-                pagination={{
-                  page: currentPage,
-                  totalPages: Math.ceil(filteredPayments.length / itemsPerPage),
-                  total: filteredPayments.length,
-                  limit: itemsPerPage,
-                }}
+                currentPage={currentPage}
+                totalPages={Math.ceil(filteredPayments.length / itemsPerPage)}
+                totalItems={filteredPayments.length}
+                startIndex={(currentPage - 1) * itemsPerPage}
+                endIndex={currentPage * itemsPerPage}
                 onPageChange={setCurrentPage}
                 itemsPerPage={itemsPerPage}
                 onItemsPerPageChange={setItemsPerPage}
@@ -1326,12 +1365,11 @@ const PaymentsPage = () => {
 
           {filteredPayments.length > 0 && (
             <Pagination
-              pagination={{
-                page: currentPage,
-                totalPages: Math.ceil(filteredPayments.length / itemsPerPage),
-                total: filteredPayments.length,
-                limit: itemsPerPage,
-              }}
+              currentPage={currentPage}
+              totalPages={Math.ceil(filteredPayments.length / itemsPerPage)}
+              totalItems={filteredPayments.length}
+              startIndex={(currentPage - 1) * itemsPerPage}
+              endIndex={currentPage * itemsPerPage}
               onPageChange={setCurrentPage}
               itemsPerPage={itemsPerPage}
               onItemsPerPageChange={setItemsPerPage}
@@ -1395,12 +1433,11 @@ const PaymentsPage = () => {
         {
           filteredPayments.length > 0 && (
             <Pagination
-              pagination={{
-                page: currentPage,
-                totalPages: Math.ceil(filteredPayments.length / itemsPerPage),
-                total: filteredPayments.length,
-                limit: itemsPerPage,
-              }}
+              currentPage={currentPage}
+              totalPages={Math.ceil(filteredPayments.length / itemsPerPage)}
+              totalItems={filteredPayments.length}
+              startIndex={(currentPage - 1) * itemsPerPage}
+              endIndex={currentPage * itemsPerPage}
               onPageChange={setCurrentPage}
               itemsPerPage={itemsPerPage}
               onItemsPerPageChange={setItemsPerPage}
@@ -1645,7 +1682,7 @@ const PaymentsPage = () => {
             {(() => {
               // Calculate statistics from ALL payments, not just filtered ones
               const totalAmount = paymentsWithDynamicStatus.reduce(
-                (s, p) => s + ((p.amount || 0) - (p.tdsAmount || 0)),
+                (s, p) => s + (p.amount || 0),
                 0
               );
               const amountReceived = paymentsWithDynamicStatus.reduce(
@@ -1656,14 +1693,14 @@ const PaymentsPage = () => {
               const overdueAmount = paymentsWithDynamicStatus
                 .filter((p) => p.status === "Overdue")
                 .reduce((s, p) => {
-                  const remaining = Math.max(0, p.amount - (p.received || 0) - (p.tdsAmount || 0));
+                  const remaining = Math.max(0, (p.amount || 0) - (p.received || 0) - (p.tdsAmount || 0));
                   return s + remaining;
                 }, 0);
               // Pending Amount = sum of remaining amounts for all non-paid invoices (Unpaid, Partial, Overdue)
               const pendingAmount = paymentsWithDynamicStatus
                 .filter((p) => p.status === "Unpaid" || p.status === "Partial" || p.status === "Overdue")
                 .reduce((s, p) => {
-                  const remaining = Math.max(0, p.amount - (p.received || 0) - (p.tdsAmount || 0));
+                  const remaining = Math.max(0, (p.amount || 0) - (p.received || 0) - (p.tdsAmount || 0));
                   return s + remaining;
                 }, 0);
               return (
@@ -1671,31 +1708,31 @@ const PaymentsPage = () => {
                   <StatCard
                     title="Total Amount"
                     amount={`₹${totalAmount.toLocaleString()}`}
-                    subtitle="All invoices"
+                    subtitle={<Tooltip text="The sum of all invoice amounts for every bill you have created. This is the total value billed to clients.">All invoices</Tooltip>}
                     icon={IndianRupee}
                     iconBgColor="bg-blue-500"
                   />
                   <StatCard
                     title="Amount Received"
                     amount={`₹${amountReceived.toLocaleString()}`}
-                    subtitle={`${totalAmount > 0
+                    subtitle={<Tooltip text="The sum of all payments actually received from clients. This shows how much money has come in.">{totalAmount > 0
                       ? Math.round((amountReceived / totalAmount) * 100)
                       : 0
-                      }% of total`}
+                      }% of total</Tooltip>}
                     icon={CheckCircle2}
                     iconBgColor="bg-green-500"
                   />
                   <StatCard
                     title="Overdue Amount"
                     amount={`₹${overdueAmount.toLocaleString()}`}
-                    subtitle="Needs attention"
+                    subtitle={<Tooltip text="The total unpaid amount for invoices that are past their due date. These bills need urgent attention.">Needs attention</Tooltip>}
                     icon={AlertCircle}
                     iconBgColor="bg-red-500"
                   />
                   <StatCard
                     title="Pending Amount"
                     amount={`₹${pendingAmount.toLocaleString()}`}
-                    subtitle="Awaiting payment"
+                    subtitle={<Tooltip text="The total unpaid amount for all invoices that are not fully paid (includes Unpaid, Partial, and Overdue). This is the money you are still waiting to receive.">Awaiting payment</Tooltip>}
                     icon={Clock}
                     iconBgColor="bg-yellow-500"
                   />
@@ -1747,7 +1784,55 @@ const PaymentsPage = () => {
   );
 };
 
-// Add PropTypes
+// Tooltip component for hover info
+function Tooltip({ text, children }) {
+  return (
+    <span style={{ position: 'relative', display: 'inline-block' }}>
+      {children}
+      <span style={{
+        visibility: 'hidden',
+        background: '#222',
+        color: '#fff',
+        textAlign: 'left',
+        borderRadius: '4px',
+        padding: '6px 10px',
+        position: 'absolute',
+        zIndex: 10,
+        bottom: '125%',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        whiteSpace: 'pre-line',
+        fontSize: '13px',
+        minWidth: '180px',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+        opacity: 0,
+        transition: 'opacity 0.2s',
+      }} className="card-tooltip">
+        {text}
+      </span>
+      <span
+        style={{
+          marginLeft: 6,
+          color: '#2563eb',
+          fontWeight: 'bold',
+          cursor: 'pointer',
+          fontSize: '16px',
+          verticalAlign: 'middle',
+        }}
+        onMouseEnter={e => {
+          const tip = e.target.previousSibling;
+          tip.style.visibility = 'visible';
+          tip.style.opacity = 1;
+        }}
+        onMouseLeave={e => {
+          const tip = e.target.previousSibling;
+          tip.style.visibility = 'hidden';
+          tip.style.opacity = 0;
+        }}
+      >ⓘ</span>
+    </span>
+  );
+}
 PaymentMethodModal.propTypes = {
   isOpen: PropTypes.bool.isRequired,
   onClose: PropTypes.func.isRequired,

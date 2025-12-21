@@ -12,6 +12,8 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Coins,
+  DollarSign,
+  BadgePercent,
 } from "lucide-react";
 import {
   useDashboard,
@@ -37,36 +39,89 @@ const Dashboard = () => {
     const activeInvoices = allInvoices.filter(i => i.status !== 'Cancelled');
     const validInvoices = activeInvoices.filter(i => (i.status || '').toLowerCase() !== 'draft');
 
-    const totalInvoices = validInvoices.length;
+    // Total invoices now includes ALL active invoices (including drafts)
+    const totalInvoices = activeInvoices.length;
 
-    // Revenue from valid (non-draft) invoices - use total, amount, or totalAmount field
-    const totalRevenue = validInvoices.reduce((sum, inv) => {
-      const amount = Number(inv.total || inv.amount || inv.totalAmount || 0);
-      return sum + amount;
+    // Revenue = Sum of all amounts actually received (paidAmount or received field)
+    // This represents actual money received, not invoiced amounts
+    const totalRevenue = activeInvoices.reduce((sum, inv) => {
+      const received = Number(inv.paidAmount || inv.received || 0);
+      return sum + received;
     }, 0);
 
-    // TDS calculation - only count TDS once per invoice from the tdsAmount field
-    // This represents TDS deducted from payments, not recalculated
-    const totalTDS = validInvoices.reduce((sum, inv) => {
-      const tds = Number(inv.tdsAmount || 0);
-      return sum + tds;
+    // TDS = Sum of TDS amounts from paid and partial invoices only
+    // TDS is only collected when payment is actually received
+    const totalTDS = activeInvoices.reduce((sum, inv) => {
+      const status = (inv.status || '').toLowerCase();
+      // Only count TDS for paid or partial invoices
+      if (status === 'paid' || status === 'partial') {
+        const tds = Number(inv.tdsAmount || 0);
+        return sum + tds;
+      }
+      return sum;
     }, 0);
 
     const paidInvoices = activeInvoices.filter(i => (i.status || '').toLowerCase() === 'paid').length;
     const draftInvoices = activeInvoices.filter(i => (i.status || '').toLowerCase() === 'draft').length;
 
-    // Unpaid includes Pending, Unpaid, Sent, Overdue
-    const unpaidInvoices = activeInvoices.filter(i => {
+    // Calculate overdue invoices
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const overdueInvoices = activeInvoices.filter(i => {
       const s = (i.status || '').toLowerCase();
-      return s !== 'paid' && s !== 'draft' && s !== 'cancelled';
+      if (s === 'paid' || s === 'draft' || s === 'partial') return false;
+      const dueDate = i.dueDate ? new Date(i.dueDate) : null;
+      if (dueDate) dueDate.setHours(0, 0, 0, 0);
+      return dueDate && today > dueDate;
     }).length;
 
-    const paymentRate = (paidInvoices + unpaidInvoices + draftInvoices) > 0
-      ? (paidInvoices / (paidInvoices + unpaidInvoices + draftInvoices)) * 100
+    // Unpaid includes invoices that are not paid, not draft, and not overdue
+    const unpaidInvoices = activeInvoices.filter(i => {
+      const s = (i.status || '').toLowerCase();
+      if (s === 'paid' || s === 'draft' || s === 'partial') return false;
+      const dueDate = i.dueDate ? new Date(i.dueDate) : null;
+      if (dueDate) dueDate.setHours(0, 0, 0, 0);
+      const isOverdue = dueDate && today > dueDate;
+      return !isOverdue;
+    }).length;
+
+    const paymentRate = (paidInvoices + unpaidInvoices + draftInvoices + overdueInvoices) > 0
+      ? (paidInvoices / (paidInvoices + unpaidInvoices + draftInvoices + overdueInvoices)) * 100
       : 0;
 
     // Total Customers - count from actual customers collection
     const totalCustomers = allCustomers ? allCustomers.length : 0;
+
+    // Total Bill Amount - sum of all invoice totals (what was billed)
+    const totalBillAmount = validInvoices.reduce((sum, inv) => {
+      const amount = Number(inv.total || inv.amount || inv.totalAmount || 0);
+      return sum + amount;
+    }, 0);
+
+    // Total Amount to Receive - outstanding amounts (bill amount - received)
+    const totalOutstanding = activeInvoices.reduce((sum, inv) => {
+      const total = Number(inv.total || inv.amount || inv.totalAmount || 0);
+      const received = Number(inv.paidAmount || inv.received || 0);
+      const outstanding = Math.max(0, total - received);
+      return sum + outstanding;
+    }, 0);
+
+    // GST Collected - sum of SGST, CGST, IGST from paid and partial invoices
+    let totalSGST = 0;
+    let totalCGST = 0;
+    let totalIGST = 0;
+    
+    activeInvoices.forEach(inv => {
+      const status = (inv.status || '').toLowerCase();
+      // Only count GST for paid or partial invoices (when payment is received)
+      if (status === 'paid' || status === 'partial') {
+        totalSGST += Number(inv.sgst || 0);
+        totalCGST += Number(inv.cgst || 0);
+        totalIGST += Number(inv.igst || 0);
+      }
+    });
+
+    const totalGST = totalSGST + totalCGST + totalIGST;
 
     return {
       totalInvoices,
@@ -74,9 +129,16 @@ const Dashboard = () => {
       paidInvoices,
       unpaidInvoices,
       draftInvoices,
+      overdueInvoices,
       paymentRate, // Percentage of Paid vs Total
       totalTDS,
       totalCustomers,
+      totalBillAmount,
+      totalOutstanding,
+      totalGST,
+      totalSGST,
+      totalCGST,
+      totalIGST,
       financialYearLabel: 'Current FY' // Placeholder
     };
   }, [allInvoices, allCustomers]);
@@ -194,19 +256,79 @@ const StatsGrid = memo(({ stats, products }) => {
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-4 lg:gap-6">
+      {/* Row 1: Total Bill Amount, Total Amount to Receive, Total Revenue [Received] */}
       <StatCard
-        title="Total Invoice"
-        value={formatNumber(stats?.totalInvoices || 0)}
-        icon={<Receipt className="text-blue-600" />}
+        title="Total Bill Amount"
+        value={formatCurrency(stats.totalBillAmount)}
+        icon={<DollarSign className="text-blue-500" />}
         subtext={stats?.financialYearLabel}
         subtextColor="blue"
       />
       <StatCard
-        title="Total Revenue"
+        title="Total Amount to Receive"
+        value={formatCurrency(stats.totalOutstanding)}
+        icon={<TrendingUp className="text-red-500" />}
+        subtext={stats?.financialYearLabel}
+        subtextColor="blue"
+      />
+      <StatCard
+        title="Total Revenue [Received]"
         value={formatCurrency(stats?.totalRevenue || 0)}
         icon={<TrendingUp className="text-green-500" />}
         subtext={stats?.financialYearLabel}
         subtextColor="green"
+      />
+      
+      {/* Row 2: Total TDS, Total GST, Payment Status */}
+      <StatCard
+        title="Total TDS Amount [Received]"
+        value={formatCurrency(stats.totalTDS)}
+        icon={<Coins className="text-orange-500" />}
+        footer={
+          <div className="flex items-center gap-2 body-text-small">
+            <span className="bg-orange-600 text-white px-2 py-0.5 rounded-full font-medium">
+              TDS
+            </span>
+            <span className="text-slate-500">Collected so far</span>
+          </div>
+        }
+      />
+      <StatCard
+        title="Total GST Collected"
+        value={formatCurrency(stats.totalSGST)}
+        valueLabel="SGST"
+        secondaryValue={formatCurrency(stats.totalCGST)}
+        secondaryValueLabel="CGST"
+        icon={<BadgePercent className="text-purple-600" />}
+        footer={
+          <div className="w-full h-2 rounded-full mt-2 overflow-hidden flex bg-gray-200">
+            {stats.totalGST > 0 && (
+              <>
+                {stats.totalSGST > 0 && (
+                  <div
+                    className="h-2 bg-purple-500"
+                    style={{ width: `${(stats.totalSGST / stats.totalGST) * 100}%` }}
+                    title={`SGST: ${formatCurrency(stats.totalSGST)}`}
+                  ></div>
+                )}
+                {stats.totalCGST > 0 && (
+                  <div
+                    className="h-2 bg-indigo-500"
+                    style={{ width: `${(stats.totalCGST / stats.totalGST) * 100}%` }}
+                    title={`CGST: ${formatCurrency(stats.totalCGST)}`}
+                  ></div>
+                )}
+                {stats.totalIGST > 0 && (
+                  <div
+                    className="h-2 bg-blue-500"
+                    style={{ width: `${(stats.totalIGST / stats.totalGST) * 100}%` }}
+                    title={`IGST: ${formatCurrency(stats.totalIGST)}`}
+                  ></div>
+                )}
+              </>
+            )}
+          </div>
+        }
       />
       <StatCard
         title="Payment Status"
@@ -231,6 +353,15 @@ const StatsGrid = memo(({ stats, products }) => {
           </div>
         }
       />
+      
+      {/* Row 3: Total Invoice, Total Customers, Total Products */}
+      <StatCard
+        title="Total Invoice"
+        value={formatNumber(stats?.totalInvoices || 0)}
+        icon={<Receipt className="text-blue-600" />}
+        subtext={stats?.financialYearLabel}
+        subtextColor="blue"
+      />
       <StatCard
         title="Total Customers"
         value={formatNumber(stats?.totalCustomers || 0)}
@@ -240,19 +371,6 @@ const StatsGrid = memo(({ stats, products }) => {
         title="Total Products"
         value={formatNumber(products ? products.length : 0)}
         icon={<Package className="text-purple-600" />}
-      />
-      <StatCard
-        title="Total TDS Amount"
-        value={formatCurrency(stats.totalTDS)}
-        icon={<Coins className="text-orange-500" />}
-        footer={
-          <div className="flex items-center gap-2 body-text-small">
-            <span className="bg-orange-600 text-white px-2 py-0.5 rounded-full font-medium">
-              TDS
-            </span>
-            <span className="text-slate-500">Collected so far</span>
-          </div>
-        }
       />
     </div>
   );
@@ -266,10 +384,17 @@ StatsGrid.propTypes = {
     totalRevenue: PropTypes.number,
     paidInvoices: PropTypes.number,
     unpaidInvoices: PropTypes.number,
+    overdueInvoices: PropTypes.number,
     totalCustomers: PropTypes.number,
     paymentRate: PropTypes.number,
     draftInvoices: PropTypes.number,
     totalTDS: PropTypes.number,
+    totalBillAmount: PropTypes.number,
+    totalOutstanding: PropTypes.number,
+    totalGST: PropTypes.number,
+    totalSGST: PropTypes.number,
+    totalCGST: PropTypes.number,
+    totalIGST: PropTypes.number,
     financialYearLabel: PropTypes.string,
   }),
   products: PropTypes.array,

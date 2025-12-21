@@ -33,6 +33,14 @@ const applyListView = (items, { search = "", page = 1, limit = 20, sortBy, sortD
         bv = bv ? parseInt(bv, 10) : 0;
       }
 
+      // Special handling for invoiceNumber - extract numeric part for proper sorting
+      if (sortBy === 'invoiceNumber') {
+        const matchA = av ? av.match(/(\d+)\/\d{4}-\d{2}$/) : null;
+        const matchB = bv ? bv.match(/(\d+)\/\d{4}-\d{2}$/) : null;
+        av = matchA ? parseInt(matchA[1], 10) : 0;
+        bv = matchB ? parseInt(matchB[1], 10) : 0;
+      }
+
       if (av === bv) return 0;
       if (av == null) return sortDirection === "asc" ? -1 : 1;
       if (bv == null) return sortDirection === "asc" ? 1 : -1;
@@ -232,7 +240,7 @@ export const useInvoices = (options = {}) => {
     setAll(latest);
   }, []);
 
-  return { invoices: view, allInvoices: fyInvoices, loading: false, error: null, pagination: pageInfo, addInvoice, editInvoice, removeInvoice, refetch };
+  return { invoices: view, allInvoices: all, loading: false, error: null, pagination: pageInfo, addInvoice, editInvoice, removeInvoice, refetch };
 };
 
 // Payments

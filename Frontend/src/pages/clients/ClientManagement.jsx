@@ -52,20 +52,20 @@ const ClientManagement = () => {
   }, [searchTerm]);
 
   // Fetch all invoices for calculating client statistics
-  const { invoices } = useInvoices();
+  const { allInvoices } = useInvoices();
 
 
 
   // Memoized calculation of all client statistics to avoid re-calculation on every render
   const clientStatsMap = useMemo(() => {
-    if (!invoices || invoices.length === 0) return {};
+    if (!allInvoices || allInvoices.length === 0) return {};
 
     const stats = {};
     const today = new Date();
     const fourMonthsAgo = new Date();
     fourMonthsAgo.setMonth(today.getMonth() - 3); // Get start of 4 months window
 
-    invoices.forEach(invoice => {
+    allInvoices.forEach(invoice => {
       // Handle both customerId and clientId
       const clientId = invoice.customerId || invoice.clientId;
       if (!clientId) return;
@@ -87,8 +87,7 @@ const ClientManagement = () => {
       const invoiceAmount = Number.parseFloat(invoice.totalAmount || invoice.amount || invoice.total) || 0;
       const paidAmount = Number.parseFloat(invoice.paidAmount || 0) || 0;
       const amountReceived = Number.parseFloat(invoice.received || 0) || 0;
-      // Prefer paidAmount, fallback to received if paidAmount is 0/missing and status implies paid? 
-      // Actually usually paidAmount tracks cumulative payments. 
+      // Prefer paidAmount, fallback to received if paidAmount is 0/missing and status implies paid
       const effectivePaid = paidAmount > 0 ? paidAmount : amountReceived;
 
       const isPaidByStatus = invoice.status === 'Paid' || invoice.status === 'paid';
@@ -101,24 +100,25 @@ const ClientManagement = () => {
         stats[clientId].dates.push(new Date(invoice.invoiceDate || invoice.date));
       }
 
-      // Track Monthly Revenue
+      // Track Monthly Revenue (based on paid amounts)
       if (invoice.invoiceDate || invoice.date) {
         const d = new Date(invoice.invoiceDate || invoice.date);
         const key = d.toLocaleString('default', { month: 'short', year: '2-digit' }); // e.g., "Dec 24"
         if (!stats[clientId].monthlyRevenue[key]) stats[clientId].monthlyRevenue[key] = 0;
-        stats[clientId].monthlyRevenue[key] += effectivePaid; // Revenue usually based on collected, or invoiced? Assuming collected for 'Revenue'
+        stats[clientId].monthlyRevenue[key] += effectivePaid;
       }
 
-      if (isPaidByStatus) {
-        stats[clientId].totalRevenue += invoiceAmount;
-        stats[clientId].amountPaid += invoiceAmount;
+      // Total Revenue = All amounts that have been paid (regardless of status)
+      // Outstanding = Invoice total minus what has been paid
+      const unpaidAmount = Math.max(0, invoiceAmount - effectivePaid);
+      
+      stats[clientId].totalRevenue += effectivePaid;
+      stats[clientId].amountPaid += effectivePaid;
+      stats[clientId].outstanding += unpaidAmount;
+
+      // Count as paid if status is Paid OR if fully paid
+      if (isPaidByStatus || effectivePaid >= invoiceAmount - 1) {
         stats[clientId].paidInvoicesCount += 1;
-      } else {
-        // Calculate outstanding for non-paid invoices
-        const unpaid = Math.max(0, invoiceAmount - effectivePaid);
-        stats[clientId].outstanding += unpaid;
-        stats[clientId].amountPaid += effectivePaid;
-        if (effectivePaid >= invoiceAmount - 1) stats[clientId].paidInvoicesCount += 1; // Tolerance
       }
     });
 
@@ -159,7 +159,7 @@ const ClientManagement = () => {
     });
 
     return stats;
-  }, [invoices]);
+  }, [allInvoices]);
 
 
   // Helper to safely get stats for a client

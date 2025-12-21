@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useContext, useMemo } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { createPortal } from "react-dom";
 import Pagination from "../../components/Pagination";
 import {
@@ -1794,6 +1794,12 @@ const InvoiceManagementSystem = () => {
     return activeTab;
   }, [activeTab]);
 
+  const sortDirection = useMemo(() => {
+    // All Invoices: newest first (descending)
+    // Other tabs (Paid, Unpaid, Drafts, Overdue): oldest first (ascending)
+    return activeTab === "All Invoices" ? "desc" : "asc";
+  }, [activeTab]);
+
   const {
     invoices,
     allInvoices,
@@ -1809,7 +1815,7 @@ const InvoiceManagementSystem = () => {
     limit: itemsPerPage,
     status: statusParam,
     sortBy: "invoiceNumber",
-    sortDirection: "asc"
+    sortDirection: sortDirection
   });
 
   // Reset page when search or tab changes
@@ -2165,7 +2171,8 @@ const InvoiceManagementSystem = () => {
   const [productConfirmation, setProductConfirmation] = useState({
     isOpen: false,
     products: [],
-    action: null
+    action: null,
+    added: new Set(), // Track added product names
   });
 
   const checkProductsAndProceed = (action) => {
@@ -2173,10 +2180,13 @@ const InvoiceManagementSystem = () => {
     // 1. Have a description
     // 2. Description is not empty
     // 3. Description does not match any existing product name (case-insensitive)
+    // 4. Not already added in this session
+    const added = productConfirmation.added || new Set();
     const newItems = invoiceData.items.filter(item =>
       item.description &&
       item.description.trim() !== "" &&
-      !products.some(p => p.name.toLowerCase() === item.description.trim().toLowerCase())
+      !products.some(p => p.name.toLowerCase() === item.description.trim().toLowerCase()) &&
+      !added.has(item.description.trim().toLowerCase())
     );
 
     // Deduplicate items based on description
@@ -2190,11 +2200,12 @@ const InvoiceManagementSystem = () => {
     }, []);
 
     if (uniqueItems.length > 0) {
-      setProductConfirmation({
+      setProductConfirmation(pc => ({
+        ...pc,
         isOpen: true,
         products: uniqueItems,
         action: () => action()
-      });
+      }));
     } else {
       action();
     }
@@ -2216,6 +2227,15 @@ const InvoiceManagementSystem = () => {
       await Promise.all(proms);
       success(`Added ${productConfirmation.products.length} new products to database`);
 
+      // Mark these products as added so we don't prompt again
+      setProductConfirmation(pc => {
+        const added = new Set(pc.added || []);
+        productConfirmation.products.forEach(item => {
+          added.add(item.description.trim().toLowerCase());
+        });
+        return { ...pc, isOpen: false, products: [], action: null, added };
+      });
+
       // Proceed with the original action
       if (productConfirmation.action) {
         productConfirmation.action();
@@ -2225,22 +2245,28 @@ const InvoiceManagementSystem = () => {
       console.error(e);
       // Still proceed? User opted to add, if fail, maybe we should stop?
       // For now let's stop to let them retry or skip.
-    } finally {
-      setProductConfirmation({ isOpen: false, products: [], action: null });
     }
   };
 
   const handleProductConfirmationSkip = () => {
+    // Mark these products as added so we don't prompt again in this session
+    setProductConfirmation(pc => {
+      const added = new Set(pc.added || []);
+      pc.products.forEach(item => {
+        added.add(item.description.trim().toLowerCase());
+      });
+      return { ...pc, isOpen: false, products: [], action: null, added };
+    });
     if (productConfirmation.action) {
       productConfirmation.action();
     }
-    setProductConfirmation({ isOpen: false, products: [], action: null });
   };
 
+  const navigate = useNavigate();
   const handleCreateInvoice = () => {
     resetInvoiceForm();
     setEditingInvoice(null);
-    setCurrentPage("create");
+    navigate("/invoices/create");
   };
   const handleViewInvoice = (invoice) => {
     setSelectedInvoice(invoice);

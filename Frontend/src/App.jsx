@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-d
 import SignIn from "./pages/auth/SignIn";
 import Dashboard from "./pages/dashboard/Dashboard";
 import Invoices from "./pages/invoices/InvoiceManagement";
+import CreateInvoicePage from "./pages/invoices/CreateInvoicePage";
 import Products from "./pages/products/ProductsList";
 import Payments from "./pages/payments/Payment";
 import Header from "./components/Header";
@@ -64,6 +65,7 @@ export default function App() {
                       <Route path="/" element={<Navigate to="/dashboard" replace />} />
                       <Route path="/dashboard" element={<Dashboard />} />
                       <Route path="/invoices" element={<Invoices />} />
+                      <Route path="/invoices/create" element={<CreateInvoicePage />} />
                       <Route path="/clients" element={<Clients />} />
                       <Route path="/products" element={<Products />} />
                       <Route path="/reports" element={<Report />} />
