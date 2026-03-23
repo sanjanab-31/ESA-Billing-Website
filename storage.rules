@@ -1,0 +1,21 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Company logos: path must be logos/{userId}/company_logo (or any filename under userId)
+    // Only the owner can read/write; strict write validation
+    match /logos/{userId}/{fileName} {
+      // Read: download URLs are tokenized; allow so img/PDF can display (token not guessable)
+      allow read: if true;
+      allow write: if request.auth != null
+                   && request.auth.uid == userId
+                   && request.resource.size < 2 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+    }
+
+    // Default deny
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

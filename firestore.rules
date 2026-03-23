@@ -1,0 +1,65 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // -------------------------------------------------------------------------
+    // Helpers: strict auth checks (never trust client — enforce server-side)
+    // -------------------------------------------------------------------------
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    function isValidString(s, maxLen) {
+      return s is string && s.size() <= maxLen;
+    }
+
+    // -------------------------------------------------------------------------
+    // User document: company profile (signup). Only owner; validate shape/size.
+    // -------------------------------------------------------------------------
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      // Profile write only with validated fields (no arbitrary client data)
+      allow create, update: if isOwner(userId)
+        && request.resource.data.keys().hasOnly([
+          'companyName', 'ownerName', 'phone', 'gstin', 'address',
+          'city', 'state', 'pincode', 'logoURL', 'createdAt'
+        ])
+        && isValidString(request.resource.data.get('companyName', ''), 200)
+        && isValidString(request.resource.data.get('ownerName', ''), 200)
+        && isValidString(request.resource.data.get('phone', ''), 20)
+        && isValidString(request.resource.data.get('gstin', ''), 20)
+        && isValidString(request.resource.data.get('address', ''), 500)
+        && isValidString(request.resource.data.get('city', ''), 100)
+        && isValidString(request.resource.data.get('state', ''), 100)
+        && isValidString(request.resource.data.get('pincode', ''), 10)
+        && isValidString(request.resource.data.get('logoURL', ''), 1000);
+      allow delete: if false;
+
+      // Subcollections: strict path binding — only this user's data
+      match /customers/{docId} {
+        allow read, write: if isOwner(userId);
+      }
+      match /products/{docId} {
+        allow read, write: if isOwner(userId);
+      }
+      match /invoices/{docId} {
+        allow read, write: if isOwner(userId);
+      }
+      match /payments/{docId} {
+        allow read, write: if isOwner(userId);
+      }
+      match /settings/{docId} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+
+    // -------------------------------------------------------------------------
+    // Default deny: no other collections or paths are accessible
+    // -------------------------------------------------------------------------
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
